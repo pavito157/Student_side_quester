@@ -22,19 +22,18 @@ from .quest_contracts import (
 )
 from .quest_generation import generate_preview
 from .request_timing import record_timing
+from .xp import quest_xp_reward
 
 
 class AssignmentPolicy(ContractModel):
-    xpReward: int = Field(default=25, strict=True, ge=0, le=2**53 - 1)
     radiusMeters: float = Field(default=100, strict=True, gt=0, allow_inf_nan=False)
 
 
 def get_assignment_policy():
     try:
-        return AssignmentPolicy(xpReward=int(os.environ.get("QUEST_XP_REWARD", "25")),
-                                radiusMeters=float(os.environ.get("QUEST_RADIUS_METERS", "100")))
+        return AssignmentPolicy(radiusMeters=float(os.environ.get("QUEST_RADIUS_METERS", "100")))
     except (ValueError, OverflowError):
-        raise HTTPException(503, "Invalid QUEST_XP_REWARD or QUEST_RADIUS_METERS configuration") from None
+        raise HTTPException(503, "Invalid QUEST_RADIUS_METERS configuration") from None
 
 
 def _valid_id(value):
@@ -181,7 +180,7 @@ def save_verified_assignment(db, uid, preview, policy):
         id=quest_id, title=proposed.title, description=proposed.description, steps=proposed.steps,
         locationName=destination.locationName, placeId=destination.placeId,
         latitude=destination.latitude, longitude=destination.longitude,
-        radiusMeters=policy.radiusMeters, xpReward=policy.xpReward, isActive=True,
+        radiusMeters=policy.radiusMeters, xpReward=quest_xp_reward(proposed.estimatedMinutes), isActive=True,
         estimatedMinutes=proposed.estimatedMinutes, estimatedCostDollars=proposed.estimatedCostDollars,
     )
     # Backend-generated UTC, stored and returned identically; never browser time.

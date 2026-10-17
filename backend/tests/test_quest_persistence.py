@@ -11,7 +11,10 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from backend import firebase_helpers, quest_persistence as persistence
-from backend.quest_contracts import AssignQuestResponse, GenerateQuestRequest
+from backend.quest_contracts import (
+    AssignQuestResponse, GenerateQuestRequest, GeneratedQuestProposal, GeneratedQuestResponse,
+    ResolvedDestination,
+)
 from main import app
 
 
@@ -29,16 +32,14 @@ class PersistenceTests(unittest.TestCase):
         self.addCleanup(patch.stopall)
 
     def test_policy_defaults_and_configuration(self):
-        with patch.dict(os.environ, {"QUEST_XP_REWARD": "25", "QUEST_RADIUS_METERS": "100"}):
+        with patch.dict(os.environ, {"QUEST_RADIUS_METERS": "100"}):
             self.assertEqual(persistence.get_assignment_policy().model_dump(),
-                             {"xpReward": 25, "radiusMeters": 100})
-        with patch.dict(os.environ, {"QUEST_XP_REWARD": "40", "QUEST_RADIUS_METERS": "75.5"}):
-            self.assertEqual(persistence.get_assignment_policy().xpReward, 40)
+                             {"radiusMeters": 100})
+        with patch.dict(os.environ, {"QUEST_RADIUS_METERS": "75.5"}):
             self.assertEqual(persistence.get_assignment_policy().radiusMeters, 75.5)
 
     def test_invalid_policy_is_rejected(self):
-        for key, values in {"QUEST_XP_REWARD": ["-1", "1.5", "true", str(2**53)],
-                            "QUEST_RADIUS_METERS": ["0", "-1", "nan", "inf", "invalid"]}.items():
+        for key, values in {"QUEST_RADIUS_METERS": ["0", "-1", "nan", "inf", "invalid"]}.items():
             for value in values:
                 with self.subTest(key=key, value=value), patch.dict(os.environ, {key: value}):
                     with self.assertRaises(HTTPException) as caught:
@@ -82,6 +83,51 @@ class PersistenceTests(unittest.TestCase):
             with self.assertRaises(HTTPException):
                 persistence.get_current_assignment(db, uid)
         db.collection.assert_not_called()
+
+    def test_generated_content_and_duration_reward_are_saved_to_user_sidequest(self):
+        preview = GeneratedQuestResponse(
+            filtersApplied=True, destinationVerified=True, distanceStatus="not_requested",
+            message="Verified quest preview",
+            quest=GeneratedQuestProposal(
+                title="Sketch local leaves", description="Draw three distinct leaves.",
+                steps=["Find three leaves.", "Sketch each leaf."], locationName="Gemini suggestion",
+                locationAddress="Unverified Gemini address", estimatedMinutes=31,
+                estimatedCostDollars=2,
+            ),
+            destination=ResolvedDestination(
+                locationName="Verified park", latitude=29.65, longitude=-82.34,
+                placeId="verified-place", scope="gainesville_city",
+            ),
+            normalizedPreferences=self.preferences,
+        )
+        db = MagicMock()
+        user_ref = db.collection.return_value.document.return_value
+        user_ref.get.return_value.exists = True
+        user_ref.get.return_value.to_dict.return_value = {}
+        db.collection.return_value.document.return_value.collection.return_value.stream.return_value = []
+        db.collection.return_value.where.return_value.stream.return_value = []
+        transaction = MagicMock()
+
+        with patch.object(persistence, "_run_transaction",
+                          side_effect=lambda _db, callback: callback(transaction)):
+            result = persistence.save_verified_assignment(
+                db, "user_student", preview, persistence.AssignmentPolicy(),
+            )
+
+        saved = transaction.create.call_args.args[1]
+        self.assertEqual(result.quest.xpReward, 15)
+        self.assertEqual(saved["title"], preview.quest.title)
+        self.assertEqual(saved["description"], preview.quest.description)
+        self.assertEqual(saved["steps"], preview.quest.steps)
+        self.assertEqual(saved["estimatedMinutes"], 31)
+        self.assertEqual(saved["estimatedCostDollars"], 2)
+        self.assertEqual(saved["locationName"], "Verified park")
+        self.assertEqual(saved["placeId"], "verified-place")
+        self.assertNotIn("locationAddress", saved)
+        self.assertEqual(saved["ownerId"], "user_student")
+        self.assertEqual(saved["xpReward"], 15)
+        self.assertEqual(saved["status"], "assigned")
+        self.assertEqual(saved["xpAwarded"], 0)
 
 
 class PersistenceRouteTests(unittest.TestCase):

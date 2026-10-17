@@ -114,7 +114,19 @@ class GenerationTests(unittest.TestCase):
                 self.generate()
                 config = json.loads(self.requests[0].content)["generationConfig"]
                 self.assertEqual(config["thinkingConfig"]["thinkingLevel"], thinking)
-                self.assertEqual(config["maxOutputTokens"], 1536)
+                self.assertEqual(config["maxOutputTokens"], 3072)
+
+    def test_truncated_and_safety_blocked_responses_have_actionable_errors(self):
+        for finish_reason, message in [
+            ("MAX_TOKENS", "Gemini's response was cut off."),
+            ("SAFETY", "Gemini blocked this quest request."),
+        ]:
+            with self.subTest(finish_reason=finish_reason):
+                self.http(body={"candidates": [{"finishReason": finish_reason}]})
+                with self.assertRaises(HTTPException) as caught:
+                    self.generate()
+                self.assertEqual(caught.exception.status_code, 502)
+                self.assertIn(message, caught.exception.detail)
 
     def test_connection_pool_is_reused_and_closed_at_shutdown(self):
         generation.close_gemini_http_client()
@@ -293,7 +305,9 @@ class GenerationTests(unittest.TestCase):
                 }) as verify, \
                 patch.object(firebase_helpers, "get_db", side_effect=AssertionError("No database access")) as db, \
                 patch.object(generation, "call_gemini", return_value=GeneratedQuestProposal(**self.proposal)): 
-            self.assertEqual(client.post("/quests/generate", json=self.body).status_code, 401)
+            guest_response = client.post("/quests/generate", json=self.body)
+            self.assertEqual(guest_response.status_code, 200, guest_response.text)
+            self.assertFalse(guest_response.json()["saved"])
             db.assert_not_called()
             response = client.post("/quests/generate", json=self.body,
                                    headers={"Authorization": "Bearer test-token", "Origin": "http://localhost:5173"})

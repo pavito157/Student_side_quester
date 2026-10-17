@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import Header from './componenets/main-ui/Header'
 import CinematicHero from './componenets/main-ui/CinematicHero'
 import DormSelectionGate from './componenets/main-ui/DormSelectionGate'
 import LeaderboardPage from './componenets/main-ui/LeaderboardPage'
 import SidequestDetailPage from './componenets/main-ui/SidequestDetailPage'
+import GuestQuestPreviewPage from './componenets/main-ui/GuestQuestPreviewPage'
 import QuestFilterButtons, { type QuestFilters } from './componenets/main-ui/QuestFilterButtons'
 import FirebaseTextBox from './componenets/main-ui/FirebaseTextBox'
 import GoalsSidebar from './componenets/main-ui/GoalsSidebar'
@@ -15,6 +16,13 @@ import type { Vibe } from './types/vibe'
 import { subscribeToActiveSidequests } from './services/sidequests'
 import type { ActiveSidequest } from './types/sidequest'
 import { colors } from './constants/colors'
+import {
+  requestAssignedQuest,
+  requestGeneratedQuest,
+  type GeneratedQuestResponse,
+  type GenerateQuestPayload,
+} from './services/questAssignment'
+import { navigateTo } from './services/navigation'
 
 type ActiveSidequestsState = {
   userId: string | null
@@ -23,7 +31,17 @@ type ActiveSidequestsState = {
   error: string
 }
 
-function HomePage() {
+type QuestGenerationState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'error'; message: string }
+  | { status: 'guest-preview'; result: GeneratedQuestResponse; payload: GenerateQuestPayload }
+
+type HomePageProps = {
+  onStartQuestGeneration: (userId: string | null, payload: GenerateQuestPayload) => Promise<void>
+}
+
+function HomePage({ onStartQuestGeneration }: HomePageProps) {
   const { isLoaded, isSignedIn, user } = useUser()
   const userId = user?.id
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
@@ -46,6 +64,7 @@ function HomePage() {
     customBudget: '',
     distance: 'any',
     customDistance: '',
+    multiQuest: false,
   })
 
   useEffect(() => {
@@ -108,6 +127,7 @@ function HomePage() {
             customBudget: vibe.customBudget ?? '',
             distance: vibe.distance || 'any',
             customDistance: vibe.customDistance ?? '',
+            multiQuest: false,
           })
         }}
       />
@@ -135,6 +155,7 @@ function HomePage() {
                 setFilters={setQuestFilters}
                 activeVibe={vibeToApply}
                 onClearActiveVibe={() => setVibeToApply(null)}
+                onStartQuestGeneration={onStartQuestGeneration}
               />
             </div>
           </section>
@@ -164,6 +185,9 @@ function App() {
   const [pathname, setPathname] = useState(() =>
     window.location.pathname.replace(/\/+$/, '') || '/',
   )
+  const [generationState, setGenerationState] = useState<QuestGenerationState>({ status: 'idle' })
+  const generationControllerRef = useRef<AbortController | null>(null)
+  const generationIdRef = useRef(0)
 
   useEffect(() => {
     function updatePathname() {
@@ -174,15 +198,59 @@ function App() {
     return () => window.removeEventListener('popstate', updatePathname)
   }, [])
 
+  async function startQuestGeneration(userId: string | null, payload: GenerateQuestPayload) {
+    generationControllerRef.current?.abort()
+    const controller = new AbortController()
+    const generationId = generationIdRef.current + 1
+    generationIdRef.current = generationId
+    generationControllerRef.current = controller
+    setGenerationState({ status: 'loading' })
+    navigateTo('/sidequests/generating')
+
+    try {
+      if (userId) {
+        const saved = await requestAssignedQuest(userId, payload, { signal: controller.signal })
+        if (generationIdRef.current !== generationId) return
+        setGenerationState({ status: 'idle' })
+        navigateTo(`/sidequests/${encodeURIComponent(saved.quest.id)}`)
+      } else {
+        const result = await requestGeneratedQuest(null, payload, { signal: controller.signal })
+        if (generationIdRef.current !== generationId) return
+        setGenerationState({ status: 'guest-preview', result, payload })
+        navigateTo('/sidequests/guest-preview')
+      }
+    } catch (error) {
+      if (controller.signal.aborted || generationIdRef.current !== generationId) return
+      setGenerationState({
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Could not create your sidequest.',
+      })
+    } finally {
+      if (generationControllerRef.current === controller) generationControllerRef.current = null
+    }
+  }
+
   return (
     <DormSelectionGate>
       <div key={pathname} className="route-transition">
         {pathname === '/leaderboard' ? (
           <LeaderboardPage />
+        ) : pathname === '/sidequests/generating' ? (
+          <SidequestDetailPage
+            sidequestId="generating"
+            generationState={generationState.status === 'guest-preview'
+              ? { status: 'idle' }
+              : generationState}
+          />
+        ) : pathname === '/sidequests/guest-preview' ? (
+          <GuestQuestPreviewPage
+            result={generationState.status === 'guest-preview' ? generationState.result : null}
+            payload={generationState.status === 'guest-preview' ? generationState.payload : null}
+          />
         ) : pathname.startsWith('/sidequests/') ? (
           <SidequestDetailPage sidequestId={decodeURIComponent(pathname.slice('/sidequests/'.length))} />
         ) : (
-          <HomePage />
+          <HomePage onStartQuestGeneration={startQuestGeneration} />
         )}
       </div>
     </DormSelectionGate>

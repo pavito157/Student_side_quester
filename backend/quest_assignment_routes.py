@@ -24,6 +24,13 @@ def timed_current_uid(request: Request, credentials=Depends(bearer)):
     with record_timing(getattr(request.state, "quest_timings", None), "auth"):
         return current_uid(credentials)
 
+
+def optional_timed_uid(request: Request, credentials=Depends(bearer)):
+    if credentials is None:
+        return None
+    return timed_current_uid(request, credentials)
+
+
 REQUEST_EXAMPLE = {
     "preferences": "I enjoy programming and spending time in nature.",
     "username": "Example Student",
@@ -80,7 +87,8 @@ def preview_assignment(
 @router.post(
     "/quests/generate", response_model=GeneratedQuestResponse,
     summary="Generate a personalized Gemini preview (not saved)",
-    description=("Requires a verified Firebase ID token. Discovers and verifies a city "
+    description=("Public guest previews are allowed and are never saved. Signed-in users "
+                 "may also request a preview with a verified Firebase ID token. Discovers and verifies a city "
                  "destination first, then Gemini writes activity content. Validates estimated time and cost. "
                  "The connected selector verifies the destination and city scope; "
                  "requested distance requires origin coordinates. No Firestore access or XP writes."),
@@ -91,7 +99,7 @@ def generate_assignment_preview(
     payload: GenerateQuestRequest = Body(..., openapi_examples={
         "frontend": {"summary": "No distance limit", "value": REQUEST_EXAMPLE},
     }),
-    _uid: str = Depends(timed_current_uid),
+    _uid: Optional[str] = Depends(optional_timed_uid),
     resolver=Depends(get_destination_resolver),
 ):
     response.headers["Cache-Control"] = "no-store"
@@ -103,7 +111,7 @@ def generate_assignment_preview(
     "/quests/assign", response_model=AssignQuestResponse, status_code=201,
     summary="Create or reuse the student's saved assignment",
     description=("Returns an existing active assignment before calling Gemini. Otherwise "
-                 "requires destination resolution and atomically saves one quest, assignment, "
+                 "requires destination resolution and atomically saves one user-owned sidequest "
                  "and user activeQuestId. No XP awarded. Identity comes only from the token."),
     responses={200: {"model": AssignQuestResponse, "description": "Reused existing active assignment"},
                409: {"description": "Profile/state conflict or destination beyond distance limit"},
@@ -116,8 +124,11 @@ def assign(
     }),
     uid: str = Depends(timed_current_uid), resolver=Depends(get_destination_resolver),
 ):
-    result = assign_generated_quest(get_db(), uid, payload.normalize(), resolver,
-                                    timings=getattr(request.state, "quest_timings", None))
+    result = assign_generated_quest(
+        get_db(), uid, payload.normalize(), resolver,
+        timings=getattr(request.state, "quest_timings", None),
+        user_request=payload,
+    )
     response.headers["Cache-Control"] = "no-store"
     response.status_code = 200 if result.reusedExisting else 201
     return result

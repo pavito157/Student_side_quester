@@ -1,435 +1,142 @@
-import {
-  collection,
-  doc,
-  onSnapshot,
-  runTransaction,
-  serverTimestamp,
-  Timestamp,
-  type Unsubscribe,
-} from 'firebase/firestore'
+import { collection, doc, onSnapshot, Timestamp, type Unsubscribe } from 'firebase/firestore'
 import { db } from '../configs/FirebaseConfig'
-import { getNextRequestCount, getUserXp, stageUserRequestMetadata } from './userProfile'
-import type { ActiveSidequest, SidequestRequestPayload } from '../types/sidequest'
+import { requestQuestAbandon, requestQuestCompletion, type StopCompletionResult } from './questAssignment'
+import type { ActiveSidequest } from '../types/sidequest'
 
-export const SIDEQUEST_XP_VALUE = 25
-export const SIDEQUEST_RETENTION_MS = 3 * 24 * 60 * 60 * 1000
-
-type SavedSidequestMetadata = {
-  id: string
-  requestCount: number
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-export async function saveSidequestRequest(
-  userId: string,
-  email: string | null,
-  request: SidequestRequestPayload,
-): Promise<SavedSidequestMetadata> {
-  if (!userId.trim()) throw new Error('Sign in to save sidequest requests.')
-  if (email !== null && !email.trim()) {
-    throw new Error('The account email must be a non-empty email address.')
-  }
+type ActiveDestination = NonNullable<ActiveSidequest['destinations']>[number]
 
-  const userRef = doc(db, 'Users', userId)
-  const sidequestRef = doc(collection(db, 'Users', userId, 'sidequests'))
-
-  const requestCount = await runTransaction(db, async (transaction) => {
-    const userSnapshot = await transaction.get(userRef)
-    const currentUserData = userSnapshot.exists() ? userSnapshot.data() : undefined
-    const nextRequestCount = getNextRequestCount(currentUserData)
-
-    stageUserRequestMetadata(transaction, userRef, {
-      email,
-      username: request.username,
-      requestCount: nextRequestCount,
-    })
-    transaction.set(sidequestRef, {
-      request,
-      createdAt: serverTimestamp(),
-      expiresAt: Timestamp.fromMillis(Date.now() + SIDEQUEST_RETENTION_MS),
-      status: 'prepared',
-      isActive: true,
-      xpValue: SIDEQUEST_XP_VALUE,
-    })
-
-    return nextRequestCount
-  })
-
-  return { id: sidequestRef.id, requestCount }
-}
-
-function parseActiveSidequest(
-  id: string,
-  data: Record<string, unknown>,
-): ActiveSidequest {
-  const request = normalizeSidequestRequest(data.request)
-  if (!request) {
-    throw new Error(`Saved sidequest ${id} has invalid request details.`)
-  }
-  if (
-    data.xpValue !== undefined &&
-    (typeof data.xpValue !== 'number' ||
-      !Number.isSafeInteger(data.xpValue) ||
-      data.xpValue < 0)
-  ) {
-    throw new Error(`Saved sidequest ${id} has an invalid XP value.`)
-  }
-
-  const createdAt = data.createdAt instanceof Timestamp
-    ? data.createdAt
-    : Timestamp.now()
-  const expiresAt = data.expiresAt instanceof Timestamp
-    ? data.expiresAt
-    : Timestamp.fromMillis(createdAt.toMillis() + SIDEQUEST_RETENTION_MS)
-
-  return {
-    id,
-    request,
-    xpValue: typeof data.xpValue === 'number' ? data.xpValue : SIDEQUEST_XP_VALUE,
-    createdAt: createdAt.toDate().toISOString(),
-    expiresAt: expiresAt.toDate().toISOString(),
-  }
-}
-
-function normalizeSidequestRequest(value: unknown): SidequestRequestPayload | null {
-  if (typeof value !== 'object' || value === null) return null
-  const request = value as Record<string, unknown>
-  const time = request.time
-  const budget = request.budget
-  const distance = request.distance
-
-  if (
-    typeof request.preferences !== 'string' ||
-    typeof request.username !== 'string' ||
-    typeof request.location !== 'string' ||
-    (request.latitude !== undefined &&
-      request.latitude !== null &&
-      typeof request.latitude !== 'number') ||
-    (request.longitude !== undefined &&
-      request.longitude !== null &&
-      typeof request.longitude !== 'number') ||
-    typeof time !== 'object' ||
-    time === null ||
-    typeof budget !== 'object' ||
-    budget === null ||
-    !Array.isArray(request.goals) ||
-    !request.goals.every((goal) => typeof goal === 'string') ||
-    (request.vibePreferences !== undefined &&
-      request.vibePreferences !== null &&
-      typeof request.vibePreferences !== 'string')
-  ) {
-    return null
-  }
-
-  const timeData = time as Record<string, unknown>
-  const budgetData = budget as Record<string, unknown>
-  const timeSelection = timeData.selection
-  const customMinutes = timeData.customMinutes
-  if (
-    (timeSelection !== 'any' &&
-      timeSelection !== '30' &&
-      timeSelection !== '60' &&
-      timeSelection !== '120' &&
-      timeSelection !== 'custom') ||
-    (customMinutes !== undefined &&
-      customMinutes !== null &&
-      typeof customMinutes !== 'number')
-  ) {
-    return null
-  }
-
-  const budgetSelection = budgetData.selection
-  const customDollars = budgetData.customDollars
-  if (
-    (budgetSelection !== 'any' &&
-      budgetSelection !== '0' &&
-      budgetSelection !== '10' &&
-      budgetSelection !== '10-25' &&
-      budgetSelection !== 'custom') ||
-    (customDollars !== undefined &&
-      customDollars !== null &&
-      typeof customDollars !== 'number')
-  ) {
-    return null
-  }
-
-  let normalizedDistance: SidequestRequestPayload['distance'] = null
-  if (distance !== undefined && distance !== null) {
-    if (
-      typeof distance !== 'object' ||
-      !('maxDistance' in distance) ||
-      typeof distance.maxDistance !== 'number' ||
-      !Number.isFinite(distance.maxDistance) ||
-      distance.maxDistance < 0 ||
-      !('unit' in distance) ||
-      distance.unit !== 'miles'
-    ) {
+function parseDestinations(value: unknown, fallback: ActiveDestination): ActiveDestination[] | null {
+  const candidates = value === undefined || (Array.isArray(value) && value.length === 0)
+    ? [fallback]
+    : Array.isArray(value) ? value : null
+  if (!candidates) return null
+  if (candidates.length > 3) return null
+  const parsed: ActiveDestination[] = []
+  for (const candidate of candidates) {
+    if (!isRecord(candidate)
+      || typeof candidate.locationName !== 'string' || !candidate.locationName.trim()
+      || typeof candidate.latitude !== 'number' || !Number.isFinite(candidate.latitude)
+      || Math.abs(candidate.latitude) > 90
+      || typeof candidate.longitude !== 'number' || !Number.isFinite(candidate.longitude)
+      || Math.abs(candidate.longitude) > 180
+      || (candidate.placeId !== undefined && candidate.placeId !== null && typeof candidate.placeId !== 'string')) {
       return null
     }
-    normalizedDistance = { maxDistance: distance.maxDistance, unit: 'miles' }
+    parsed.push({
+      locationName: candidate.locationName,
+      placeId: typeof candidate.placeId === 'string' ? candidate.placeId : null,
+      latitude: candidate.latitude,
+      longitude: candidate.longitude,
+    })
   }
-
-  return {
-    preferences: request.preferences,
-    username: request.username,
-    location: request.location,
-    latitude: typeof request.latitude === 'number' ? request.latitude : null,
-    longitude: typeof request.longitude === 'number' ? request.longitude : null,
-    time: {
-      selection: timeSelection,
-      customMinutes: typeof customMinutes === 'number' ? customMinutes : null,
-    },
-    budget: {
-      selection: budgetSelection,
-      customDollars: typeof customDollars === 'number' ? customDollars : null,
-    },
-    distance: normalizedDistance,
-    goals: request.goals,
-    vibePreferences: typeof request.vibePreferences === 'string'
-      ? request.vibePreferences
-      : null,
-  }
+  return parsed.length > 0 ? parsed : null
 }
 
-async function deleteSidequestIfExpired(userId: string, sidequestId: string): Promise<void> {
-  const sidequestRef = doc(db, 'Users', userId, 'sidequests', sidequestId)
-  await runTransaction(db, async (transaction) => {
-    const snapshot = await transaction.get(sidequestRef)
-    if (!snapshot.exists()) return
+function parseCompletedStops(value: unknown, totalStops: number): number[] | null {
+  if (!Array.isArray(value) || value.length > totalStops) return null
+  if (!value.every((index) => typeof index === 'number' && Number.isSafeInteger(index)
+    && index >= 0 && index < totalStops)) return null
+  return value.every((index, position) => index === position) ? value : null
+}
 
-    const data = snapshot.data()
-    const isActive = data.isActive === true || (
-      data.isActive === undefined && data.status === 'prepared'
-    )
-    const createdAt = data.createdAt instanceof Timestamp ? data.createdAt : null
-    const expiresAt = data.expiresAt instanceof Timestamp
-      ? data.expiresAt
-      : createdAt
-        ? Timestamp.fromMillis(createdAt.toMillis() + SIDEQUEST_RETENTION_MS)
-        : null
-
-    if (isActive && expiresAt && expiresAt.toMillis() <= Date.now()) {
-      transaction.delete(sidequestRef)
-    }
+// Generated assignments are written and completed only by FastAPI. Old
+// "prepared" request previews are not generated quests and cannot earn XP.
+export function parseActiveSidequest(id: string, data: Record<string, unknown>, userId: string): ActiveSidequest | null {
+  if (data.status !== 'assigned' || data.isActive !== true) return null
+  const userRequest = data.userRequest === undefined ? null : data.userRequest
+  const destinations = parseDestinations(data.destinations, {
+    locationName: typeof data.locationName === 'string' ? data.locationName : '',
+    placeId: typeof data.placeId === 'string' ? data.placeId : null,
+    latitude: typeof data.latitude === 'number' ? data.latitude : Number.NaN,
+    longitude: typeof data.longitude === 'number' ? data.longitude : Number.NaN,
   })
+  const completedStops = destinations
+    ? parseCompletedStops(data.completedStops ?? [], destinations.length)
+    : null
+  if (data.userId !== userId || data.ownerId !== userId || data.questId !== id
+      || typeof data.title !== 'string' || !data.title.trim()
+      || typeof data.description !== 'string' || typeof data.locationName !== 'string'
+      || !Array.isArray(data.steps) || !data.steps.length || !data.steps.every((step) => typeof step === 'string')
+      || typeof data.latitude !== 'number' || !Number.isFinite(data.latitude) || Math.abs(data.latitude) > 90
+      || typeof data.longitude !== 'number' || !Number.isFinite(data.longitude) || Math.abs(data.longitude) > 180
+      || (data.placeId !== undefined && data.placeId !== null && typeof data.placeId !== 'string')
+      || !destinations || !completedStops
+      || destinations[0].locationName !== data.locationName
+      || destinations[0].placeId !== (typeof data.placeId === 'string' ? data.placeId : null)
+      || destinations[0].latitude !== data.latitude || destinations[0].longitude !== data.longitude
+      || new Set(destinations.map((stop) => `${stop.latitude},${stop.longitude}`)).size !== destinations.length
+      || new Set(destinations.flatMap((stop) => stop.placeId ? [stop.placeId] : [])).size
+        !== destinations.filter((stop) => stop.placeId).length
+      || typeof data.xpReward !== 'number' || !Number.isSafeInteger(data.xpReward) || data.xpReward < 0
+      || typeof data.estimatedMinutes !== 'number' || !Number.isSafeInteger(data.estimatedMinutes) || data.estimatedMinutes <= 0
+      || typeof data.estimatedCostDollars !== 'number' || !Number.isFinite(data.estimatedCostDollars) || data.estimatedCostDollars < 0
+      || !(data.assignedAt instanceof Timestamp)
+      || (userRequest !== null && !isRecord(userRequest))) {
+    throw new Error(`Saved sidequest ${id} has invalid assignment details.`)
+  }
+  if (isRecord(userRequest) && typeof userRequest.multiQuest === 'boolean'
+    && (userRequest.multiQuest ? destinations.length < 2 : destinations.length !== 1)) {
+    throw new Error(`Saved sidequest ${id} has invalid route details.`)
+  }
+  return {
+    id, title: data.title, description: data.description, steps: data.steps,
+    locationName: data.locationName,
+    placeId: typeof data.placeId === 'string' ? data.placeId : null,
+    destinations,
+    completedStops,
+    latitude: data.latitude, longitude: data.longitude,
+    estimatedMinutes: data.estimatedMinutes, estimatedCostDollars: data.estimatedCostDollars,
+    xpValue: data.xpReward, createdAt: data.assignedAt.toDate().toISOString(),
+    userRequest,
+  }
 }
 
 export function subscribeToActiveSidequest(
-  userId: string,
-  sidequestId: string,
-  onChange: (sidequest: ActiveSidequest | null) => void,
-  onError: (message: string) => void,
+  userId: string, sidequestId: string,
+  onChange: (sidequest: ActiveSidequest | null) => void, onError: (message: string) => void,
 ): Unsubscribe {
-  if (!userId.trim()) throw new Error('Sign in to view this sidequest.')
-  if (!sidequestId.trim()) throw new Error('Choose a valid sidequest.')
-
-  const sidequestRef = doc(db, 'Users', userId, 'sidequests', sidequestId)
-  let expiryTimer: number | undefined
-  let isStopped = false
-  let isDeletingExpired = false
-
-  const unsubscribe = onSnapshot(
-    sidequestRef,
-    (snapshot) => {
-      if (expiryTimer !== undefined) window.clearTimeout(expiryTimer)
-      expiryTimer = undefined
-
-      try {
-        if (!snapshot.exists()) {
-          onChange(null)
-          return
-        }
-
-        const data = snapshot.data()
-        const isActive = data.isActive === true || (
-          data.isActive === undefined && data.status === 'prepared'
-        )
-        if (!isActive) {
-          onChange(null)
-          return
-        }
-
-        const sidequest = parseActiveSidequest(snapshot.id, data)
-        const delay = Date.parse(sidequest.expiresAt) - Date.now()
-        if (delay <= 0) {
-          onChange(null)
-          if (!isDeletingExpired) {
-            isDeletingExpired = true
-            void deleteSidequestIfExpired(userId, sidequestId)
-              .catch((error: unknown) => {
-                if (!isStopped) {
-                  onError(error instanceof Error
-                    ? error.message
-                    : 'Could not remove this expired sidequest.')
-                }
-              })
-              .finally(() => {
-                isDeletingExpired = false
-              })
-          }
-          return
-        }
-
-        onChange(sidequest)
-        expiryTimer = window.setTimeout(() => {
-          onChange(null)
-          if (isDeletingExpired) return
-          isDeletingExpired = true
-          void deleteSidequestIfExpired(userId, sidequestId)
-            .catch((error: unknown) => {
-              if (!isStopped) {
-                onError(error instanceof Error
-                  ? error.message
-                  : 'Could not remove this expired sidequest.')
-              }
-            })
-            .finally(() => {
-              isDeletingExpired = false
-            })
-        }, delay + 50)
-      } catch (error) {
-        onError(error instanceof Error ? error.message : 'Could not read this sidequest.')
-      }
-    },
-    (error: Error) => onError(error.message),
-  )
-
-  return () => {
-    isStopped = true
-    if (expiryTimer !== undefined) window.clearTimeout(expiryTimer)
-    unsubscribe()
-  }
+  if (!userId.trim() || !sidequestId.trim()) throw new Error('Sign in and choose a valid sidequest.')
+  return onSnapshot(doc(db, 'Users', userId, 'sidequests', sidequestId), (snapshot) => {
+    try {
+      onChange(snapshot.exists() ? parseActiveSidequest(snapshot.id, snapshot.data(), userId) : null)
+    } catch (error) { onError(error instanceof Error ? error.message : 'Could not read this sidequest.') }
+  }, (error: Error) => onError(error.message))
 }
 
 export function subscribeToActiveSidequests(
-  userId: string,
-  onChange: (sidequests: ActiveSidequest[]) => void,
-  onError: (message: string) => void,
+  userId: string, onChange: (sidequests: ActiveSidequest[]) => void, onError: (message: string) => void,
 ): Unsubscribe {
   if (!userId.trim()) throw new Error('Sign in to view active sidequests.')
-
-  let expiryTimer: number | undefined
-  let isStopped = false
-  const pendingExpirations = new Set<string>()
-
-  async function expireSidequests(sidequestIds: string[]) {
-    const results = await Promise.allSettled(
-      sidequestIds.map((id) => deleteSidequestIfExpired(userId, id)),
-    )
-    const failure = results.find(
-      (result): result is PromiseRejectedResult => result.status === 'rejected',
-    )
-    if (!isStopped && failure) {
-      onError(failure.reason instanceof Error
-        ? failure.reason.message
-        : 'Could not remove expired sidequests.')
-    }
-    sidequestIds.forEach((id) => pendingExpirations.delete(id))
-  }
-
-  const unsubscribe = onSnapshot(
-    collection(db, 'Users', userId, 'sidequests'),
-    (snapshot) => {
-      try {
-        if (expiryTimer !== undefined) window.clearTimeout(expiryTimer)
-        const now = Date.now()
-        const activeSidequests: ActiveSidequest[] = []
-        const expiredIds: string[] = []
-
-        for (const sidequest of snapshot.docs) {
-          const data = sidequest.data()
-          const isActive = data.isActive === true || (
-            data.isActive === undefined && data.status === 'prepared'
-          )
-          if (!isActive) continue
-
-          const parsed = parseActiveSidequest(sidequest.id, data)
-          if (Date.parse(parsed.expiresAt) <= now) {
-            expiredIds.push(parsed.id)
-          } else {
-            activeSidequests.push(parsed)
-          }
-        }
-
-        onChange(activeSidequests)
-
-        const newlyExpiredIds = expiredIds.filter((id) => !pendingExpirations.has(id))
-        newlyExpiredIds.forEach((id) => pendingExpirations.add(id))
-        if (newlyExpiredIds.length > 0) void expireSidequests(newlyExpiredIds)
-
-        const nextExpiry = Math.min(
-          ...activeSidequests.map((sidequest) => Date.parse(sidequest.expiresAt)),
-        )
-        if (Number.isFinite(nextExpiry)) {
-          const delay = Math.max(0, nextExpiry - Date.now() + 50)
-          expiryTimer = window.setTimeout(() => {
-            const dueIds = activeSidequests
-              .filter((sidequest) => Date.parse(sidequest.expiresAt) <= Date.now())
-              .map(({ id }) => id)
-            dueIds.forEach((id) => pendingExpirations.add(id))
-            void expireSidequests(dueIds)
-          }, delay)
-        }
-      } catch (error) {
-        onError(error instanceof Error ? error.message : 'Could not read active sidequests.')
-      }
-    },
-    (error: Error) => onError(error.message),
-  )
-
-  return () => {
-    isStopped = true
-    if (expiryTimer !== undefined) window.clearTimeout(expiryTimer)
-    unsubscribe()
-  }
+  return onSnapshot(collection(db, 'Users', userId, 'sidequests'), (snapshot) => {
+    try {
+      onChange(snapshot.docs.flatMap((item) => {
+        const parsed = parseActiveSidequest(item.id, item.data(), userId)
+        return parsed ? [parsed] : []
+      }))
+    } catch (error) { onError(error instanceof Error ? error.message : 'Could not read active sidequests.') }
+  }, (error: Error) => onError(error.message))
 }
 
-export async function completeSidequest(userId: string, sidequestId: string): Promise<number> {
-  if (!userId.trim()) throw new Error('Sign in to complete a sidequest.')
-  if (!sidequestId.trim()) throw new Error('Choose a valid sidequest to complete.')
-
-  const userRef = doc(db, 'Users', userId)
-  const sidequestRef = doc(db, 'Users', userId, 'sidequests', sidequestId)
-
-  return runTransaction(db, async (transaction) => {
-    const sidequestSnapshot = await transaction.get(sidequestRef)
-    if (!sidequestSnapshot.exists()) throw new Error('This sidequest could not be found.')
-
-    const sidequestData = sidequestSnapshot.data()
-    const isActive = sidequestData.isActive === true || (
-      sidequestData.isActive === undefined && sidequestData.status === 'prepared'
-    )
-    if (!isActive) return 0
-    const createdAt = sidequestData.createdAt instanceof Timestamp
-      ? sidequestData.createdAt
-      : null
-    const expiresAt = sidequestData.expiresAt instanceof Timestamp
-      ? sidequestData.expiresAt
-      : createdAt
-        ? Timestamp.fromMillis(createdAt.toMillis() + SIDEQUEST_RETENTION_MS)
-        : null
-    if (expiresAt && expiresAt.toMillis() <= Date.now()) {
-      transaction.delete(sidequestRef)
-      return -1
-    }
-
-    const xpValue: unknown = sidequestData.xpValue ?? SIDEQUEST_XP_VALUE
-    if (
-      typeof xpValue !== 'number' ||
-      !Number.isSafeInteger(xpValue) ||
-      xpValue < 0
-    ) {
-      throw new Error('This sidequest has an invalid XP reward.')
-    }
-
-    const userSnapshot = await transaction.get(userRef)
-    const nextXp = getUserXp(userSnapshot.exists() ? userSnapshot.data() : undefined) + xpValue
-    if (!Number.isSafeInteger(nextXp)) throw new Error('Your XP total is too large to update.')
-
-    transaction.update(sidequestRef, {
-      isActive: false,
-      completedAt: serverTimestamp(),
-    })
-    transaction.set(userRef, { xp: nextXp }, { merge: true })
-    return xpValue
+export async function completeSidequest(
+  userId: string, sidequestId: string, stopIndex = 0,
+): Promise<StopCompletionResult> {
+  if (!userId.trim() || !sidequestId.trim()) throw new Error('Sign in and choose a valid sidequest.')
+  if (!navigator.geolocation) throw new Error('Your browser does not support location verification.')
+  const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve,
+      () => reject(new Error('Could not read your location. Enable precise location access and try again.')),
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 })
   })
+  return requestQuestCompletion(userId, sidequestId, {
+    latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy,
+  }, stopIndex)
+}
+
+export async function abandonSidequest(userId: string, sidequestId: string): Promise<void> {
+  if (!userId.trim() || !sidequestId.trim()) throw new Error('Sign in and choose a valid sidequest.')
+  return requestQuestAbandon(userId, sidequestId)
 }

@@ -305,6 +305,11 @@
       ],
       "default": null,
       "title": "Maxdistancemiles"
+    },
+    "multiQuest": {
+      "default": false,
+      "title": "Multiquest",
+      "type": "boolean"
     }
   },
   "required": [

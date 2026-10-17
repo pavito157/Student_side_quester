@@ -2,10 +2,14 @@
 
 The saved-assignment API, frontend helpers, examples and integration boundary are
 in [TASK5_API.md](TASK5_API.md). `POST /quests/assign` saves a verified assignment
-or reuses the active one; `GET /me/quest` reloads it. New saves require the pending
-teammate destination resolver. `/quests/generate` remains an unsaved Gemini preview,
-and the original fixed test moved to `/quests/preview`. GET/completion routes are
-now mounted. No frontend components were changed.
+or reuses the active one; `GET /me/quest` reloads it. New saves require the
+configured verified destination resolver. `/quests/generate` is an unsaved preview
+available to guests and signed-in users; guest previews are never persisted. It can
+optionally generate a verified two- or three-stop route when `multiQuest` is true,
+which requires an explicit origin. Public deployments should enforce edge rate
+limits and provider quotas for this paid generation endpoint. The original fixed
+test moved to `/quests/preview`; GET/completion routes and frontend integration
+are implemented.
 
 See [AUTH_SETUP.md](AUTH_SETUP.md) for Clerk-to-Firebase sign-in and
 [TASK4_GEMINI.md](TASK4_GEMINI.md) for backend-only Gemini configuration. The
@@ -157,10 +161,13 @@ The service reads these records **inside the transaction**:
 
 | Document | Fields read |
 | --- | --- |
-| `userQuests/{uid}_{questId}` | `userId`, `questId`, `status` |
-| `quests/{questId}` | `isActive`, `latitude`, `longitude`, `radiusMeters`, `xpReward` |
+| `Users/{uid}/sidequests/{questId}` | `userId`, `questId`, `status`, `isActive`, `latitude`, `longitude`, `radiusMeters`, `xpReward` |
 | `Users/{uid}` | `dormId`, `xp` |
 | `dorms/{dormId}` | `xp` |
+
+Older global `userQuests`/`quests` records remain readable for compatibility; new
+generated assignments use the user subcollection. Active legacy records migrate
+transactionally when retrieved (see [TASK5_API.md](TASK5_API.md)).
 
 The assignment must belong to the caller, refer to this quest, and have status
 `assigned`. The quest must still be active. The user's dorm comes from the stored
@@ -168,13 +175,16 @@ profile. User and dorm records must already exist with nonnegative integer
 `xp`; the reward must be a nonnegative integer. No client-provided reward,
 destination, radius, identity, or dorm participates in completion.
 
-After all reads and checks, one commit updates assignment `status` to `completed`,
-sets `completedAt` with `SERVER_TIMESTAMP`, sets `xpAwarded` to the stored reward,
-and adds that reward to both XP totals. Other fields are preserved. Firestore
-retries conflicted transactions, including all checks; a duplicate request then
-sees a completed assignment and receives 409 without another award. A successful
-commit followed by a lost HTTP response also makes the retry return 409; clients
-can refresh `/me/quests` to see the completed record.
+After all reads and checks, one commit deletes the active assignment, removes the
+user's `activeQuestId` when it points to that quest, and adds the stored reward to
+both XP totals. The delete and XP updates are atomic. Firestore retries conflicted
+transactions, including all checks; a duplicate request finds no assignment and
+cannot award XP again. A successful commit followed by a lost HTTP response also
+leaves no active assignment; clients can refresh `/me/quests`.
+
+`POST /quests/{quest_id}/abandon` deletes the authenticated user's active
+assignment and clears its pointer without awarding XP. Both completion and
+abandonment remove new user-subcollection documents from `Users/{uid}/sidequests`.
 
 Success returns `valid`, `reason`, `distanceMeters`, `accuracyMeters`,
 `radiusMeters`, `questId`, `status`, and `xpAwarded`. Rejected location checks

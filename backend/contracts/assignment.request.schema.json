@@ -178,6 +178,11 @@
       "default": "",
       "title": "Vibepreferences"
     },
+    "multiQuest": {
+      "default": false,
+      "title": "Multiquest",
+      "type": "boolean"
+    },
     "originCoordinates": {
       "anyOf": [
         {

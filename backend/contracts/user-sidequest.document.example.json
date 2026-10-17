@@ -1,0 +1,49 @@
+{
+  "title": "Prototype a nature journal app",
+  "description": "Spend an outdoor activity session sketching and coding a simple nature journal prototype.",
+  "steps": [
+    "Bring a notebook and your laptop to the destination.",
+    "Sketch a nature journal interface, then implement one small feature."
+  ],
+  "locationName": "Example UF destination",
+  "latitude": 29.65,
+  "longitude": -82.34,
+  "radiusMeters": 100,
+  "xpReward": 50,
+  "isActive": true,
+  "estimatedMinutes": 150,
+  "estimatedCostDollars": 15,
+  "placeId": null,
+  "userId": "example-user",
+  "questId": "example-quest",
+  "status": "assigned",
+  "assignedAt": "2026-10-17T15:00:00Z",
+  "completedAt": null,
+  "xpAwarded": 0,
+  "ownerId": "example-user",
+  "source": "gemini",
+  "createdAt": "2026-10-17T15:00:00Z",
+  "userRequest": {
+    "preferences": "I enjoy programming and want to spend more time outside.",
+    "username": "Example Student",
+    "location": "101 Museum Rd, Gainesville, FL 32603, USA",
+    "originCoordinates": {
+      "latitude": 29.6460745,
+      "longitude": -82.3476577
+    },
+    "time": {
+      "selection": "60",
+      "customMinutes": null
+    },
+    "budget": {
+      "selection": "10",
+      "customDollars": null
+    },
+    "distance": {
+      "maxDistance": 5,
+      "unit": "miles"
+    },
+    "goals": ["Learn Computer Science"],
+    "vibePreferences": "Relax in nature."
+  }
+}

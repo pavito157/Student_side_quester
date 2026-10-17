@@ -6,5 +6,6 @@
   "budget": {"selection": "10-25", "customDollars": null},
   "distance": null,
   "goals": ["Learn Computer Science"],
-  "vibePreferences": "I want to play some games and have fun recreationaly"
+  "vibePreferences": "I want to play some games and have fun recreationaly",
+  "multiQuest": false
 }

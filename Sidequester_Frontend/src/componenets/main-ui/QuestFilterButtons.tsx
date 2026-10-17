@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import { useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import { colors } from '../../constants/colors'
-import { buildSidequestRequest, serializeSidequestRequest } from '../../services/sidequestJson'
-import { saveSidequestRequest } from '../../services/sidequests'
-import { requestAssignedQuest, type SavedQuestResponse } from '../../services/questAssignment'
+import { buildSidequestRequest, toQuestApiPayload } from '../../services/sidequestJson'
+import {
+  type GenerateQuestPayload,
+} from '../../services/questAssignment'
 import { getUserGoals, getUserPreferences } from '../../services/userPreferences'
 import type {
   BudgetConstraint,
@@ -16,7 +17,6 @@ import DistanceButton from '../Buttons/DistanceButton'
 import SidequestMeButton from '../Buttons/SidequestMeButton'
 import TimeButton from '../Buttons/TimeButton'
 import WhereButton from '../Buttons/WhereButton'
-import SidequestJsonModal from './SidequestJsonModal'
 
 export type QuestFilters = {
   where: string
@@ -28,6 +28,7 @@ export type QuestFilters = {
   customBudget: string
   distance: string
   customDistance: string
+  multiQuest: boolean
 }
 
 interface QuestFilterButtonsProps {
@@ -35,6 +36,7 @@ interface QuestFilterButtonsProps {
   setFilters: Dispatch<SetStateAction<QuestFilters>>
   activeVibe: Vibe | null
   onClearActiveVibe: () => void
+  onStartQuestGeneration: (userId: string | null, payload: GenerateQuestPayload) => Promise<void>
 }
 
 function getUsername(user: ReturnType<typeof useUser>['user'], email: string | null): string {
@@ -102,35 +104,19 @@ function QuestFilterControls({
   setFilters,
   activeVibe,
   onClearActiveVibe,
+  onStartQuestGeneration,
 }: QuestFilterButtonsProps) {
   const { isLoaded, isSignedIn, user } = useUser()
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [isLoadingPreview, setIsLoadingPreview] = useState(false)
   const [previewError, setPreviewError] = useState('')
-  const [historyWarning, setHistoryWarning] = useState('')
-  const [assignment, setAssignment] = useState<SavedQuestResponse | null>(null)
-  const controllerRef = useRef<AbortController | null>(null)
   const inFlightRef = useRef(false)
-  const [requestJson, setRequestJson] = useState('')
   const [guestPreference, setGuestPreference] = useState('')
-
-  useEffect(() => () => {
-    controllerRef.current?.abort()
-    controllerRef.current = null
-  }, [])
 
   async function showSidequestRequest() {
     if (inFlightRef.current) return
-    controllerRef.current?.abort()
-    const controller = new AbortController()
-    controllerRef.current = controller
     inFlightRef.current = true
-    setIsPreviewOpen(true)
     setIsLoadingPreview(true)
     setPreviewError('')
-    setHistoryWarning('')
-    setAssignment(null)
-    setRequestJson('')
 
     try {
       if (!isLoaded) throw new Error('Your account is still loading. Please try again.')
@@ -169,35 +155,19 @@ function QuestFilterControls({
         distance: getDistanceConstraint(filters.distance, filters.customDistance),
         goals,
         vibePreferences: activeVibe?.preferences ?? null,
+        multiQuest: filters.multiQuest,
       })
 
-      if (controller.signal.aborted) return
-      setRequestJson(serializeSidequestRequest(request))
+      const apiRequest = toQuestApiPayload(request)
 
-      if (!isSignedIn || !user) {
-        throw new Error('Sign in with a verified email account to get a saved quest.')
-      }
-      const saved = await requestAssignedQuest(user.id, request, { signal: controller.signal })
-      if (controller.signal.aborted) return
-      setAssignment(saved)
-      // Preserve request-history metadata without delaying or blocking the quest.
-      if (!saved.reusedExisting) {
-        void saveSidequestRequest(user.id, email, request).catch(() => {
-          if (!controller.signal.aborted) {
-            setHistoryWarning('Your quest was saved, but request history could not be updated.')
-          }
-        })
-      }
+      await onStartQuestGeneration(isSignedIn && user ? user.id : null, apiRequest)
     } catch (error) {
-      if (controller.signal.aborted) return
       setPreviewError(
         error instanceof Error ? error.message : 'Could not get your sidequest. Please try again.',
       )
     } finally {
-      if (controllerRef.current === controller) {
-        inFlightRef.current = false
-        setIsLoadingPreview(false)
-      }
+      inFlightRef.current = false
+      setIsLoadingPreview(false)
     }
   }
 
@@ -318,12 +288,36 @@ function QuestFilterControls({
         </div>
       </section>
 
+      <label
+        className="flex cursor-pointer items-start gap-3 rounded-xl border p-4"
+        style={{ backgroundColor: colors.surfaceRaised, borderColor: colors.border }}
+      >
+        <input
+          type="checkbox"
+          checked={filters.multiQuest}
+          onChange={(event) => setFilters((current) => ({ ...current, multiQuest: event.target.checked }))}
+          className="mt-0.5 size-4 accent-orange-500"
+        />
+        <span>
+          <span className="block text-sm font-semibold">Multi-stop sidequest</span>
+          <span className="mt-1 block text-xs leading-relaxed" style={{ color: colors.muted }}>
+            Visit two or more verified destinations in order and earn a share of XP at each stop. Choose a starting location.
+          </span>
+        </span>
+      </label>
+
       {isLoaded && isSignedIn === false && (
         <section
           aria-labelledby="guest-preference-label"
-          className="rounded-xl border p-4"
-          style={{ backgroundColor: colors.surfaceRaised, borderColor: colors.border }}
+          className="space-y-3 rounded-xl border p-4"
+          style={{ backgroundColor: colors.surfaceRaised, borderColor: colors.warningBorder }}
         >
+          <p className="text-sm font-semibold" style={{ color: colors.warning }}>
+            Guest quests are previews only and will not be saved to an account.
+          </p>
+          <p className="text-xs leading-relaxed" style={{ color: colors.muted }}>
+            Sign in to keep your quest, track stop progress, and earn XP.
+          </p>
           <label
             id="guest-preference-label"
             htmlFor="guest-preference"
@@ -354,15 +348,11 @@ function QuestFilterControls({
       )}
 
       <SidequestMeButton onClick={() => void showSidequestRequest()} isLoading={isLoadingPreview} />
-      <SidequestJsonModal
-        isOpen={isPreviewOpen}
-        isLoading={isLoadingPreview}
-        requestJson={requestJson}
-        errorMessage={previewError}
-        response={assignment}
-        historyWarning={historyWarning}
-        onClose={() => setIsPreviewOpen(false)}
-      />
+      {previewError && (
+        <p role="alert" className="text-sm" style={{ color: colors.error }}>
+          {previewError}
+        </p>
+      )}
     </div>
   )
 }

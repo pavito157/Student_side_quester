@@ -1,7 +1,7 @@
-"""One active generated assignment per user. No completion or XP writes.
+"""One active generated assignment per user. No XP awards during assignment creation.
 
 Gemini/place resolution run outside transactions. The final transaction rechecks
-current state and creates quest + assignment + user pointer together, or reuses
+current state and creates a user-scoped sidequest + user pointer together, or reuses
 the winner of a concurrent request without leaving an orphan quest.
 """
 
@@ -18,23 +18,23 @@ from pydantic import Field, ValidationError
 from .firebase_helpers import USERS
 from .quest_completion import ASSIGNMENTS
 from .quest_contracts import (
-    AssignedQuest, AssignQuestResponse, ContractModel, GeneratedQuestResponse, SavedAssignment,
+    AssignedQuest, AssignQuestResponse, ContractModel, GenerateQuestRequest, GeneratedQuestResponse,
+    SavedAssignment,
 )
 from .quest_generation import generate_preview
 from .request_timing import record_timing
+from .xp import quest_xp_reward
 
 
 class AssignmentPolicy(ContractModel):
-    xpReward: int = Field(default=25, strict=True, ge=0, le=2**53 - 1)
     radiusMeters: float = Field(default=100, strict=True, gt=0, allow_inf_nan=False)
 
 
 def get_assignment_policy():
     try:
-        return AssignmentPolicy(xpReward=int(os.environ.get("QUEST_XP_REWARD", "25")),
-                                radiusMeters=float(os.environ.get("QUEST_RADIUS_METERS", "100")))
+        return AssignmentPolicy(radiusMeters=float(os.environ.get("QUEST_RADIUS_METERS", "100")))
     except (ValueError, OverflowError):
-        raise HTTPException(503, "Invalid QUEST_XP_REWARD or QUEST_RADIUS_METERS configuration") from None
+        raise HTTPException(503, "Invalid QUEST_RADIUS_METERS configuration") from None
 
 
 def _valid_id(value):
@@ -73,34 +73,85 @@ def _stored_response(db, transaction, uid, snapshot):
         raise HTTPException(409, "Current assignment data is incomplete or invalid") from None
 
 
-def _read_active(db, transaction, uid, user):
-    """Fast pointer read; recover older assignments without inventing schema data."""
-    pointer = user.get("activeQuestId")
-    if pointer is not None:
-        if not _valid_id(pointer):
-            raise HTTPException(409, "Current assignment pointer is invalid")
-        snapshot = db.collection(ASSIGNMENTS).document(f"{uid}_{pointer}").get(transaction=transaction)
-        if snapshot.exists:
-            data = snapshot.to_dict()
-            if data.get("userId") != uid or data.get("questId") != pointer:
-                raise HTTPException(409, "Current assignment pointer is inconsistent")
-            if data.get("status") == "assigned":
-                return _stored_response(db, transaction, uid, snapshot)
-            if data.get("status") != "completed":
-                raise HTTPException(409, "Current assignment state is invalid")
+def sidequests(db, uid):
+    return db.collection(USERS).document(uid).collection("sidequests")
 
-    # Legacy recovery / stale completed pointer. This uses the existing single-
-    # field userId query, requiring no new composite index. Do not silently hide
-    # duplicate active records or create an additional active assignment.
+
+def _nested_response(uid, snapshot):
+    data = snapshot.to_dict()
+    if (data.get("userId") != uid or data.get("questId") != snapshot.id
+            or data.get("ownerId") != uid):
+        raise HTTPException(409, "Current assignment identity is inconsistent")
+    try:
+        return AssignQuestResponse(
+            quest=AssignedQuest.model_validate({
+                **{key: data[key] for key in AssignedQuest.model_fields if key in data},
+                "id": snapshot.id,
+            }),
+            assignment=SavedAssignment.model_validate({
+                **{key: data[key] for key in SavedAssignment.model_fields if key in data},
+                "id": f"{uid}_{snapshot.id}",
+            }), reusedExisting=True,
+        )
+    except ValidationError:
+        raise HTTPException(409, "Current assignment data is incomplete or invalid") from None
+
+
+def _sidequest_data(result, user_request: GenerateQuestRequest | None = None):
+    data = {
+        **result.quest.model_dump(exclude={"id"}),
+        **result.assignment.model_dump(exclude={"id"}),
+        "ownerId": result.assignment.userId, "source": "gemini",
+        "createdAt": firestore.SERVER_TIMESTAMP,
+    }
+    if user_request is not None:
+        data["userRequest"] = user_request.model_dump(mode="json")
+    return data
+
+
+def _read_active(db, transaction, uid, user):
+    """Read user-owned assignments; lazily move an older active assignment atomically."""
+    pointer = user.get("activeQuestId")
+    if pointer is not None and not _valid_id(pointer):
+        raise HTTPException(409, "Current assignment pointer is invalid")
     active = []
-    for snapshot in db.collection(ASSIGNMENTS).where(
-        filter=FieldFilter("userId", "==", uid),
-    ).stream(transaction=transaction, timeout=10):
-        if snapshot.to_dict().get("status") == "assigned":
+    snapshots = list(sidequests(db, uid).stream(transaction=transaction, timeout=10))
+    for snapshot in snapshots:
+        data = snapshot.to_dict()
+        if data.get("status") == "assigned":
             active.append(snapshot)
-            if len(active) > 1:
-                raise HTTPException(409, "Multiple active assignments need reconciliation")
-    return _stored_response(db, transaction, uid, active[0]) if active else None
+        elif snapshot.id == pointer and data.get("status") != "completed":
+            raise HTTPException(409, "Current assignment state is invalid")
+    legacy_snapshots = list(db.collection(ASSIGNMENTS).where(
+        filter=FieldFilter("userId", "==", uid),
+    ).stream(transaction=transaction, timeout=10))
+    legacy = [snapshot for snapshot in legacy_snapshots if snapshot.to_dict().get("status") == "assigned"]
+    if len(active) + len(legacy) > 1:
+        raise HTTPException(409, "Multiple active assignments need reconciliation")
+    if active:
+        return _nested_response(uid, active[0])
+    if not legacy:
+        completed_legacy = any(item.to_dict().get("questId") == pointer
+                               and item.to_dict().get("status") == "completed"
+                               for item in legacy_snapshots)
+        if pointer is not None and not completed_legacy and not any(item.id == pointer for item in snapshots):
+            # No active assignment exists, and the pointer's document is gone.
+            # Repair this stale reference so new quests are not blocked forever.
+            transaction.update(
+                db.collection(USERS).document(uid),
+                {"activeQuestId": firestore.DELETE_FIELD},
+            )
+        return None
+    result = _stored_response(db, transaction, uid, legacy[0])
+    if any(snapshot.id == result.quest.id for snapshot in snapshots):
+        raise HTTPException(409, "Legacy assignment conflicts with saved sidequest")
+    # All reads above precede writes. Mark the old record migrated so older
+    # completion handlers cannot also award it. No existing XP is changed.
+    target = sidequests(db, uid).document(result.quest.id)
+    transaction.create(target, _sidequest_data(result))
+    transaction.update(legacy[0].reference, {"status": "migrated", "migratedTo": target.path})
+    transaction.update(db.collection(USERS).document(uid), {"activeQuestId": result.quest.id})
+    return result
 
 
 def _run_transaction(db, callback, read_only=False):
@@ -119,10 +170,12 @@ def get_current_assignment(db, uid):
             raise HTTPException(409, "Sign in to initialize your user profile first")
         return _read_active(db, transaction, uid, snapshot.to_dict())
 
-    return _run_transaction(db, read, read_only=True)
+    return _run_transaction(db, read)
 
 
-def save_verified_assignment(db, uid, preview, policy):
+def save_verified_assignment(
+    db, uid, preview, policy, user_request: GenerateQuestRequest | None = None,
+):
     """Persist server-verified content only. UID must come from the token."""
     _check_uid(uid)
     try:
@@ -138,7 +191,9 @@ def save_verified_assignment(db, uid, preview, policy):
         id=quest_id, title=proposed.title, description=proposed.description, steps=proposed.steps,
         locationName=destination.locationName, placeId=destination.placeId,
         latitude=destination.latitude, longitude=destination.longitude,
-        radiusMeters=policy.radiusMeters, xpReward=policy.xpReward, isActive=True,
+        destinations=preview.destinations if user_request and user_request.multiQuest else [],
+        completedStops=[],
+        radiusMeters=policy.radiusMeters, xpReward=quest_xp_reward(proposed.estimatedMinutes), isActive=True,
         estimatedMinutes=proposed.estimatedMinutes, estimatedCostDollars=proposed.estimatedCostDollars,
     )
     # Backend-generated UTC, stored and returned identically; never browser time.
@@ -156,19 +211,20 @@ def save_verified_assignment(db, uid, preview, policy):
             return existing
         # Reading the same user document serializes competing creators; all
         # reads precede writes. The losing callback reuses the committed winner.
-        transaction.create(db.collection("quests").document(quest_id), {
-            **quest.model_dump(exclude={"id"}), "ownerId": uid,
-            "source": "gemini", "createdAt": firestore.SERVER_TIMESTAMP,
-        })
-        transaction.create(db.collection(ASSIGNMENTS).document(assignment.id),
-                           assignment.model_dump(exclude={"id"}))
+        transaction.create(
+            sidequests(db, uid).document(quest_id),
+            _sidequest_data(result, user_request),
+        )
         transaction.update(user_ref, {"activeQuestId": quest_id})
         return result
 
     return _run_transaction(db, commit)
 
 
-def assign_generated_quest(db, uid, preferences, resolver, timings=None):
+def assign_generated_quest(
+    db, uid, preferences, resolver, timings=None,
+    user_request: GenerateQuestRequest | None = None,
+):
     with record_timing(timings, "lookup"):
         existing = get_current_assignment(db, uid)
     if existing is not None:
@@ -179,4 +235,4 @@ def assign_generated_quest(db, uid, preferences, resolver, timings=None):
     # External calls must never be retried inside a Firestore transaction.
     preview = generate_preview(preferences, resolver, timings=timings)
     with record_timing(timings, "save"):
-        return save_verified_assignment(db, uid, preview, policy)
+        return save_verified_assignment(db, uid, preview, policy, user_request)

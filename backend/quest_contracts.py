@@ -25,6 +25,15 @@ class Coordinates(ContractModel):
     longitude: float = Field(strict=True, ge=-180, le=180, allow_inf_nan=False)
 
 
+class ResolvedDestination(Coordinates):
+    """Server resolver output; scope must be checked against Gainesville city-limit geography."""
+
+    model_config = ConfigDict(revalidate_instances="always")
+    locationName: str = Field(min_length=1, max_length=300)
+    placeId: Optional[str] = Field(default=None, min_length=1, max_length=300)
+    scope: Literal["gainesville_city"]
+
+
 class AnywhereLocation(ContractModel):
     mode: Literal["anywhere"]
 
@@ -93,6 +102,7 @@ class NormalizedQuestPreferences(ContractModel):
     goals: List[GoalText] = Field(default_factory=list, max_length=20)
     vibe: Optional[SelectedVibe] = None
     maxDistanceMiles: Optional[float] = Field(default=None, strict=True, gt=0, allow_inf_nan=False)
+    multiQuest: bool = False
 
     @model_validator(mode="after")
     def distance_needs_origin(self):
@@ -162,6 +172,7 @@ class AssignQuestRequest(ContractModel):
     )
     goals: List[GoalText] = Field(default_factory=list, max_length=20)
     vibePreferences: Optional[str] = Field(default="", max_length=4000)
+    multiQuest: bool = Field(default=False, strict=True)
 
     def distance_miles(self):
         return self.distance.maxDistance if isinstance(self.distance, DistanceFilter) else self.distance
@@ -187,6 +198,7 @@ class AssignQuestRequest(ContractModel):
             budget=self.budget.normalize(), maxDistanceMiles=self.distance_miles(),
             preferences=self.preferences, goals=self.goals,
             vibe=SelectedVibe(preferences=self.vibePreferences) if self.vibePreferences else None,
+            multiQuest=self.multiQuest,
         )
 
 
@@ -199,6 +211,8 @@ class AssignedQuest(ContractModel):
     placeId: Optional[str] = Field(default=None, min_length=1, max_length=300)
     latitude: float = Field(strict=True, ge=-90, le=90, allow_inf_nan=False)
     longitude: float = Field(strict=True, ge=-180, le=180, allow_inf_nan=False)
+    destinations: List[ResolvedDestination] = Field(default_factory=list, max_length=3)
+    completedStops: List[int] = Field(default_factory=list, max_length=3)
     radiusMeters: float = Field(strict=True, gt=0, allow_inf_nan=False)
     xpReward: int = Field(strict=True, ge=0, le=2**63 - 1)
     isActive: bool = Field(strict=True, json_schema_extra={"const": True})
@@ -210,6 +224,19 @@ class AssignedQuest(ContractModel):
     def active_quest(self):
         if not self.isActive:
             raise ValueError("An assigned quest must be active")
+        if self.destinations:
+            first = self.destinations[0]
+            if (first.locationName != self.locationName or first.placeId != self.placeId
+                    or first.latitude != self.latitude or first.longitude != self.longitude):
+                raise ValueError("The primary destination must match the first route stop")
+            if (len({(stop.latitude, stop.longitude) for stop in self.destinations}) != len(self.destinations)
+                    or len({stop.placeId for stop in self.destinations if stop.placeId}) !=
+                    len([stop for stop in self.destinations if stop.placeId])):
+                raise ValueError("Route stops must be unique")
+        if self.completedStops != list(range(len(self.completedStops))):
+            raise ValueError("Completed stops must be sequential")
+        if self.destinations and any(index >= len(self.destinations) for index in self.completedStops):
+            raise ValueError("Completed stop index is outside the route")
         return self
 
 
@@ -270,6 +297,8 @@ class GenerateQuestRequest(AssignQuestRequest):
     def distance_requires_coordinates(self):
         if self.distance is not None and self.originCoordinates is None:
             raise ValueError("originCoordinates is required when distance is set")
+        if self.multiQuest and self.originCoordinates is None:
+            raise ValueError("originCoordinates is required for a multi-stop quest")
         if self.originCoordinates is not None and self.normalized_location().mode == "anywhere":
             raise ValueError("originCoordinates requires a specific location")
         return self
@@ -308,20 +337,15 @@ class GeminiActivityDraft(ContractModel):
     )
 
 
+class GeminiMultiStopDraft(GeminiActivityDraft):
+    steps: List[StepText] = Field(min_length=2, max_length=3)
+
+
 class GeminiQuestDraft(GeminiActivityDraft):
     """Legacy unsaved draft format, used without destination discovery."""
 
     locationName: str = Field(min_length=1, max_length=300)
     locationAddress: str = Field(min_length=1, max_length=500)
-
-
-class ResolvedDestination(Coordinates):
-    """Server resolver output; scope must be checked against Gainesville city-limit geography."""
-
-    model_config = ConfigDict(revalidate_instances="always")
-    locationName: str = Field(min_length=1, max_length=300)
-    placeId: Optional[str] = Field(default=None, min_length=1, max_length=300)
-    scope: Literal["gainesville_city"]
 
 
 class SelectedDestination(ResolvedDestination):
@@ -338,6 +362,7 @@ class GeneratedQuestResponse(ContractModel):
     distanceStatus: Literal["not_requested", "pending", "verified"]
     distanceMeters: Optional[float] = Field(default=None, strict=True, ge=0, allow_inf_nan=False)
     destination: Optional[ResolvedDestination] = None
+    destinations: List[ResolvedDestination] = Field(default_factory=list, max_length=3)
     message: str
     quest: GeneratedQuestProposal
     normalizedPreferences: NormalizedQuestPreferences
@@ -346,6 +371,18 @@ class GeneratedQuestResponse(ContractModel):
     def consistent_verification(self):
         if self.destinationVerified != (self.destination is not None):
             raise ValueError("Destination verification requires resolver output")
+        if self.destinationVerified and not self.destinations:
+            self.destinations = [self.destination]
+        if self.destinations and (self.destination is None or self.destinations[0] != self.destination):
+            raise ValueError("The first verified stop must match the primary destination")
+        if self.destinationVerified:
+            expected_stops = 2 <= len(self.destinations) <= 3 if self.normalizedPreferences.multiQuest else len(self.destinations) == 1
+            if not expected_stops:
+                raise ValueError("Verified destination count must match the requested quest type")
+            if (len({(stop.latitude, stop.longitude) for stop in self.destinations}) != len(self.destinations)
+                    or len({stop.placeId for stop in self.destinations if stop.placeId}) !=
+                    len([stop for stop in self.destinations if stop.placeId])):
+                raise ValueError("Verified route stops must be unique")
         if self.filtersApplied != self.destinationVerified:
             raise ValueError("All filters require a verified Gainesville destination")
         expected = ("not_requested" if self.normalizedPreferences.maxDistanceMiles is None

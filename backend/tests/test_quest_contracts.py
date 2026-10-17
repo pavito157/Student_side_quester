@@ -187,6 +187,15 @@ class FrontendPayloadTests(unittest.TestCase):
             with self.assertRaises(ValidationError):
                 AssignQuestRequest.model_validate(self.body)
 
+    def test_multi_stop_requires_a_selected_origin(self):
+        self.body.update(location="UF campus", multiQuest=True)
+        with self.assertRaisesRegex(ValidationError, "originCoordinates"):
+            GenerateQuestRequest.model_validate(self.body)
+        self.body["originCoordinates"] = {"latitude": 29.65, "longitude": -82.34}
+        request = GenerateQuestRequest.model_validate(self.body).normalize()
+        self.assertTrue(request.multiQuest)
+        self.assertEqual(request.location.coordinates.latitude, 29.65)
+
     def test_emailed_address_link_uses_label_without_following_url(self):
         self.body["location"] = "[101 Museum Rd, Gainesville, FL 32603, USA](https://www.google.com/maps/search/101+Museum+Rd?entry=gmail&source=g)"
         normalized = AssignQuestRequest.model_validate(self.body).normalize()

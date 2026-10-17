@@ -11,11 +11,13 @@
     "latitude": 29.65,
     "longitude": -82.34,
     "radiusMeters": 100,
-    "xpReward": 25,
+    "xpReward": 50,
     "isActive": true,
     "estimatedMinutes": 150,
     "estimatedCostDollars": 15,
-    "placeId": null
+    "placeId": null,
+    "destinations": [],
+    "completedStops": []
   },
   "assignment": {
     "id": "example-user_example-quest",

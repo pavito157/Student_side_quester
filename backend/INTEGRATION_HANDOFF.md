@@ -9,21 +9,10 @@ plus production Firestore is still a manual acceptance test. Button wiring and t
 
 ## Current test evidence
 
-- Final complete run: 171 backend tests passed against the loopback demo emulator.
-- 28 separate resolver tests and 31 frontend service tests passed.
-- Frontend build and lint passed.
-- Automated tests cover actual default resolver wiring, provider HTTP parsing,
-  city/distance filtering, activity-only Gemini schema, response models, real
-  emulator persistence, completion and concurrent XP awards. Provider responses
-  and token verification are mocked in the regression suite.
-- Live smoke tests additionally exercise actual Gemini and Google Places, but
-  keep token verification mocked and database writes local; records are cleaned up.
-- Prior runs exposed intermittent exhausted transaction retries in concurrent
-  emulator tests. Isolated and final full-suite reruns passed; monitor contention
-  during load testing. No production transaction behavior is claimed from this.
-- Three latency samples exclude browser token acquisition and production Firestore;
-  they are observations, not a five-second guarantee. Opening hours, public access,
-  venue fees and activity duration are not independently verified.
+- Backend quest suite: 145 passed, 39 emulator-dependent tests skipped; XP suite: 7 passed.
+- Frontend node suite: 52 passed; frontend production build and lint passed.
+- Build output retains the existing large-chunk warning. No live provider or
+  production Firestore behavior is claimed from these automated tests.
 
 Captured response fixture: `contracts/assignment.response.tested.example.json`.
 This is an actual local endpoint response with IDs/time sanitized. Its destination
@@ -84,7 +73,8 @@ Example JSON body (coordinates illustrative; send actual selected/device values)
   "budget": {"selection": "0", "customDollars": null},
   "distance": {"maxDistance": 2, "unit": "miles"},
   "goals": ["Explore campus"],
-  "vibePreferences": null
+  "vibePreferences": null,
+  "multiQuest": false
 }
 ```
 
@@ -127,6 +117,22 @@ it is newly generated from their latest preferences. `GET /me/quest` returns HTT
 200 and JSON null when no assignment is active. The helper validates the returned
 account, IDs, timestamps, coordinates, radius and reward.
 
+`POST /quests/generate` is public and produces an unsaved preview for guests or
+signed-in users; guest results are held only in frontend memory and are lost on
+refresh/navigation. Keep the non-persistence warning visible. Since generation
+uses paid providers, production deployments should enforce edge rate limits and
+provider quotas.
+
+The request's optional `multiQuest` flag defaults to false. When true, include
+`originCoordinates`; the generated preview contains two or three distinct,
+resolver-verified destinations in nearest-first order, with one generated step
+per stop. Saved multi-stop assignments persist ordered `destinations`,
+`completedStops` (zero-based indexes), and `xpAwardedSoFar`. The map shows the
+origin and every stop and draws a walking route to the first stop. Completion
+requires the next `stopIndex` and a fresh GPS reading; each stop awards its XP
+share, and only the final stop removes the assignment. Abandoning does not refund
+XP already credited for completed stops.
+
 UI tasks: wire button; show loading/disable duplicate clicks; render quest; reload
 on return; show actionable errors; cancel requests on account changes; refresh XP
 and current quest after successful completion. Refreshing XP must be read-only.
@@ -150,9 +156,17 @@ Accuracy is the device-reported meters. Default maximum is 50 meters; conservati
 proximity requires `distance + accuracy <= quest.radiusMeters`. This is separate
 from the origin-distance filter. GPS proximity is not proof of the activity and
 reported GPS can be spoofed. The server reads the stored quest/reward and atomically
-rechecks assignment state and awards user/dorm XP once. Success returns
-`valid`, `reason`, `distanceMeters`, `accuracyMeters`, `radiusMeters`, `questId`,
-`status: "completed"`, `xpAwarded`. A repeat returns 409 without another award.
+rechecks assignment state, deletes the active assignment, and awards user/dorm XP
+once. Success returns `valid`, `reason`, `distanceMeters`, `accuracyMeters`,
+`radiusMeters`, `questId`, `status: "completed"`, and `xpAwarded`. A repeat finds
+no active assignment and cannot award XP again.
+For multi-stop quests, include `stopIndex` in the body. A successful partial
+completion returns the increment awarded in `xpAwarded`, cumulative
+`xpAwardedSoFar`, and updated `completedStops`; stops must be completed in order.
+
+`POST /quests/{quest.id}/abandon` deletes the authenticated user's active
+assignment without XP. The detail page should ask for confirmation before
+abandoning and reload/leave the detail view after the server confirms deletion.
 
 ## Error contract
 
@@ -193,7 +207,7 @@ direct name/address lookups.
 | Second assign/reload | 200 same quest; reusedExisting true; no repeated provider call | Passed |
 | Concurrent assign / aborted commit | At most one active quest; no orphan records | Passed against emulator |
 | Complete while far away or inaccurate | Rejected; XP unchanged | Passed |
-| Complete nearby, then repeat/concurrent repeat | One award to user/dorm; repeat 409 | Passed against emulator |
+| Complete nearby, then repeat/concurrent repeat | One award to user/dorm; active assignment deleted; repeat 404 | Passed against emulator |
 | Legacy totalXp/profile initialization races completion | Canonical xp preserves balance/award | Passed against emulator |
 | Live Gemini/Places + bundled city boundary + emulator | 201, valid saved JSON, reuse/reload | Passed, token verification mocked |
 | Real device arrival + deployed Firestore rules | Fresh location completes once; unauthorized client writes denied | Pending live test |
@@ -314,13 +328,11 @@ the distance/changing preferences instead of repeatedly resubmitting automatical
 
 ## Sidequest button wiring
 
-The existing Sidequest me button now calls `requestAssignedQuest(uid, payload)`
-for signed-in students. The modal displays the returned title, description, steps,
-place, estimated minutes/cost and **`quest.xpReward` XP on completion**. It shows
-whether the assignment is new or reused, the full response JSON, and a download
-button for `sidequest-{quest.id}.json`. The downloaded object is the entire server
-response (`quest`, `assignment`, `reusedExisting`), not the outgoing preferences.
-`assignment.xpAwarded` stays 0 at assignment time. No client code awards XP.
+The Sidequest me button starts the generation flow. Signed-in students call
+`requestAssignedQuest(uid, payload)` and navigate to the saved quest detail page;
+guests call `requestGeneratedQuest(null, payload)` and see an unsaved preview.
+Only FastAPI saves assignments. `assignment.xpAwarded` stays 0 at assignment time,
+and the client does not award XP.
 
 Examples and schema remain `contracts/assignment.response.live.example.json` and
 `contracts/assignment.response.schema.json`. The response shape did not change.
@@ -330,24 +342,21 @@ clears them. Distance without captured coordinates shows an actionable error; a
 saved vibe with only a location label must be selected again to capture coordinates.
 The prior `getCurrentLocationLabel` helper remains available for other callers.
 
-Loading disables duplicate submission. Account changes/unmounts abort outstanding
-requests and clear account-specific UI state. Backend error messages display in
-the modal. Existing request-history metadata is saved best-effort for new quests
-only; failure cannot hide a successfully saved assignment. Guest clicks show a
-sign-in requirement and do not call the protected assignment endpoint. Closing
-the modal hides it and does not cancel a server-side save already in progress.
+Loading disables duplicate submission. Backend errors display on the quest page.
+The button no longer creates a second browser-owned prepared request, and guests do
+not call the protected assignment endpoint.
 
-Component tests exercise submission payloads, errors, account-switch cancellation,
-duplicate clicks, history failures, reused quests, reward presentation and exact
-JSON-download contents. The browser loads the app; a real signed-in button click
-against production Firestore remains a manual check (no student login was automated).
+Component tests exercise submission payloads, guest previews, duplicate clicks,
+backend response validation and user-owned quest storage. A real signed-in button
+click against production Firestore remains a manual check (no student login was automated).
 
 Manual check: run the backend and frontend, sign in with a verified-email account,
 select a place/current location if using distance, click Sidequest me. Confirm
-Network POST `/quests/assign` returns 201 (new) or 200 (reused), inspect the modal,
-and download the JSON. Confirm its `quest.xpReward` equals the badge and its
-`assignment.xpAwarded` is 0. Click again and confirm the same active quest is reused.
-Completion UI wiring is separate from this generation button.
+Network POST `/quests/assign` returns 201 (new) or 200 (reused), and the saved quest
+appears at `Users/{uid}/sidequests/{quest.id}`. Confirm the detail page shows the
+stored reward and that `assignment.xpAwarded` is 0. Click again and confirm the same
+active quest is reused. The quest list/detail page reads the backend-owned user
+subcollection, and the detail Complete button calls FastAPI with fresh GPS.
 
 ## Hackathon authentication update
 
@@ -358,3 +367,67 @@ account status, UID binding and ownership checks remain required. Restart the
 backend after updating the code; the frontend sign-in message reflects this policy.
 The authentication changes passed 141 backend tests (32 emulator-dependent tests
 skipped) and the frontend passed 42 tests, build and lint.
+
+## Merged coordinate payload fix
+
+The merged frontend retains top-level latitude/longitude for its existing map and
+request-history records. These are not valid FastAPI request fields. The button
+now uses `toQuestApiPayload(request)` before submitting or showing Request JSON:
+only nested `originCoordinates` travels to `/quests/assign`. History/map records
+keep their existing fields. Do not send the internal request object directly to
+FastAPI or loosen the backend's extra-field validation to accept the duplication.
+The actual frontend-built payload passed the real FastAPI route's validation and
+returned 201 with mocked services; no live data was modified. Frontend regression
+suite: 43 tests passed; build and lint passed.
+
+
+## User-owned generated sidequests (current storage contract)
+
+New generated quests are saved at `Users/{Firebase uid}/sidequests/{quest.id}`.
+The child document combines quest content and assignment state. See
+`contracts/user-sidequest.document.example.json` for its fields (timestamp fields
+are represented as ISO strings in that JSON example; Firestore stores timestamps).
+The existing structured HTTP response and its schema do not change.
+`assignment.id` stays `{uid}_{questId}` as a public API identifier; use `quest.id`
+as the Firestore document ID and detail-page route ID.
+
+Frontend changes: the button stops writing duplicate prepared request documents;
+the list and detail page read actual generated content from the user's
+subcollection, use destination GPS for the map, and show the backend reward.
+Complete requests fresh GPS and calls `POST /quests/{quest.id}/complete` with a
+Firebase ID token. Client code no longer awards XP or deletes expired records.
+Generated assignments remain active until completed; they do not inherit the
+old preview snapshots' three-day expiration. Legacy prepared snapshots are
+retained in Firestore but excluded from the generated quest list. Existing active
+global assignments migrate transactionally when requested, without awarding XP.
+The old assignment is marked migrated to prevent duplicate completion via old
+code. No production bulk migration or deletion is performed.
+
+Firestore rules must allow the signed-in owner to read their sidequests and deny
+client creation/update/deletion of those documents. User `xp`, legacy `totalXp`,
+`activeQuestId`, and dorm XP must also remain server-owned. Firebase Admin bypasses
+client rules. Rules are managed outside this repo: no rules were deployed or
+verified here. A broader permissive rule can override a narrower denial, so the
+backend teammate must check the project's effective rules before relying on XP
+integrity. An owner-read/backend-write subcollection rule is:
+
+```text
+match /Users/{uid}/sidequests/{questId} {
+  allow read: if request.auth != null && request.auth.uid == uid;
+  allow write: if false;
+}
+```
+
+Manual check after restarting FastAPI: sign in, click Sidequest me, and confirm
+201/200 plus unchanged response JSON. In Firestore, open Users → your Firebase
+UID → sidequests → response.quest.id; the content should match the response.
+Refresh and open the active quest: title/steps/destination/XP should persist.
+Complete from outside the radius to see rejection, then at the destination with
+good accuracy and a valid dorm to earn the stored reward. A repeated completion
+returns 404; user/dorm XP increase once, and the active assignment is deleted.
+
+Validation for the storage transition: full backend suite 178/178 passed with the
+local Firestore emulator. Frontend 49/49 tests passed, as did
+the TypeScript/Vite build and lint. Tests use mocked authentication and provider
+responses with real emulator transactions. No signed-in production completion or
+Firestore rules deployment was performed.

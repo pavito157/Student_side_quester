@@ -6,8 +6,10 @@ This template provides a minimal setup to get React working in Vite with HMR and
 
 Copy `.env.example` to `.env.local` and set `VITE_GOOGLE_MAPS_API_KEY` to a
 Google Maps API key. Enable Maps JavaScript API and Places API (New) for the
-key's Google Cloud project. Enable Maps JavaScript API, Places API (New), and
-Geocoding API. Restrict the key to this app's HTTP referrers and the APIs the
+key's Google Cloud project. Enable Maps JavaScript API, Places API (New),
+Geocoding API, and Routes API. The detail and guest-preview maps use the Routes
+library to compute walking routes from the saved/requested origin to the first
+verified destination. Restrict the key to this app's HTTP referrers and the APIs the
 app uses before deploying. Browser API keys are visible to users in the client
 bundle, so do not use an unrestricted key.
 

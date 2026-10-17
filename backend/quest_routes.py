@@ -1,7 +1,6 @@
-"""Supplied quest router plus completion; mount with app.include_router(router).
+"""Authenticated quest reads and GPS completion for user-owned sidequests.
 
-Uses the supplied camelCase schema. No app startup or credentials at import time.
-The supplied snippet omitted POST /quests/assign; it is not recreated here.
+Legacy global records remain readable during the storage transition.
 """
 
 import os
@@ -11,9 +10,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from google.cloud.firestore_v1.base_query import FieldFilter
 from pydantic import BaseModel, ConfigDict, Field
 
-from .quest_completion import ASSIGNMENTS, CompletionError, complete_quest
+from .quest_completion import ASSIGNMENTS, CompletionError, abandon_quest, complete_quest
 from .quest_validation import valid_coordinates, valid_number
 from .firebase_helpers import current_uid, get_db
+from .quest_persistence import sidequests
 
 router = APIRouter(tags=["Quests"])
 
@@ -36,13 +36,23 @@ def list_quests(uid: str = Depends(current_uid), db=Depends(get_db)):
     snapshots = db.collection("quests").where(
         filter=FieldFilter("isActive", "==", True)
     ).stream()
-    return {"quests": [document(s) for s in snapshots
-                       if s.to_dict().get("ownerId") in (None, uid)]}
+    legacy = [document(s) for s in snapshots if s.to_dict().get("ownerId") in (None, uid)]
+    saved = list(sidequests(db, uid).stream())
+    saved_ids = {s.id for s in saved}
+    legacy = [item for item in legacy if item["id"] not in saved_ids]
+    owned = [document(s) for s in saved
+             if s.to_dict().get("status") == "assigned" and s.to_dict().get("isActive") is True]
+    by_id = {item["id"]: item for item in legacy + owned}
+    return {"quests": list(by_id.values())}
 
 
 @router.get("/quests/{quest_id}")
 def get_quest(quest_id: str, uid: str = Depends(current_uid), db=Depends(get_db)):
-    snapshot = db.collection("quests").document(quest_id).get()
+    snapshot = sidequests(db, uid).document(quest_id).get()
+    if snapshot.exists and snapshot.to_dict().get("status") != "assigned":
+        raise HTTPException(404, "Active quest not found")
+    if not snapshot.exists:
+        snapshot = db.collection("quests").document(quest_id).get()
     if (not snapshot.exists or snapshot.to_dict().get("isActive") is not True
             or snapshot.to_dict().get("ownerId") not in (None, uid)):
         raise HTTPException(404, "Active quest not found")
@@ -57,8 +67,11 @@ def my_quests(
     snapshots = db.collection(ASSIGNMENTS).where(
         filter=FieldFilter("userId", "==", uid)
     ).stream()
-    return {"quests": [document(s) for s in snapshots
-                       if status is None or s.to_dict().get("status") == status]}
+    legacy = [document(s) for s in snapshots if s.to_dict().get("status") in ("assigned", "completed")]
+    owned = [{**document(s), "id": f"{uid}_{s.id}"} for s in sidequests(db, uid).stream()
+             if s.to_dict().get("status") in ("assigned", "completed")]
+    by_id = {item["id"]: item for item in legacy + owned}
+    return {"quests": [item for item in by_id.values() if status is None or item["status"] == status]}
 
 
 class CompletionLocation(BaseModel):
@@ -66,6 +79,7 @@ class CompletionLocation(BaseModel):
     latitude: float = Field(..., strict=True, ge=-90, le=90, allow_inf_nan=False)
     longitude: float = Field(..., strict=True, ge=-180, le=180, allow_inf_nan=False)
     accuracy: float = Field(..., strict=True, gt=0, allow_inf_nan=False)
+    stopIndex: int = Field(default=0, strict=True, ge=0, le=2)
 
 
 def get_max_accuracy():
@@ -87,7 +101,17 @@ def complete(
     try:
         return complete_quest(
             db, uid, quest_id, location.latitude, location.longitude,
-            location.accuracy, max_accuracy,
+            location.accuracy, max_accuracy, location.stopIndex,
         )
+    except CompletionError as error:
+        raise HTTPException(error.status_code, error.detail) from error
+
+
+@router.post("/quests/{quest_id}/abandon")
+def abandon(
+    quest_id: str, uid: str = Depends(current_uid), db=Depends(get_db),
+):
+    try:
+        return abandon_quest(db, uid, quest_id)
     except CompletionError as error:
         raise HTTPException(error.status_code, error.detail) from error

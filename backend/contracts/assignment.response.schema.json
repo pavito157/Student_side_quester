@@ -66,6 +66,22 @@
           "title": "Longitude",
           "type": "number"
         },
+        "destinations": {
+          "items": {
+            "$ref": "#/$defs/ResolvedDestination"
+          },
+          "maxItems": 3,
+          "title": "Destinations",
+          "type": "array"
+        },
+        "completedStops": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 3,
+          "title": "Completedstops",
+          "type": "array"
+        },
         "radiusMeters": {
           "exclusiveMinimum": 0,
           "title": "Radiusmeters",
@@ -109,6 +125,57 @@
         "estimatedCostDollars"
       ],
       "title": "AssignedQuest",
+      "type": "object"
+    },
+    "ResolvedDestination": {
+      "additionalProperties": false,
+      "description": "Server resolver output; scope must be checked against Gainesville city-limit geography.",
+      "properties": {
+        "latitude": {
+          "maximum": 90,
+          "minimum": -90,
+          "title": "Latitude",
+          "type": "number"
+        },
+        "longitude": {
+          "maximum": 180,
+          "minimum": -180,
+          "title": "Longitude",
+          "type": "number"
+        },
+        "locationName": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Locationname",
+          "type": "string"
+        },
+        "placeId": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Placeid"
+        },
+        "scope": {
+          "const": "gainesville_city",
+          "title": "Scope",
+          "type": "string"
+        }
+      },
+      "required": [
+        "latitude",
+        "longitude",
+        "locationName",
+        "scope"
+      ],
+      "title": "ResolvedDestination",
       "type": "object"
     },
     "SavedAssignment": {

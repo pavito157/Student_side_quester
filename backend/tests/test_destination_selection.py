@@ -47,6 +47,50 @@ class DestinationSelectionTests(unittest.TestCase):
         self.assertEqual(result.destination.placeId, 'test-depot')
         self.assertTrue(result.destinationVerified)
 
+    def test_multi_quest_selects_and_verifies_ordered_unique_stops(self):
+        second = {
+            **self.place,
+            'id': 'test-park-two',
+            'displayName': {'text': 'Second test park'},
+            'formattedAddress': '125 Test Street, Gainesville, FL 32601, USA',
+            'location': {'latitude': 29.652, 'longitude': -82.324},
+        }
+        third = {
+            **self.place,
+            'id': 'test-park-three',
+            'displayName': {'text': 'Third test park'},
+            'formattedAddress': '130 Test Street, Gainesville, FL 32601, USA',
+            'location': {'latitude': 29.653, 'longitude': -82.325},
+        }
+        self.search.return_value = {'places': [self.place, second, third]}
+        preferences = GenerateQuestRequest.model_validate({
+            'location': 'Test origin',
+            'originCoordinates': {'latitude': 29.651, 'longitude': -82.323},
+            'time': {'selection': '60'}, 'budget': {'selection': '0'},
+            'preferences': 'Enjoy nature', 'multiQuest': True,
+        }).normalize()
+        proposal = GeneratedQuestProposal(
+            title='Observe three parks', description='Complete one nature observation at each stop.',
+            steps=[
+                'Observe plants at the first stop.',
+                'Compare plants at the second stop.',
+                'Record one final observation at the third stop.',
+            ],
+            estimatedMinutes=30, estimatedCostDollars=0,
+            locationName='Provider must override this', locationAddress='Provider must override this',
+        )
+        with patch.object(generation, 'call_gemini', return_value=proposal) as provider:
+            result = generation.generate_preview(preferences, self.selector)
+        self.assertEqual(len(result.destinations), 3)
+        self.assertEqual(result.destination, result.destinations[0])
+        self.assertEqual(len(result.quest.steps), len(result.destinations))
+        self.assertTrue(result.destinationVerified)
+        self.assertEqual(provider.call_count, 1)
+        stops_sent = provider.call_args.args[1]
+        self.assertEqual({stop.placeId for stop in stops_sent}, {
+            'test-depot', 'test-park-two', 'test-park-three',
+        })
+
     def test_outside_city_candidate_is_filtered_before_random_choice(self):
         outside = {**self.place, 'id': 'outside', 'displayName': {'text': 'Outside park'}, 'location': {'latitude': 28.54, 'longitude': -81.38}}
         self.search.return_value = {'places': [outside, self.place]}

@@ -27,6 +27,7 @@ export type SidequestRequestInput = {
   distance: DistanceConstraint
   goals: string[]
   vibePreferences?: string | null
+  multiQuest?: boolean
 }
 
 export type SidequestRequestPayload = {
@@ -41,6 +42,7 @@ export type SidequestRequestPayload = {
   distance: DistanceConstraint
   goals: string[]
   vibePreferences: string | null
+  multiQuest: boolean
 }
 
 export type SavedSidequestRequest = {
@@ -53,8 +55,23 @@ export type SavedSidequestRequest = {
 
 export type ActiveSidequest = {
   id: string
-  request: SidequestRequestPayload
+  title: string
+  description: string
+  steps: string[]
+  locationName: string
+  placeId?: string | null
+  destinations?: Array<{
+    locationName: string
+    placeId?: string | null
+    latitude: number
+    longitude: number
+  }>
+  completedStops?: number[]
+  latitude: number
+  longitude: number
+  estimatedMinutes: number
+  estimatedCostDollars: number
   xpValue: number
   createdAt: string
-  expiresAt: string
+  userRequest?: Record<string, unknown> | null
 }

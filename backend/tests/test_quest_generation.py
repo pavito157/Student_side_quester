@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from backend import firebase_helpers, quest_generation as generation
-from backend.quest_contracts import GenerateQuestRequest, GeneratedQuestProposal, ResolvedDestination
+from backend.quest_contracts import GenerateQuestRequest, GeneratedQuestProposal, ResolvedDestination, SelectedDestination
 from main import app
 
 HTTP_CLIENT = httpx.Client
@@ -24,7 +24,7 @@ class GenerationTests(unittest.TestCase):
                      "username": "Private Student", "goals": ["Learn"], "vibePreferences": "Relax"}
         self.preferences = GenerateQuestRequest.model_validate(self.body).normalize()
         self.destination = ResolvedDestination(locationName="Verified campus place", latitude=29.64,
-                                               longitude=-82.35, scope="uf_campus", placeId="place-123")
+                                               longitude=-82.35, scope="gainesville_city", placeId="place-123")
         self.proposal = {"title": "Plant patterns", "locationName": "Proposed garden",
                          "locationAddress": "Proposed UF campus address",
                          "description": "Observe repeating patterns in plants.",
@@ -184,6 +184,28 @@ class GenerationTests(unittest.TestCase):
                 self.assert_status(502, self.generate)
                 self.proposal = original
 
+    def test_verified_venue_uses_activity_only_schema_and_server_location_fields(self):
+        self.proposal.pop("locationName")
+        self.proposal.pop("locationAddress")
+        self.http()
+        selected = SelectedDestination(
+            **self.destination.model_dump(), locationAddress="Canonical provider address",
+        )
+        result = generation.call_gemini(self.preferences, selected)
+        self.assertEqual(result.locationName, selected.locationName)
+        self.assertEqual(result.locationAddress, selected.locationAddress)
+        body = json.loads(self.requests[0].content)
+        fields = body["generationConfig"]["responseFormat"]["text"]["schema"]["properties"]
+        self.assertNotIn("locationName", fields)
+        self.assertNotIn("locationAddress", fields)
+        context = json.loads(body["contents"][0]["parts"][0]["text"])
+        self.assertEqual(context["verifiedDestination"], {
+            "locationName": selected.locationName, "locationAddress": selected.locationAddress,
+        })
+        self.assertNotIn("latitude", json.dumps(context))
+        self.assertNotIn("placeId", json.dumps(context))
+        self.assertNotIn("xpReward", json.dumps(context))
+
     def test_time_budget_and_two_plus_hours_are_enforced(self):
         for time, budget, minutes, cost, valid in [
             ("60", "0", 60, 0, True), ("60", "0", 61, 0, False),
@@ -256,13 +278,21 @@ class GenerationTests(unittest.TestCase):
                 GenerateQuestRequest.model_validate({**self.body, **change})
 
     def test_route_uses_verified_uf_token_and_does_not_write_assignment(self):
+        app.dependency_overrides[generation.get_destination_resolver] = (
+            lambda: MagicMock(return_value=self.destination)
+        )
+        self.addCleanup(
+            lambda: app.dependency_overrides.pop(
+                generation.get_destination_resolver, None
+            )
+        )
         with TestClient(app) as client, \
                 patch.object(firebase_helpers, "get_firebase_app"), \
                 patch.object(firebase_helpers.auth, "verify_id_token", return_value={
                     "uid": "user_student", "email": "student@ufl.edu", "email_verified": True,
                 }) as verify, \
                 patch.object(firebase_helpers, "get_db", side_effect=AssertionError("No database access")) as db, \
-                patch.object(generation, "call_gemini", return_value=GeneratedQuestProposal(**self.proposal)):
+                patch.object(generation, "call_gemini", return_value=GeneratedQuestProposal(**self.proposal)): 
             self.assertEqual(client.post("/quests/generate", json=self.body).status_code, 401)
             db.assert_not_called()
             response = client.post("/quests/generate", json=self.body,
@@ -280,7 +310,7 @@ class GenerationTests(unittest.TestCase):
             verify.return_value["email"] = "student@gmail.com"
             self.assertEqual(client.post("/quests/generate", json=self.body,
                                         headers={"Authorization": "Bearer test-token"}).status_code, 403)
-
+        
 
 if __name__ == "__main__":
     unittest.main()

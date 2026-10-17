@@ -1,6 +1,11 @@
 """Opt-in real persistence/concurrency tests; loopback demo emulator only."""
 
 import os
+import io
+import json
+import tempfile
+from contextlib import contextmanager, ExitStack
+from pathlib import Path
 import threading
 import unittest
 import uuid
@@ -50,7 +55,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
         )
         self.resolver = MagicMock(return_value=ResolvedDestination(
             locationName="Canonical UF place", latitude=29.65, longitude=-82.34,
-            placeId="verified-place", scope="uf_campus",
+            placeId="verified-place", scope="gainesville_city",
         ))
         self.provider = patch.object(generation, "call_gemini", return_value=self.proposal).start()
 
@@ -249,6 +254,112 @@ class PersistenceEmulatorTests(unittest.TestCase):
         # Even a corrupt other user's pointer cannot expose the private quest:
         self.db.collection("Users").document(other).update({"activeQuestId": first.quest.id})
         self.assertIsNone(persistence.get_current_assignment(self.db, other))
+
+    @contextmanager
+    def wired_resolver_client(self):
+        """Real routes, resolver, models and DB; only auth/provider I/O is doubled."""
+        from backend import destination_resolver
+        with ExitStack() as stack:
+            folder = stack.enter_context(tempfile.TemporaryDirectory())
+            boundary = Path(folder) / "synthetic-test-only.geojson"
+            boundary.write_text(json.dumps({
+                "type": "Feature", "properties": {
+                    "scope": "gainesville_city", "source_url": "https://example.invalid/test-only",
+                    "reviewed_by": "test fixture", "reviewed_on": "2026-10-17",
+                }, "geometry": {"type": "Polygon", "coordinates": [[
+                    [-82.36, 29.64], [-82.33, 29.64], [-82.33, 29.67],
+                    [-82.36, 29.67], [-82.36, 29.64],
+                ]]},
+            }))
+            stack.enter_context(patch.dict(os.environ, {
+                "GAINESVILLE_BOUNDARY_PATH": str(boundary), "GOOGLE_PLACES_API_KEY": "test-only",
+            }))
+            place = {
+                "id": "provider-test-place", "displayName": {"text": self.proposal.locationName},
+                "formattedAddress": self.proposal.locationAddress + ", USA",
+                "location": {"latitude": 29.65, "longitude": -82.34},
+            }
+            lookup = stack.enter_context(patch.object(destination_resolver, "urlopen"))
+            lookup.side_effect = lambda *args, **kwargs: io.BytesIO(json.dumps({"places": [place]}).encode())
+            stack.enter_context(patch.object(firebase_helpers, "get_firebase_app"))
+            stack.enter_context(patch.object(firebase_helpers.auth, "verify_id_token", return_value={
+                "uid": self.uid, "email": "student@ufl.edu", "email_verified": True,
+            }))
+            stack.enter_context(patch("backend.quest_assignment_routes.get_db", return_value=self.db))
+            app.dependency_overrides[firebase_helpers.get_db] = lambda: self.db
+            self.addCleanup(app.dependency_overrides.clear)
+            client = stack.enter_context(TestClient(app))
+            yield client, lookup, place
+
+    def test_default_resolver_returns_saved_structured_json_and_completes(self):
+        # No resolver dependency override: exercise the teammate's actual wiring.
+        with self.wired_resolver_client() as (client, lookup, _place):
+            headers = {"Authorization": "Bearer firebase-test-token"}
+            self.assertIsNone(client.get("/me/quest", headers=headers).json())
+            body = {
+                "location": "Test origin", "time": {"selection": "60", "customMinutes": None},
+                "budget": {"selection": "0", "customDollars": None},
+                "distance": {"maxDistance": 2, "unit": "miles"},
+                "originCoordinates": {"latitude": 29.65, "longitude": -82.34},
+                "goals": ["Relax"], "vibePreferences": None,
+            }
+            result = client.post("/quests/assign", json=body, headers=headers)
+            self.assertEqual(result.status_code, 201, result.text)
+            self.assertEqual(result.headers["cache-control"], "no-store")
+            self.assertIn("resolver;dur=", result.headers["server-timing"])
+            saved = result.json()
+            from backend.quest_contracts import AssignQuestResponse
+            AssignQuestResponse.model_validate(saved)
+            self.assertEqual(saved["quest"]["placeId"], "provider-test-place")
+            self.assertEqual(saved["assignment"]["userId"], self.uid)
+            self.assertFalse(saved["reusedExisting"])
+            self.assert_xp()
+            self.saved_response = saved  # Available to a manual local test runner.
+            again = client.post("/quests/assign", json=body, headers=headers)
+            self.assertEqual(again.status_code, 200)
+            self.assertTrue(again.json()["reusedExisting"])
+            self.assertEqual(client.get("/me/quest", headers=headers).json(), again.json())
+            self.assertEqual(lookup.call_count, 1)
+            self.assertEqual(self.provider.call_count, 1)
+            url = f"/quests/{saved['quest']['id']}/complete"
+            location = {"latitude": 29.65, "longitude": -82.34, "accuracy": 10}
+            self.assertEqual(client.post(url, headers=headers, json=location).status_code, 200)
+            self.assertEqual(client.post(url, headers=headers, json=location).status_code, 409)
+            self.assert_xp(35, 125)
+            self.assertIsNone(client.get("/me/quest", headers=headers).json())
+
+    def test_real_resolver_failure_paths_never_save_or_award_xp(self):
+        from urllib.error import URLError
+        with self.wired_resolver_client() as (client, lookup, place):
+            headers = {"Authorization": "Bearer firebase-test-token"}
+            body = {"location": "Anywhere", "time": {"selection": "60"}, "budget": {"selection": "0"}}
+            cases = [
+                ("unknown", {"places": []}, 409),
+                ("ambiguous", {"places": [place, {**place, "id": "another-id"}]}, 409),
+                ("outside scope", {"places": [{**place, "location": {"latitude": 0, "longitude": 0}}]}, 409),
+                ("malformed provider", {"places": [{}]}, 503),
+            ]
+            for label, response, status in cases:
+                lookup.side_effect = lambda *a, _response=response, **kw: io.BytesIO(json.dumps(_response).encode())
+                with self.subTest(label=label):
+                    result = client.post("/quests/assign", json=body, headers=headers)
+                    self.assertEqual(result.status_code, status, result.text)
+                    self.assertEqual(self.records("quests"), [])
+                    self.assertEqual(self.records("userQuests"), [])
+                    self.assert_xp()
+            lookup.side_effect = URLError("test provider unavailable")
+            self.assertEqual(client.post("/quests/assign", json=body, headers=headers).status_code, 503)
+            lookup.side_effect = lambda *a, **kw: io.BytesIO(json.dumps({"places": [place]}).encode())
+            limited = {**body, "location": "Distant test origin", "distance": {"maxDistance": 0.01, "unit": "miles"},
+                       "originCoordinates": {"latitude": 29.66, "longitude": -82.34}}
+            self.assertEqual(client.post("/quests/assign", json=limited, headers=headers).status_code, 409)
+            for missing in ["GOOGLE_PLACES_API_KEY", "GAINESVILLE_BOUNDARY_PATH"]:
+                with patch.dict(os.environ, {missing: ""}):
+                    self.assertEqual(client.post("/quests/assign", json=body, headers=headers).status_code, 503)
+            self.assertEqual(self.records("quests"), [])
+            self.assertEqual(self.records("userQuests"), [])
+            self.assertNotIn("activeQuestId", self.db.collection("Users").document(self.uid).get().to_dict())
+            self.assert_xp()
 
     def test_full_api_save_reload_complete_and_assign_next_with_real_transactions(self):
         app.dependency_overrides[firebase_helpers.get_db] = lambda: self.db

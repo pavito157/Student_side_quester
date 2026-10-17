@@ -80,10 +80,10 @@ def preview_assignment(
 @router.post(
     "/quests/generate", response_model=GeneratedQuestResponse,
     summary="Generate a personalized Gemini preview (not saved)",
-    description=("Requires a verified UF Firebase ID token. Generates a quest directly "
-                 "through Gemini and validates estimated activity time and cost. "
-                 "Until a destination resolver is connected, campus scope and any distance "
-                 "limit remain explicitly unverified. No Firestore access or XP writes."),
+    description=("Requires a verified UF Firebase ID token. Discovers and verifies a city "
+                 "destination first, then Gemini writes activity content. Validates estimated time and cost. "
+                 "The connected selector verifies the destination and city scope; "
+                 "requested distance requires origin coordinates. No Firestore access or XP writes."),
 )
 def generate_assignment_preview(
     request: Request,

@@ -1,0 +1,32 @@
+{
+  "quest": {
+    "id": "example-quest",
+    "title": "Springs and Trail History Hunt",
+    "description": "Locate three historical park markers along the paved trail and write down the year established listed on each one.",
+    "steps": [
+      "Walk along the main paved multi-use trail originating from the historic brick waterworks building.",
+      "Inspect the informational plaques and trail markers encountered along the path to find three distinct installation dates.",
+      "Record the three specific years found on a personal notebook or device.",
+      "You're done when you have written down three distinct historical years from the park markers."
+    ],
+    "locationName": "Boulware Springs Park",
+    "placeId": "ChIJVZxw1tCj6IgRdJVRXYV9PDY",
+    "latitude": 29.620996899999998,
+    "longitude": -82.3075446,
+    "radiusMeters": 100.0,
+    "xpReward": 25,
+    "isActive": true,
+    "estimatedMinutes": 45,
+    "estimatedCostDollars": 0.0
+  },
+  "assignment": {
+    "id": "example-user_example-quest",
+    "userId": "example-user",
+    "questId": "example-quest",
+    "status": "assigned",
+    "assignedAt": "2026-10-17T19:30:00Z",
+    "completedAt": null,
+    "xpAwarded": 0
+  },
+  "reusedExisting": false
+}

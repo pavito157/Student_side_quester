@@ -71,7 +71,7 @@ preview** with:
 ```
 
 With a distance limit, `distanceStatus` is `pending` instead. The prompt asks for
-UF campus venues, but this is not a verified campus-scope check. No coordinates
+UF campus venues, but this is not a verified city-scope check. No coordinates
 are invented to make the preview look verified. Such a preview cannot be used
 for GPS completion or persisted as a verified assignment. Step 5 implements saving, active-assignment reuse, radius/XP policy and
 completion integration separately; new saves remain gated on the real resolver.
@@ -88,7 +88,7 @@ from backend.quest_generation import DestinationResolutionError
 
 def resolve_destination(location_name: str, location_address: str) -> ResolvedDestination:
     # Resolve using a trusted location provider. Reject unknown/ambiguous places.
-    # Independently verify the actual coordinates lie on UF campus; an address
+    # Independently verify the actual coordinates lie within Gainesville city limits; an address
     # containing "UF" or "Gainesville" is not sufficient.
     # Return only after that check:
     return ResolvedDestination(
@@ -96,7 +96,7 @@ def resolve_destination(location_name: str, location_address: str) -> ResolvedDe
         latitude=verified_latitude,
         longitude=verified_longitude,
         placeId=provider_place_id,  # optional, defaults to None
-        scope="uf_campus",
+        scope="gainesville_city",
     )
 ```
 

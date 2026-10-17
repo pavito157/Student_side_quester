@@ -50,3 +50,13 @@ Authentication still verifies revocation, email verification and the UF domain.
 There is no shared cache of personal quests, pre-generated fallback, reduced
 GPS validation, or change to frontend components. Existing assignment reuse
 remains part of the subsequent persistence step.
+
+## October 17: destination-first live smoke test
+
+Three fresh FastAPI assignments using live Google Places + Gemini and local
+Firestore emulator persistence completed in 1.65s, 1.40s and 1.36s (HTTP 201).
+Reload and existing-assignment reuse passed for each. Firebase token verification
+was mocked; these measurements exclude browser token acquisition and production
+Firestore/network latency. They are three observations, not a five-second SLA.
+Google discovery/verification precedes Gemini; the latter returns activity content
+only. The saved JSON shape is unchanged. See `INTEGRATION_HANDOFF.md`.

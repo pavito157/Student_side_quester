@@ -293,25 +293,41 @@ class GeneratedQuestProposal(ContractModel):
     estimatedCostDollars: float = Field(strict=True, ge=0, allow_inf_nan=False)
 
 
-class GeminiQuestDraft(GeneratedQuestProposal):
-    """Internal AI schema; the backend formats the final completion instruction."""
+class GeminiActivityDraft(ContractModel):
+    """AI writes activity content only when the destination is already verified."""
 
+    title: str = Field(min_length=1, max_length=160)
     description: str = Field(min_length=1, max_length=500,
                              description="One literal action objective with a count or result, not atmospheric prose.")
     steps: List[StepText] = Field(min_length=2, max_length=3)
+    estimatedMinutes: int = Field(strict=True, gt=0)
+    estimatedCostDollars: float = Field(strict=True, ge=0, allow_inf_nan=False)
     completionCriteria: str = Field(
         min_length=1, max_length=300,
         description="A specific observable finish, e.g. you have three labeled sketches. No vague reflection.",
     )
 
 
+class GeminiQuestDraft(GeminiActivityDraft):
+    """Legacy unsaved draft format, used without destination discovery."""
+
+    locationName: str = Field(min_length=1, max_length=300)
+    locationAddress: str = Field(min_length=1, max_length=500)
+
+
 class ResolvedDestination(Coordinates):
-    """Server resolver output; scope must be checked against UF campus geography."""
+    """Server resolver output; scope must be checked against Gainesville city-limit geography."""
 
     model_config = ConfigDict(revalidate_instances="always")
     locationName: str = Field(min_length=1, max_length=300)
     placeId: Optional[str] = Field(default=None, min_length=1, max_length=300)
-    scope: Literal["uf_campus"]
+    scope: Literal["gainesville_city"]
+
+
+class SelectedDestination(ResolvedDestination):
+    """Internal provider-selected venue; its address is not Gemini-authored."""
+
+    locationAddress: str = Field(min_length=1, max_length=500)
 
 
 class GeneratedQuestResponse(ContractModel):
@@ -331,7 +347,7 @@ class GeneratedQuestResponse(ContractModel):
         if self.destinationVerified != (self.destination is not None):
             raise ValueError("Destination verification requires resolver output")
         if self.filtersApplied != self.destinationVerified:
-            raise ValueError("All filters require a verified campus destination")
+            raise ValueError("All filters require a verified Gainesville destination")
         expected = ("not_requested" if self.normalizedPreferences.maxDistanceMiles is None
                     else "verified" if self.destinationVerified else "pending")
         if self.distanceStatus != expected:

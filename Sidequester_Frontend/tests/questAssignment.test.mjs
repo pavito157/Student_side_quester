@@ -180,7 +180,7 @@ test('Gemini helper accepts resolver output only with consistent verification fl
   const f = await fixture()
   const resolved = {
     ...generatedExample, destinationVerified: true, filtersApplied: true,
-    destination: { latitude: 29.64, longitude: -82.35, locationName: 'Verified place', scope: 'uf_campus', placeId: 'p1' },
+    destination: { latitude: 29.64, longitude: -82.35, locationName: 'Verified place', scope: 'gainesville_city', placeId: 'p1' },
   }
   f.state.fetch = async () => ({ ok: true, status: 200, json: async () => structuredClone(resolved) })
   assert.equal((await f.api.requestGeneratedQuest('user_student', payload)).destinationVerified, true)
@@ -283,4 +283,25 @@ test('posts the merged frontend distance object and nullable vibe unchanged', as
   }
   await f.api.requestTestQuest('user_student', body)
   assert.deepEqual(JSON.parse(f.calls[1][2].body), body)
+})
+
+test('frontend helper accepts the captured real FastAPI emulator response', async () => {
+  const f = await fixture()
+  const captured = JSON.parse(await readFile(new URL(
+    '../../backend/contracts/assignment.response.tested.example.json', import.meta.url,
+  ), 'utf8'))
+  f.state.fetch = async () => ({ ok: true, status: 201, json: async () => structuredClone(captured) })
+  const result = await f.api.requestAssignedQuest('example-user', payload)
+  assert.deepEqual(result, captured)
+  assert.equal(result.assignment.questId, result.quest.id)
+  assert.equal(result.assignment.xpAwarded, 0)
+})
+
+test('frontend helper accepts FastAPI JSON generated with live Gemini and Places', async () => {
+  const f = await fixture()
+  const captured = JSON.parse(await readFile(new URL(
+    '../../backend/contracts/assignment.response.live.example.json', import.meta.url,
+  ), 'utf8'))
+  f.state.fetch = async () => ({ ok: true, status: 201, json: async () => structuredClone(captured) })
+  assert.deepEqual(await f.api.requestAssignedQuest('example-user', payload), captured)
 })

@@ -301,7 +301,7 @@
     },
     "ResolvedDestination": {
       "additionalProperties": false,
-      "description": "Server resolver output; scope must be checked against UF campus geography.",
+      "description": "Server resolver output; scope must be checked against Gainesville city-limit geography.",
       "properties": {
         "latitude": {
           "maximum": 90,
@@ -336,7 +336,7 @@
           "title": "Placeid"
         },
         "scope": {
-          "const": "uf_campus",
+          "const": "gainesville_city",
           "title": "Scope",
           "type": "string"
         }

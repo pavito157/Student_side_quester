@@ -1,10 +1,13 @@
 # Step 5: saved assignment and frontend handoff
 
-Persistence and the API contract are implemented. New production assignments
-require Backend 1's destination resolver to be connected through
-`get_destination_resolver()` in `quest_generation.py`. Until then, a new save
-returns 503 without calling Gemini or writing data. Existing saved assignments
-can still be loaded/reused. The unsaved Gemini preview continues to work.
+Persistence and the API contract are implemented. The merged destination resolver
+is now connected through `get_destination_resolver()` in `quest_generation.py`.
+New generation/save requests require `GOOGLE_PLACES_API_KEY` and a reviewed campus
+boundary file at `GAINESVILLE_BOUNDARY_PATH`. Missing resolver configuration returns
+503 before generation, without saving. Existing active assignments can be
+loaded/reused without calling Gemini or the resolver. See
+[INTEGRATION_HANDOFF.md](INTEGRATION_HANDOFF.md) for current test evidence and the
+frontend wiring contract.
 
 No frontend component was changed. Frontend teammates own button wiring, loading,
 error display, refreshing state, and cancelling requests on account changes.
@@ -216,3 +219,8 @@ longer write balances; frontend balance reads support legacy records too.
 
 New saved assignments still require the teammate destination resolver. Completion
 also requires a chosen dorm and a seeded dorm document with an integer XP balance.
+
+Production now discovers a verified city/distance-eligible Google place before
+Gemini writes activity content. No eligible result in the sampled search returns
+409 before generation/saving. Public request/saved-response JSON is unchanged;
+see `INTEGRATION_HANDOFF.md` for the current order and live test results.

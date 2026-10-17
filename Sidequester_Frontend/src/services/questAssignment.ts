@@ -73,7 +73,7 @@ export type GeneratedQuestResponse = Omit<QuestPreviewResponse, 'mode' | 'filter
     latitude: number
     longitude: number
     placeId: string | null
-    scope: 'uf_campus'
+    scope: 'gainesville_city'
   } | null
 }
 
@@ -190,7 +190,7 @@ export async function requestGeneratedQuest(
   const d = result.destination
   if (result.destinationVerified) {
     if (!isRecord(d) || typeof d.locationName !== 'string' || !d.locationName.trim()
-        || d.scope !== 'uf_campus'
+        || d.scope !== 'gainesville_city'
         || typeof d.latitude !== 'number' || !Number.isFinite(d.latitude) || Math.abs(d.latitude) > 90
         || typeof d.longitude !== 'number' || !Number.isFinite(d.longitude) || Math.abs(d.longitude) > 180
         || !(d.placeId === null || (typeof d.placeId === 'string' && d.placeId.trim().length > 0))) {

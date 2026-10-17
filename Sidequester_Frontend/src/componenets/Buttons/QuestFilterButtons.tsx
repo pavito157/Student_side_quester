@@ -1,3 +1,4 @@
+import { useAuth } from '@clerk/clerk-react'
 import { useState } from 'react'
 import { colors } from '../../constants/colors'
 import BudgetButton from './BudgetButton'
@@ -9,6 +10,8 @@ type Filters = {
   where: string
   time: string
   budget: string
+  customTime: string
+  customBudget: string
 }
 
 const sidequests = [
@@ -23,12 +26,6 @@ const sidequests = [
   { name: 'Find the best study spot on a floor you have never visited', where: 'Marston', minutes: 45, cost: 0 },
   { name: 'Do a 60-minute phone-free study sprint', where: 'Marston', minutes: 60, cost: 0 },
   { name: 'Reserve a group study room and start a study group with two classmates', where: 'Marston', minutes: 120, cost: 0 },
-
-  // Library West
-  { name: 'Write down your goals for the semester in a quiet corner', where: 'Libwest', minutes: 30, cost: 0 },
-  { name: 'Pick up a book outside your major and read the first chapter', where: 'Libwest', minutes: 45, cost: 0 },
-  { name: 'Swap flashcards with a friend for an hour', where: 'Libwest', minutes: 60, cost: 0 },
-  { name: 'Plan out your whole month of assignments and exams', where: 'Libwest', minutes: 90, cost: 0 },
 
   // Flavet Field
   { name: 'Toss a frisbee or kick a ball around with a friend', where: 'Flavet', minutes: 30, cost: 0 },
@@ -55,16 +52,50 @@ const sidequests = [
   { name: 'Play pickup basketball with strangers, then get a smoothie', where: 'studentrec', minutes: 90, cost: 5 },
 ]
 
+const locationFilterIds: Record<string, string> = {
+  'reitz union': 'reitz-union',
+  'j wayne reitz union': 'reitz-union',
+  'reitz student union': 'reitz-union',
+  'marston library': 'Marston',
+  'marston science library': 'Marston',
+  'flavet field': 'Flavet',
+  'lake wauburg': 'Wauburg',
+  'southwest recreation center': 'SouthWest',
+  'southwest rec center': 'SouthWest',
+  'student recreation center': 'studentrec',
+  'student rec center': 'studentrec',
+}
+
 function QuestFilterButtons() {
+  const { isSignedIn } = useAuth()
   const [selectedFilters, setSelectedFilters] = useState<Filters>({
     where: '',
     time: '',
     budget: '',
+    customTime: '',
+    customBudget: '',
   })
   const [suggestion, setSuggestion] = useState('')
 
   function generateSidequest() {
-    if (!selectedFilters.where || !selectedFilters.time || !selectedFilters.budget) {
+    const customTime = Number(selectedFilters.customTime)
+    if (
+      selectedFilters.time === 'custom' &&
+      (!selectedFilters.customTime || !Number.isInteger(customTime) || customTime <= 0)
+    ) {
+      setSuggestion('Custom time must be a whole number of minutes greater than zero.')
+      return
+    }
+
+    if (
+      !selectedFilters.where ||
+      !selectedFilters.time ||
+      !selectedFilters.budget ||
+      (selectedFilters.budget === 'custom' &&
+        (selectedFilters.customBudget === '' ||
+          !Number.isFinite(Number(selectedFilters.customBudget)) ||
+          Number(selectedFilters.customBudget) < 0))
+    ) {
       setSuggestion('Please select an option for Where, Time, and Budget.')
       return
     }
@@ -73,20 +104,32 @@ function QuestFilterButtons() {
       const matchesWhere =
         !selectedFilters.where ||
         selectedFilters.where === 'any' ||
-        sidequest.where === selectedFilters.where
+        sidequest.where ===
+          locationFilterIds[
+            selectedFilters.where
+              .toLocaleLowerCase()
+              .replace(/[^a-z0-9]+/g, ' ')
+              .trim()
+          ]
       const timeLimit = Number(selectedFilters.time)
       const matchesTime =
         !selectedFilters.time ||
         selectedFilters.time === 'any' ||
-        (timeLimit === 120 ? sidequest.minutes >= timeLimit : sidequest.minutes <= timeLimit)
+        (selectedFilters.time === 'custom'
+          ? sidequest.minutes <= Number(selectedFilters.customTime)
+          : timeLimit === 120
+            ? sidequest.minutes >= timeLimit
+            : sidequest.minutes <= timeLimit)
       const matchesBudget =
         !selectedFilters.budget ||
         selectedFilters.budget === 'any' ||
-        (selectedFilters.budget === '0'
-          ? sidequest.cost === 0
-          : selectedFilters.budget === '10'
-            ? sidequest.cost < 10
-            : sidequest.cost >= 10 && sidequest.cost <= 25)
+        (selectedFilters.budget === 'custom'
+          ? sidequest.cost <= Number(selectedFilters.customBudget)
+          : selectedFilters.budget === '0'
+            ? sidequest.cost === 0
+            : selectedFilters.budget === '10'
+              ? sidequest.cost < 10
+              : sidequest.cost >= 10 && sidequest.cost <= 25)
 
       return matchesWhere && matchesTime && matchesBudget
     })
@@ -104,6 +147,7 @@ function QuestFilterButtons() {
     <div className="space-y-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <WhereButton
+          autoLocate={isSignedIn === true}
           value={selectedFilters.where}
           onChange={(where) => {
             setSelectedFilters((currentFilters) => ({ ...currentFilters, where }))
@@ -112,15 +156,25 @@ function QuestFilterButtons() {
         />
         <TimeButton
           value={selectedFilters.time}
+          customValue={selectedFilters.customTime}
           onChange={(time) => {
             setSelectedFilters((currentFilters) => ({ ...currentFilters, time }))
+            setSuggestion('')
+          }}
+          onCustomChange={(customTime) => {
+            setSelectedFilters((currentFilters) => ({ ...currentFilters, customTime }))
             setSuggestion('')
           }}
         />
         <BudgetButton
           value={selectedFilters.budget}
+          customValue={selectedFilters.customBudget}
           onChange={(budget) => {
             setSelectedFilters((currentFilters) => ({ ...currentFilters, budget }))
+            setSuggestion('')
+          }}
+          onCustomChange={(customBudget) => {
+            setSelectedFilters((currentFilters) => ({ ...currentFilters, customBudget }))
             setSuggestion('')
           }}
         />

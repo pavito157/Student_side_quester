@@ -2,6 +2,21 @@
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
+## Google Places setup
+
+Copy `.env.example` to `.env.local` and set `VITE_GOOGLE_MAPS_API_KEY` to a
+Google Maps API key. Enable Maps JavaScript API and Places API (New) for the
+key's Google Cloud project. Enable Maps JavaScript API, Places API (New), and
+Geocoding API. Restrict the key to this app's HTTP referrers and the APIs the
+app uses before deploying. Browser API keys are visible to users in the client
+bundle, so do not use an unrestricted key.
+
+The Where field uses Google Places autocomplete and biases suggestions toward
+Gainesville, Florida. Its “Use my location” button requires browser location
+permission and a secure context (HTTPS or localhost). Sidequest suggestions
+are currently available for the campus locations listed in
+`src/componenets/Buttons/QuestFilterButtons.tsx`.
+
 Currently, two official plugins are available:
 
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)

@@ -45,6 +45,21 @@
   --gradient-glow: radial-gradient(ellipse at center, #3b82f633 0%, #071b1600 72%);
 }
 
+.google-place-autocomplete-shell {
+  display: flex;
+  width: 100%;
+}
+
+.google-place-autocomplete {
+  display: block;
+  width: 100%;
+  --gmp-mat-color-primary: var(--color-primary);
+  --gmp-mat-color-on-surface: var(--color-foreground);
+  --gmp-mat-color-surface: var(--color-surface-raised);
+  --gmp-mat-color-outline: var(--color-border);
+  --gmp-mat-font-family: inherit;
+}
+
 .sidebar-modal {
   position: fixed;
   inset: 0 auto 0 0;

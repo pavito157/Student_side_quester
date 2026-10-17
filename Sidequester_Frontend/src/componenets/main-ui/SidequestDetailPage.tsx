@@ -24,6 +24,56 @@ function formatDate(date: string): string {
   })
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
+}
+
+function formatRequestedTime(value: unknown): string | null {
+  const time = asRecord(value)
+  if (!time || typeof time.selection !== 'string') return null
+  switch (time.selection) {
+    case 'any': return 'Any time'
+    case '30': return '30 minutes or less'
+    case '60': return '1 hour or less'
+    case '120': return '2+ hours'
+    case 'custom':
+      return typeof time.customMinutes === 'number' && Number.isFinite(time.customMinutes)
+        ? `${time.customMinutes} minutes`
+        : 'Custom time'
+    default: return null
+  }
+}
+
+function formatRequestedBudget(value: unknown): string | null {
+  const budget = asRecord(value)
+  if (!budget || typeof budget.selection !== 'string') return null
+  switch (budget.selection) {
+    case 'any': return 'Any budget'
+    case '0': return 'Free'
+    case '10': return 'Under $10'
+    case '10-25': return '$10–$25'
+    case 'custom':
+      return typeof budget.customDollars === 'number' && Number.isFinite(budget.customDollars)
+        ? `Up to $${budget.customDollars}`
+        : 'Custom budget'
+    default: return null
+  }
+}
+
+function formatRequestedDistance(value: unknown): string | null {
+  if (value === null) return 'Any distance'
+  const distance = asRecord(value)
+  if (!distance
+    || typeof distance.maxDistance !== 'number'
+    || !Number.isFinite(distance.maxDistance)
+    || distance.unit !== 'miles') {
+    return null
+  }
+  return `Within ${distance.maxDistance} miles`
+}
+
 function Detail({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="border-b py-3 last:border-b-0" style={{ borderColor: colors.border }}>
@@ -119,12 +169,19 @@ function SidequestDetailPage({
   const requestedGoals = Array.isArray(userRequest?.goals)
     ? userRequest.goals.filter((goal): goal is string => typeof goal === 'string')
     : []
+  const requestedTime = formatRequestedTime(userRequest?.time)
+  const requestedBudget = formatRequestedBudget(userRequest?.budget)
+  const requestedDistance = userRequest && 'distance' in userRequest
+    ? formatRequestedDistance(userRequest.distance)
+    : null
+  const destinationQuery = sidequest ? `${sidequest.latitude},${sidequest.longitude}` : ''
+  const destinationUrl = sidequest
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destinationQuery)}`
+      + (sidequest.placeId ? `&query_place_id=${encodeURIComponent(sidequest.placeId)}` : '')
+    : null
   const directionsUrl = sidequest
-    ? `https://www.google.com/maps/search/?api=1&query=${
-        sidequest.latitude !== null && sidequest.longitude !== null
-          ? `${sidequest.latitude},${sidequest.longitude}`
-          : encodeURIComponent(sidequest.locationName)
-      }`
+    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destinationQuery)}`
+      + (sidequest.placeId ? `&destination_place_id=${encodeURIComponent(sidequest.placeId)}` : '')
     : null
 
   return (
@@ -272,9 +329,11 @@ function SidequestDetailPage({
                     Created {formatDate(sidequest.createdAt)}
                   </span>
                 </div>
-                <h1 className="mt-3 max-w-4xl break-words text-3xl font-black leading-tight sm:text-5xl">
-                  {sidequest.title}
-                </h1>
+                <div className="mt-3">
+                  <h1 className="max-w-4xl break-words text-3xl font-black leading-tight sm:text-5xl">
+                    {sidequest.title}
+                  </h1>
+                </div>
               </div>
 
               <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.6fr)]">
@@ -318,60 +377,9 @@ function SidequestDetailPage({
                       ))}
                     </ol>
                   </section>
-
-                  {userRequest && (
-                    <section className="rpg-panel p-5 sm:p-7">
-                      <p className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: colors.muted }}>
-                        Your original request
-                      </p>
-                      <h2 className="mt-1 text-lg font-black">What you asked for</h2>
-                      {requestedPreferences && (
-                        <p className="mt-3 text-sm leading-relaxed" style={{ color: colors.muted }}>
-                          {requestedPreferences}
-                        </p>
-                      )}
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {requestedLocation && (
-                          <span
-                            className="rounded-full border px-3 py-1.5 text-xs"
-                            style={{ borderColor: colors.border, color: colors.foreground }}
-                          >
-                            Location: {requestedLocation}
-                          </span>
-                        )}
-                        {requestedGoals.map((goal) => (
-                          <span
-                            key={goal}
-                            className="rounded-full border px-3 py-1.5 text-xs"
-                            style={{ borderColor: colors.border, color: colors.foreground }}
-                          >
-                            Goal: {goal}
-                          </span>
-                        ))}
-                      </div>
-                      <details className="mt-4">
-                        <summary
-                          className="cursor-pointer text-sm font-semibold"
-                          style={{ color: colors.muted }}
-                        >
-                          View full request JSON
-                        </summary>
-                        <pre
-                          className="mt-3 max-h-72 overflow-auto rounded-xl border p-4 text-xs leading-relaxed whitespace-pre-wrap break-words"
-                          style={{
-                            backgroundColor: colors.background,
-                            borderColor: colors.border,
-                            color: colors.muted,
-                          }}
-                        >
-                          {JSON.stringify(userRequest, null, 2)}
-                        </pre>
-                      </details>
-                    </section>
-                  )}
                 </div>
 
-                <aside className="rpg-panel p-5 sm:p-6">
+                <aside className="rpg-panel self-start p-5 sm:p-6">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: colors.secondary }}>
@@ -398,7 +406,23 @@ function SidequestDetailPage({
                     </Detail>
                     <Detail label="Reward">Awarded after successful completion</Detail>
                   </dl>
-                  <div className="mt-5 flex flex-col gap-3">
+                  <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                    {destinationUrl && (
+                      <a
+                        href={destinationUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 py-2 text-sm font-bold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+                        style={{
+                          color: colors.secondary,
+                          borderColor: colors.secondary,
+                          outlineColor: colors.secondary,
+                        }}
+                      >
+                        Open destination
+                        <span aria-hidden="true">↗</span>
+                      </a>
+                    )}
                     {directionsUrl && sidequest.locationName !== 'Anywhere' && (
                       <a
                         href={directionsUrl}
@@ -411,14 +435,14 @@ function SidequestDetailPage({
                           outlineColor: colors.secondary,
                         }}
                       >
-                        Open directions
+                        Get directions
                       </a>
                     )}
                     <button
                       type="button"
                       onClick={() => void handleComplete()}
                       disabled={isCompleting || isAbandoning}
-                      className="min-h-12 cursor-pointer rounded-xl px-4 py-2.5 text-sm font-black transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2"
+                      className="min-h-12 cursor-pointer rounded-xl px-4 py-2.5 text-sm font-black transition hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-wait disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 sm:col-span-2 lg:col-span-1"
                       style={{
                         backgroundColor: colors.primary,
                         color: colors.primaryForeground,
@@ -435,7 +459,7 @@ function SidequestDetailPage({
                           setShowAbandonConfirmation(true)
                         }}
                         disabled={isCompleting || isAbandoning}
-                        className="min-h-11 cursor-pointer rounded-xl border px-4 py-2 text-sm font-semibold transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2"
+                        className="min-h-11 cursor-pointer rounded-xl border px-4 py-2 text-sm font-semibold transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 sm:col-span-2 lg:col-span-1"
                         style={{
                           borderColor: colors.errorBorder,
                           color: colors.error,
@@ -487,10 +511,85 @@ function SidequestDetailPage({
                     </p>
                   )}
                 </aside>
+
+                {userRequest && (
+                  <section className="rpg-panel p-5 sm:p-7 lg:col-span-2">
+                      <p className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: colors.muted }}>
+                        Your original request
+                      </p>
+                      <h2 className="mt-1 text-lg font-black">What you asked for</h2>
+                      {requestedPreferences && (
+                        <p className="mt-3 text-sm leading-relaxed" style={{ color: colors.muted }}>
+                          {requestedPreferences}
+                        </p>
+                      )}
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {requestedLocation && (
+                          <span
+                            className="rounded-full border px-3 py-1.5 text-xs"
+                            style={{ borderColor: colors.border, color: colors.foreground }}
+                          >
+                            Location: {requestedLocation}
+                          </span>
+                        )}
+                        {requestedGoals.map((goal) => (
+                          <span
+                            key={goal}
+                            className="rounded-full border px-3 py-1.5 text-xs"
+                            style={{ borderColor: colors.border, color: colors.foreground }}
+                          >
+                            Goal: {goal}
+                          </span>
+                        ))}
+                        {requestedDistance && (
+                          <span
+                            className="rounded-full border px-3 py-1.5 text-xs"
+                            style={{ borderColor: colors.border, color: colors.foreground }}
+                          >
+                            Distance: {requestedDistance}
+                          </span>
+                        )}
+                        {requestedTime && (
+                          <span
+                            className="rounded-full border px-3 py-1.5 text-xs"
+                            style={{ borderColor: colors.border, color: colors.foreground }}
+                          >
+                            Time: {requestedTime}
+                          </span>
+                        )}
+                        {requestedBudget && (
+                          <span
+                            className="rounded-full border px-3 py-1.5 text-xs"
+                            style={{ borderColor: colors.border, color: colors.foreground }}
+                          >
+                            Budget: {requestedBudget}
+                          </span>
+                        )}
+                      </div>
+                      <details className="mt-4">
+                        <summary
+                          className="cursor-pointer text-sm font-semibold"
+                          style={{ color: colors.muted }}
+                        >
+                          View full request JSON
+                        </summary>
+                        <pre
+                          className="mt-3 max-h-72 overflow-auto rounded-xl border p-4 text-xs leading-relaxed whitespace-pre-wrap break-words"
+                          style={{
+                            backgroundColor: colors.background,
+                            borderColor: colors.border,
+                            color: colors.muted,
+                          }}
+                        >
+                          {JSON.stringify(userRequest, null, 2)}
+                        </pre>
+                      </details>
+                  </section>
+                )}
               </div>
 
               <section className="rpg-panel mt-5 overflow-hidden">
-                <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
+                <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: colors.secondary }}>
                       Map point
@@ -502,9 +601,13 @@ function SidequestDetailPage({
                   </div>
                   <span
                     className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold"
-                    style={{ borderColor: colors.border, color: colors.muted }}
+                    style={{
+                      borderColor: colors.successBorder,
+                      color: colors.success,
+                      backgroundColor: colors.successBackground,
+                    }}
                   >
-                    <span className="size-2 rounded-full" style={{ backgroundColor: colors.secondary }} />
+                    <span className="size-2 rounded-full" style={{ backgroundColor: colors.success }} />
                     Verified destination
                   </span>
                 </div>

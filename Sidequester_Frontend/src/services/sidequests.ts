@@ -18,6 +18,7 @@ export function parseActiveSidequest(id: string, data: Record<string, unknown>, 
       || !Array.isArray(data.steps) || !data.steps.length || !data.steps.every((step) => typeof step === 'string')
       || typeof data.latitude !== 'number' || !Number.isFinite(data.latitude) || Math.abs(data.latitude) > 90
       || typeof data.longitude !== 'number' || !Number.isFinite(data.longitude) || Math.abs(data.longitude) > 180
+      || (data.placeId !== undefined && data.placeId !== null && typeof data.placeId !== 'string')
       || typeof data.xpReward !== 'number' || !Number.isSafeInteger(data.xpReward) || data.xpReward < 0
       || typeof data.estimatedMinutes !== 'number' || !Number.isSafeInteger(data.estimatedMinutes) || data.estimatedMinutes <= 0
       || typeof data.estimatedCostDollars !== 'number' || !Number.isFinite(data.estimatedCostDollars) || data.estimatedCostDollars < 0
@@ -27,7 +28,9 @@ export function parseActiveSidequest(id: string, data: Record<string, unknown>, 
   }
   return {
     id, title: data.title, description: data.description, steps: data.steps,
-    locationName: data.locationName, latitude: data.latitude, longitude: data.longitude,
+    locationName: data.locationName,
+    placeId: typeof data.placeId === 'string' ? data.placeId : null,
+    latitude: data.latitude, longitude: data.longitude,
     estimatedMinutes: data.estimatedMinutes, estimatedCostDollars: data.estimatedCostDollars,
     xpValue: data.xpReward, createdAt: data.assignedAt.toDate().toISOString(),
     userRequest,

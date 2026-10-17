@@ -15,6 +15,7 @@ const record = () => ({
   userId: 'alice', ownerId: 'alice', questId: 'quest-1', status: 'assigned', isActive: true,
   title: 'Tree sketch', description: 'Draw three leaves.', steps: ['Walk there.', 'Draw three leaves.'],
   locationName: 'Verified park', latitude: 29.65, longitude: -82.34,
+  placeId: 'google-place-123',
   xpReward: 40, estimatedMinutes: 20, estimatedCostDollars: 0, assignedAt: new Timestamp(),
   userRequest: {
     preferences: 'Explore nature.',
@@ -72,6 +73,7 @@ test('active quest subscriptions use Users/uid/sidequests and display generated 
   assert.equal(rows.length, 1)
   assert.equal(rows[0].title, 'Tree sketch')
   assert.equal(rows[0].locationName, 'Verified park')
+  assert.equal(rows[0].placeId, 'google-place-123')
   assert.equal(rows[0].xpValue, 40)
   assert.equal(rows[0].latitude, 29.65)
   assert.deepEqual(plain(rows[0].steps), ['Walk there.', 'Draw three leaves.'])
@@ -85,6 +87,10 @@ test('stored assignments reject a different account and invalid rewards', async 
   assert.throws(() => f.api.parseActiveSidequest('quest-1', record(), 'bob'), /invalid assignment/)
   assert.throws(() => f.api.parseActiveSidequest('quest-1', { ...record(), xpReward: -1 }, 'alice'), /invalid assignment/)
   assert.throws(() => f.api.parseActiveSidequest('quest-1', { ...record(), userRequest: 'invalid' }, 'alice'), /invalid assignment/)
+  assert.throws(() => f.api.parseActiveSidequest('quest-1', { ...record(), placeId: 123 }, 'alice'), /invalid assignment/)
+  const legacy = { ...record() }
+  delete legacy.placeId
+  assert.equal(f.api.parseActiveSidequest('quest-1', legacy, 'alice').placeId, null)
 })
 
 test('completion requests a fresh precise GPS reading and delegates XP to FastAPI', async () => {

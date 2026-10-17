@@ -57,6 +57,7 @@ export type ActiveSidequest = {
   description: string
   steps: string[]
   locationName: string
+  placeId?: string | null
   latitude: number
   longitude: number
   estimatedMinutes: number

@@ -1,21 +1,11 @@
 import { useState, type FormEvent } from 'react'
-import { colors } from '../constants/colors'
-import BudgetButton from './Buttons/BudgetButton'
-import TimeButton from './Buttons/TimeButton'
-import WhereButton from './Buttons/WhereButton'
+import { colors } from '../../constants/colors'
+import type { Vibe } from '../../types/vibe'
+import BudgetButton from '../Buttons/BudgetButton'
+import TimeButton from '../Buttons/TimeButton'
+import WhereButton from '../Buttons/WhereButton'
 
-export type Vibe = {
-  id: string
-  name: string
-  preferences: string
-  where: string
-  time: string
-  budget: string
-  customTime?: string
-  customBudget?: string
-  createdAt?: string
-  updatedAt?: string
-}
+export type { Vibe } from '../../types/vibe'
 
 interface VibeEditorProps {
   onSave: (vibe: Omit<Vibe, 'id' | 'createdAt' | 'updatedAt'>) => void | Promise<void>

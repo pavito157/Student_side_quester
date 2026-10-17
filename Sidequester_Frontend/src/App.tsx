@@ -1,15 +1,17 @@
 import { useState } from 'react'
-import Header from './componenets/Header'
-import QuestFilterButtons, { type QuestFilters } from './componenets/Buttons/QuestFilterButtons'
-import FirebaseTextBox from './componenets/FirebaseTextBox'
-import GoalsSidebar from './componenets/GoalsSidebar'
-import SettingsModal, { type SettingsSection } from './componenets/SettingsModal'
-import UserPreferencesSummary from './componenets/UserPreferencesSummary'
-import type { Vibe } from './componenets/VibeEditor'
+import Header from './componenets/main-ui/Header'
+import QuestFilterButtons, { type QuestFilters } from './componenets/main-ui/QuestFilterButtons'
+import FirebaseTextBox from './componenets/main-ui/FirebaseTextBox'
+import GoalsSidebar from './componenets/main-ui/GoalsSidebar'
+import UserPreferencesSummary from './componenets/main-ui/UserPreferencesSummary'
+import SettingsModal, { type SettingsSection } from './componenets/settings/SettingsModal'
+import VibesSidebar from './componenets/sidebar/VibesSidebar'
+import type { Vibe } from './types/vibe'
 import { colors } from './constants/colors'
 
 function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isVibesSidebarOpen, setIsVibesSidebarOpen] = useState(false)
   const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null)
   const [vibeToApply, setVibeToApply] = useState<Vibe | null>(null)
   const [questFilters, setQuestFilters] = useState<QuestFilters>({
@@ -34,6 +36,11 @@ function App() {
     <>
       <Header
         onSettingsClick={() => openSettings()}
+        onMenuClick={() => setIsVibesSidebarOpen(true)}
+      />
+      <VibesSidebar
+        isOpen={isVibesSidebarOpen}
+        onClose={() => setIsVibesSidebarOpen(false)}
         onApplyVibe={(vibe) => {
           setVibeToApply({ ...vibe })
           setQuestFilters({

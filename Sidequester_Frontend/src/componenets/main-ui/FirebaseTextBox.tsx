@@ -1,5 +1,5 @@
-import useFirestoreDocument from '../hooks/useFirestoreDocument'
-import TextBox from './TextBox'
+import useFirestoreDocument from '../../hooks/useFirestoreDocument'
+import TextBox from '../TextBox'
 
 interface FirebaseTextBoxProps {
   collectionName?: string

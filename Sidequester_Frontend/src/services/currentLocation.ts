@@ -32,21 +32,28 @@ function getGeolocationErrorMessage(error: unknown): string {
   }
 }
 
-export async function getCurrentLocationLabel(): Promise<string> {
+export type CurrentLocation = {
+  label: string
+  latitude: number
+  longitude: number
+}
+
+export async function getCurrentLocation(): Promise<CurrentLocation> {
   try {
     const position = await getCoordinates()
+    const { latitude, longitude } = position.coords
     const { Geocoder } = await loadGeocodingLibrary()
     const geocoder = new Geocoder()
     const { results } = await geocoder.geocode({
       location: {
-        lat: position.coords.latitude,
-        lng: position.coords.longitude,
+        lat: latitude,
+        lng: longitude,
       },
     })
     const address = results[0]?.formatted_address
 
     if (!address) throw new Error('Google Maps could not find an address for your location.')
-    return address
+    return { label: address, latitude, longitude }
   } catch (error) {
     throw new Error(getGeolocationErrorMessage(error))
   }

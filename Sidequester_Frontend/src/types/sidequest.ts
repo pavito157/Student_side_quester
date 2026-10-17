@@ -17,6 +17,8 @@ export type SidequestRequestInput = {
   preferences: string
   username: string
   location: string
+  latitude: number | null
+  longitude: number | null
   time: TimeConstraint
   budget: BudgetConstraint
   distance: DistanceConstraint
@@ -28,6 +30,8 @@ export type SidequestRequestPayload = {
   preferences: string
   username: string
   location: string
+  latitude: number | null
+  longitude: number | null
   time: TimeConstraint
   budget: BudgetConstraint
   distance: DistanceConstraint

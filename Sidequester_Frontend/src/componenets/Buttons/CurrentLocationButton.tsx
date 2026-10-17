@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { colors } from '../../constants/colors'
-import { getCurrentLocationLabel } from '../../services/currentLocation'
+import { getCurrentLocation, type CurrentLocation } from '../../services/currentLocation'
 
 type CurrentLocationButtonProps = {
   autoLocate: boolean
-  onLocationFound: (location: string) => void
+  onLocationFound: (location: CurrentLocation) => void
 }
 
 function CurrentLocationButton({ autoLocate, onLocationFound }: CurrentLocationButtonProps) {
@@ -29,7 +29,7 @@ function CurrentLocationButton({ autoLocate, onLocationFound }: CurrentLocationB
         if (!isCurrent || permission.state !== 'granted') return
 
         setIsLocating(true)
-        const location = await getCurrentLocationLabel()
+        const location = await getCurrentLocation()
         if (isCurrent && !manualLookupStartedRef.current) {
           onLocationFoundRef.current(location)
         }
@@ -59,7 +59,7 @@ function CurrentLocationButton({ autoLocate, onLocationFound }: CurrentLocationB
     setIsManualLocating(true)
     setError('')
     try {
-      onLocationFoundRef.current(await getCurrentLocationLabel())
+      onLocationFoundRef.current(await getCurrentLocation())
     } catch (locationError) {
       setError(
         locationError instanceof Error

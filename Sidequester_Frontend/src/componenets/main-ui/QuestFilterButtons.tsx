@@ -19,6 +19,8 @@ import SidequestJsonModal from './SidequestJsonModal'
 
 export type QuestFilters = {
   where: string
+  latitude: number | null
+  longitude: number | null
   time: string
   budget: string
   customTime: string
@@ -138,6 +140,8 @@ function QuestFilterButtons({
         preferences,
         username: getUsername(user, email),
         location: filters.where === 'any' ? 'Anywhere' : filters.where || 'Not selected',
+        latitude: filters.latitude,
+        longitude: filters.longitude,
         time: {
           selection: getTimeSelection(filters.time),
           customMinutes,
@@ -156,9 +160,9 @@ function QuestFilterButtons({
       if (isSignedIn && user) {
         const saved = await saveSidequestRequest(user.id, email, request)
         setRequestCount(saved.requestCount)
-        setPersistenceMessage('Request saved to your account sidequest history.')
+        setPersistenceMessage('Request saved to your account.')
       } else {
-        setPersistenceMessage('Sign in to save this request to your sidequest history.')
+        setPersistenceMessage('Request prepared. Sign in to save it to your account.')
       }
     } catch (error) {
       setPreviewError(
@@ -228,9 +232,16 @@ function QuestFilterButtons({
           </p>
         </div>
         <WhereButton
-          autoLocate={isSignedIn === true && !activeVibe}
+          autoLocate={isSignedIn === true && !activeVibe && !filters.where}
           value={filters.where}
-          onChange={(where) => setFilters((current) => ({ ...current, where }))}
+          onChange={(where, coordinates) =>
+            setFilters((current) => ({
+              ...current,
+              where,
+              latitude: coordinates?.latitude ?? null,
+              longitude: coordinates?.longitude ?? null,
+            }))
+          }
         />
       </section>
 

@@ -18,6 +18,8 @@ function HomePage() {
   const [vibeToApply, setVibeToApply] = useState<Vibe | null>(null)
   const [questFilters, setQuestFilters] = useState<QuestFilters>({
     where: '',
+    latitude: null,
+    longitude: null,
     time: '',
     budget: '',
     customTime: '',
@@ -50,6 +52,8 @@ function HomePage() {
           setVibeToApply({ ...vibe })
           setQuestFilters({
             where: vibe.where || 'any',
+            latitude: null,
+            longitude: null,
             time: vibe.time || 'any',
             budget: vibe.budget || 'any',
             customTime: vibe.customTime ?? '',

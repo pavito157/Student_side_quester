@@ -27,7 +27,7 @@ function SidequestMeButton({ onClick }: SidequestMeButtonProps) {
           fill={colors.secondary}
         />
       </svg>
-      Roll for a sidequest
+      Get a sidequest
     </button>
   )
 }

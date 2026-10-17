@@ -51,12 +51,29 @@ function validateDistance(distance: DistanceConstraint): void {
   }
 }
 
+function validateCoordinates(latitude: number | null, longitude: number | null): void {
+  if (latitude === null && longitude === null) return
+  if (
+    latitude === null ||
+    longitude === null ||
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude) ||
+    latitude < -90 ||
+    latitude > 90 ||
+    longitude < -180 ||
+    longitude > 180
+  ) {
+    throw new Error('Location coordinates must include a valid latitude and longitude.')
+  }
+}
+
 export function buildSidequestRequest(
   input: SidequestRequestInput,
 ): SidequestRequestPayload {
   validateTime(input.time)
   validateBudget(input.budget)
   validateDistance(input.distance)
+  validateCoordinates(input.latitude, input.longitude)
 
   const username = input.username.trim()
   if (!username) throw new Error('A username is required to build the sidequest request.')
@@ -68,6 +85,8 @@ export function buildSidequestRequest(
     preferences: input.preferences.trim(),
     username,
     location: input.location.trim() || 'Not selected',
+    latitude: input.latitude,
+    longitude: input.longitude,
     time: { ...input.time },
     budget: { ...input.budget },
     distance: input.distance ? { ...input.distance } : null,

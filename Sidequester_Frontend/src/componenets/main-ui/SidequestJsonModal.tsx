@@ -47,10 +47,10 @@ function SidequestJsonModal({
               style={{ color: colors.secondary }}
             >
               <span aria-hidden="true" className="size-1.5 rounded-full bg-secondary shadow-[0_0_10px_rgb(250_70_22_/_80%)]" />
-              Quest dispatch
+              Request preview
             </p>
             <h2 id="sidequest-json-title" className="mt-1 text-xl font-semibold">
-              Your quest scroll
+              Sidequest request
             </h2>
           </div>
           <button
@@ -72,7 +72,7 @@ function SidequestJsonModal({
         </p>
         {isLoading && (
           <p role="status" className="mt-5 text-sm" style={{ color: colors.muted }}>
-            Preparing your sidequest request...
+            Preparing your request...
           </p>
         )}
         {requestJson && (

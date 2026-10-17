@@ -12,12 +12,14 @@ import { navigateTo } from '../../services/navigation'
 
 interface HeaderProps {
   title?: string
+  activeSidequestCount?: number
   onSettingsClick?: () => void
   onMenuClick?: () => void
 }
 
 function Header({
   title = 'Sidequester',
+  activeSidequestCount = 0,
   onSettingsClick,
   onMenuClick,
 }: HeaderProps) {
@@ -55,14 +57,29 @@ function Header({
         <div className="grid w-full grid-cols-[minmax(2.5rem,1fr)_auto_minmax(2.5rem,1fr)] items-center gap-2">
           <button
             type="button"
-            aria-label="Open menu"
+            aria-label={`Open menu${activeSidequestCount > 0
+              ? `, ${activeSidequestCount} active sidequest${activeSidequestCount === 1 ? '' : 's'}`
+              : ''}`}
             aria-haspopup="dialog"
             onClick={onMenuClick}
-            className="hud-button inline-flex size-10 shrink-0 cursor-pointer items-center justify-center p-0 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="hud-button relative inline-flex size-10 shrink-0 cursor-pointer items-center justify-center p-0 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
             style={{ color: colors.foreground, outlineColor: colors.primary }}
             hidden={!onMenuClick}
           >
             <MenuIcon />
+            {activeSidequestCount > 0 && (
+              <span
+                aria-hidden="true"
+                className="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border px-1 text-[0.65rem] font-bold leading-none"
+                style={{
+                  backgroundColor: colors.secondary,
+                  borderColor: colors.surface,
+                  color: colors.secondaryForeground,
+                }}
+              >
+                {activeSidequestCount > 99 ? '99+' : activeSidequestCount}
+              </span>
+            )}
           </button>
           {!onMenuClick && (
             <a

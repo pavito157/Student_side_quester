@@ -1,39 +1,20 @@
-import { useEffect, useState } from 'react'
-import { useUser } from '@clerk/clerk-react'
 import { colors } from '../../constants/colors'
 import { navigateTo } from '../../services/navigation'
-import { subscribeToActiveSidequests } from '../../services/sidequests'
 import type { ActiveSidequest as ActiveSidequestRecord } from '../../types/sidequest'
 
-type ActiveSidequestsState = {
-  userId: string | null
+type ActiveSidequestsProps = {
   sidequests: ActiveSidequestRecord[]
   isLoading: boolean
   error: string
+  isSignedIn: boolean
 }
 
-function ActiveSidequests() {
-  const { isLoaded, isSignedIn, user } = useUser()
-  const userId = user?.id
-  const [state, setState] = useState<ActiveSidequestsState>({
-    userId: null,
-    sidequests: [],
-    isLoading: true,
-    error: '',
-  })
-
-  useEffect(() => {
-    if (!isLoaded || !isSignedIn || !userId) return
-    return subscribeToActiveSidequests(
-      userId,
-      (sidequests) => setState({ userId, sidequests, isLoading: false, error: '' }),
-      (error) => setState({ userId, sidequests: [], isLoading: false, error }),
-    )
-  }, [isLoaded, isSignedIn, userId])
-
-  if (!isLoaded) {
-    return <p role="status" className="text-sm" style={{ color: colors.muted }}>Loading account…</p>
-  }
+function ActiveSidequests({
+  sidequests,
+  isLoading,
+  error,
+  isSignedIn,
+}: ActiveSidequestsProps) {
 
   return (
     <section aria-labelledby="active-sidequests-heading" className="mt-6">
@@ -45,35 +26,35 @@ function ActiveSidequests() {
         >
           Active sidequests
         </h3>
-        {state.userId === userId && state.sidequests.length > 0 && (
+        {sidequests.length > 0 && (
           <span className="rounded-full px-2 py-0.5 text-xs" style={{
             color: colors.foreground,
             backgroundColor: colors.surfaceRaised,
           }}>
-            {state.sidequests.length}
+            {sidequests.length}
           </span>
         )}
       </div>
 
-      {!isSignedIn || !userId ? (
+      {!isSignedIn ? (
         <p className="text-sm leading-relaxed" style={{ color: colors.muted }}>
           Sign in to see your active sidequests.
         </p>
-      ) : state.userId !== userId || state.isLoading ? (
+      ) : isLoading ? (
         <p role="status" className="text-sm" style={{ color: colors.muted }}>
           Loading active sidequests…
         </p>
-      ) : state.error ? (
+      ) : error ? (
         <p role="alert" className="text-sm" style={{ color: colors.error }}>
-          Could not load active sidequests: {state.error}
+          Could not load active sidequests: {error}
         </p>
-      ) : state.sidequests.length === 0 ? (
+      ) : sidequests.length === 0 ? (
         <p className="text-sm leading-relaxed" style={{ color: colors.muted }}>
           No active sidequests yet. Saved requests will appear here for three days.
         </p>
       ) : (
         <ul className="space-y-2">
-          {state.sidequests.map((sidequest) => (
+          {sidequests.map((sidequest) => (
             <li key={sidequest.id}>
               <button
                 type="button"

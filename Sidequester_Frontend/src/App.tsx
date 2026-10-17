@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useUser } from '@clerk/clerk-react'
 import Header from './componenets/main-ui/Header'
 import CinematicHero from './componenets/main-ui/CinematicHero'
 import LeaderboardPage from './componenets/main-ui/LeaderboardPage'
@@ -10,13 +11,30 @@ import UserPreferencesSummary from './componenets/main-ui/UserPreferencesSummary
 import SettingsModal, { type SettingsSection } from './componenets/settings/SettingsModal'
 import VibesSidebar from './componenets/sidebar/VibesSidebar'
 import type { Vibe } from './types/vibe'
+import { subscribeToActiveSidequests } from './services/sidequests'
+import type { ActiveSidequest } from './types/sidequest'
 import { colors } from './constants/colors'
 
+type ActiveSidequestsState = {
+  userId: string | null
+  sidequests: ActiveSidequest[]
+  isLoading: boolean
+  error: string
+}
+
 function HomePage() {
+  const { isLoaded, isSignedIn, user } = useUser()
+  const userId = user?.id
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isVibesSidebarOpen, setIsVibesSidebarOpen] = useState(false)
   const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null)
   const [vibeToApply, setVibeToApply] = useState<Vibe | null>(null)
+  const [activeSidequestsState, setActiveSidequestsState] = useState<ActiveSidequestsState>({
+    userId: null,
+    sidequests: [],
+    isLoading: true,
+    error: '',
+  })
   const [questFilters, setQuestFilters] = useState<QuestFilters>({
     where: '',
     latitude: null,
@@ -28,6 +46,30 @@ function HomePage() {
     distance: 'any',
     customDistance: '',
   })
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || !userId) return
+
+    return subscribeToActiveSidequests(
+      userId,
+      (sidequests) => setActiveSidequestsState({
+        userId,
+        sidequests,
+        isLoading: false,
+        error: '',
+      }),
+      (error) => setActiveSidequestsState({
+        userId,
+        sidequests: [],
+        isLoading: false,
+        error,
+      }),
+    )
+  }, [isLoaded, isSignedIn, userId])
+
+  const currentActiveSidequests = activeSidequestsState.userId === userId
+    ? activeSidequestsState
+    : { userId, sidequests: [], isLoading: Boolean(userId), error: '' }
 
   function openSettings(section: SettingsSection | null = null) {
     setSettingsSection(section)
@@ -42,6 +84,7 @@ function HomePage() {
   return (
     <>
       <Header
+        activeSidequestCount={currentActiveSidequests.sidequests.length}
         onSettingsClick={() => openSettings()}
         onMenuClick={() => setIsVibesSidebarOpen(true)}
       />
@@ -49,6 +92,9 @@ function HomePage() {
       <VibesSidebar
         isOpen={isVibesSidebarOpen}
         onClose={() => setIsVibesSidebarOpen(false)}
+        activeSidequests={currentActiveSidequests.sidequests}
+        isLoadingActiveSidequests={currentActiveSidequests.isLoading}
+        activeSidequestsError={currentActiveSidequests.error}
         onApplyVibe={(vibe) => {
           setVibeToApply({ ...vibe })
           setQuestFilters({

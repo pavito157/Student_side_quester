@@ -7,11 +7,15 @@ import SidebarModal from './SidebarModal'
 import VibeEditor from './VibeEditor'
 import VibeCard from './VibeCard'
 import ActiveSidequests from '../main-ui/ActiveSidequests'
+import type { ActiveSidequest } from '../../types/sidequest'
 
 interface VibesSidebarProps {
   isOpen: boolean
   onClose: () => void
   onApplyVibe: (vibe: Vibe) => void
+  activeSidequests: ActiveSidequest[]
+  isLoadingActiveSidequests: boolean
+  activeSidequestsError: string
 }
 
 type VibeListState = {
@@ -20,7 +24,14 @@ type VibeListState = {
   error: string
 }
 
-function VibesSidebar({ isOpen, onClose, onApplyVibe }: VibesSidebarProps) {
+function VibesSidebar({
+  isOpen,
+  onClose,
+  onApplyVibe,
+  activeSidequests,
+  isLoadingActiveSidequests,
+  activeSidequestsError,
+}: VibesSidebarProps) {
   const { isLoaded, isSignedIn, user } = useUser()
   const userId = user?.id
   const [isEditorOpen, setIsEditorOpen] = useState(false)
@@ -153,7 +164,12 @@ function VibesSidebar({ isOpen, onClose, onApplyVibe }: VibesSidebarProps) {
               ))}
             </ul>
           )}
-          <ActiveSidequests />
+          <ActiveSidequests
+            sidequests={activeSidequests}
+            isLoading={isLoadingActiveSidequests}
+            error={activeSidequestsError}
+            isSignedIn={isSignedIn === true}
+          />
         </>
       )}
     </SidebarModal>

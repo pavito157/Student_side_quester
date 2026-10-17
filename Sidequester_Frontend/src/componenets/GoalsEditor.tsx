@@ -82,13 +82,6 @@ function GoalsEditor({ userId, idPrefix, compact = false }: GoalsEditorProps) {
       )}
 
       <form onSubmit={addGoal} className="space-y-2">
-        <label
-          htmlFor={`${idPrefix}-new-user-goal`}
-          className="block text-xs font-semibold uppercase tracking-wide"
-          style={{ color: colors.secondary }}
-        >
-          Add a goal
-        </label>
         <div className="flex gap-2">
           <input
             id={`${idPrefix}-new-user-goal`}
@@ -128,7 +121,14 @@ function GoalsEditor({ userId, idPrefix, compact = false }: GoalsEditorProps) {
         >
           <span>Your goal list</span>
           {!isLoading && (
-            <span className="rounded-full px-2 py-0.5" style={{ backgroundColor: colors.warningBackground }}>
+            <span
+              className="rounded-full border px-2 py-0.5"
+              style={{
+                color: colors.secondary,
+                backgroundColor: colors.surfaceRaised,
+                borderColor: colors.border,
+              }}
+            >
               {goals.length}
             </span>
           )}
@@ -163,7 +163,7 @@ function GoalsEditor({ userId, idPrefix, compact = false }: GoalsEditorProps) {
                   onClick={() => removeGoal(index)}
                   disabled={isSaving}
                   className="shrink-0 cursor-pointer rounded-md px-2 py-1 text-xs font-medium transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50"
-                  style={{ color: colors.secondary, outlineColor: colors.secondary }}
+                  style={{ color: colors.error, outlineColor: colors.error }}
                 >
                   Remove
                 </button>

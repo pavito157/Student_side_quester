@@ -1,3 +1,4 @@
+import type { GenerateQuestPayload } from './questAssignment'
 import type {
   BudgetConstraint,
   DistanceConstraint,
@@ -110,4 +111,21 @@ export function buildSidequestRequest(
 
 export function serializeSidequestRequest(payload: SidequestRequestPayload): string {
   return JSON.stringify(payload, null, 2)
+}
+
+
+// Frontend history/maps retain flat coordinates. FastAPI receives its own exact
+// contract, with coordinates only under originCoordinates (never duplicated).
+export function toQuestApiPayload(request: SidequestRequestPayload): GenerateQuestPayload {
+  return {
+    preferences: request.preferences,
+    username: request.username,
+    location: request.location,
+    ...(request.originCoordinates ? { originCoordinates: { ...request.originCoordinates } } : {}),
+    time: { ...request.time },
+    budget: { ...request.budget },
+    distance: request.distance ? { ...request.distance } : null,
+    goals: [...request.goals],
+    vibePreferences: request.vibePreferences,
+  }
 }

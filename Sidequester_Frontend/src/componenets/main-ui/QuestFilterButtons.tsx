@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import { colors } from '../../constants/colors'
-import { buildSidequestRequest, serializeSidequestRequest } from '../../services/sidequestJson'
+import { buildSidequestRequest, toQuestApiPayload } from '../../services/sidequestJson'
 import { saveSidequestRequest } from '../../services/sidequests'
 import { requestAssignedQuest, type SavedQuestResponse } from '../../services/questAssignment'
 import { getUserGoals, getUserPreferences } from '../../services/userPreferences'
@@ -172,12 +172,13 @@ function QuestFilterControls({
       })
 
       if (controller.signal.aborted) return
-      setRequestJson(serializeSidequestRequest(request))
+      const apiRequest = toQuestApiPayload(request)
+      setRequestJson(JSON.stringify(apiRequest, null, 2))
 
       if (!isSignedIn || !user) {
         throw new Error('Sign in with a verified email account to get a saved quest.')
       }
-      const saved = await requestAssignedQuest(user.id, request, { signal: controller.signal })
+      const saved = await requestAssignedQuest(user.id, apiRequest, { signal: controller.signal })
       if (controller.signal.aborted) return
       setAssignment(saved)
       // Preserve request-history metadata without delaying or blocking the quest.

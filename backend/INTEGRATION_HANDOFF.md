@@ -358,3 +358,15 @@ account status, UID binding and ownership checks remain required. Restart the
 backend after updating the code; the frontend sign-in message reflects this policy.
 The authentication changes passed 141 backend tests (32 emulator-dependent tests
 skipped) and the frontend passed 42 tests, build and lint.
+
+## Merged coordinate payload fix
+
+The merged frontend retains top-level latitude/longitude for its existing map and
+request-history records. These are not valid FastAPI request fields. The button
+now uses `toQuestApiPayload(request)` before submitting or showing Request JSON:
+only nested `originCoordinates` travels to `/quests/assign`. History/map records
+keep their existing fields. Do not send the internal request object directly to
+FastAPI or loosen the backend's extra-field validation to accept the duplication.
+The actual frontend-built payload passed the real FastAPI route's validation and
+returned 201 with mocked services; no live data was modified. Frontend regression
+suite: 43 tests passed; build and lint passed.

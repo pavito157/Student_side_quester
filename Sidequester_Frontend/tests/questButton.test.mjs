@@ -14,7 +14,7 @@ async function fixture() {
     calls: [], historyCalls: [],
     request: async () => structuredClone(saved), history: async () => ({ requestCount: 1 }),
     filters: {
-      where: 'Selected origin', originCoordinates: { latitude: 29.65, longitude: -82.34 },
+      where: 'Selected origin', latitude: 29.65, longitude: -82.34,
       time: '60', budget: '0', distance: '1', customTime: '', customBudget: '', customDistance: '',
     },
   }
@@ -116,7 +116,10 @@ test('button submits current selections and renders saved server XP/JSON', async
   await f.settle()
   assert.equal(f.calls.length, 1)
   assert.equal(f.calls[0][0], 'example-user')
-  assert.deepEqual(plain(f.calls[0][1].originCoordinates), f.filters.originCoordinates)
+  assert.deepEqual(plain(f.calls[0][1].originCoordinates), { latitude: f.filters.latitude, longitude: f.filters.longitude })
+  assert.equal(Object.hasOwn(f.calls[0][1], 'latitude'), false)
+  assert.equal(Object.hasOwn(f.calls[0][1], 'longitude'), false)
+  assert.equal(Object.hasOwn(JSON.parse(f.props('SidequestJsonModal').requestJson), 'latitude'), false)
   assert.deepEqual(plain(f.calls[0][1].distance), { maxDistance: 1, unit: 'miles' })
   assert.deepEqual(plain(f.props('SidequestJsonModal').response), saved)
   assert.equal(f.props('SidequestJsonModal').response.quest.xpReward, 25)
@@ -221,10 +224,12 @@ test('choosing Anywhere clears old coordinates before submission', async () => {
   const f = await fixture()
   const coordinates = { latitude: 29.66, longitude: -82.33 }
   f.props('WhereButton').onChange('Selected park', coordinates)
-  assert.deepEqual(f.filters.originCoordinates, coordinates)
+  assert.equal(f.filters.latitude, coordinates.latitude)
+  assert.equal(f.filters.longitude, coordinates.longitude)
   f.render()
-  f.props('WhereButton').onChange('any')
-  assert.equal(f.filters.originCoordinates, null)
+  f.props('WhereButton').onChange('any', null)
+  assert.equal(f.filters.latitude, null)
+  assert.equal(f.filters.longitude, null)
   f.filters.distance = 'any'
   f.render(); f.click(); await f.settle()
   assert.equal(f.calls[0][1].location, 'Anywhere')

@@ -57,11 +57,12 @@ function PreferencesEditor({ userId }: PreferencesEditorProps) {
   return (
     <div>
       <label htmlFor="user-preferences" className="mb-2 block text-sm font-medium">
-        Your preferences
+        Your preferences/goals
       </label>
       <p className="mb-3 text-sm leading-relaxed" style={{ color: colors.muted }}>
         These are preferences that stay consistent across your sidequesting and are included
-        with information sent to AI. For example: “I want to go out and learn.”
+        with information sent to AI. We recomment you use it for goals you wish to accomplish
+        and get help from with sidequests. For example: “I want to go out and learn.”
       </p>
       <textarea
         id="user-preferences"

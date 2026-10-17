@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import {
   SignInButton,
   SignedIn,
@@ -12,16 +12,22 @@ import LocationPrivacySettings from './LocationPrivacySettings'
 import PreferencesEditor from './PreferencesEditor'
 import SettingsOptionButton from './SettingsOptionButton'
 
-type SettingsSection = 'preferences' | 'location' | 'help'
+export type SettingsSection = 'preferences' | 'location' | 'help'
 
 interface SettingsModalProps {
   isOpen: boolean
   onClose: () => void
+  section: SettingsSection | null
+  onSectionChange: (section: SettingsSection | null) => void
 }
 
-function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
+function SettingsModal({
+  isOpen,
+  onClose,
+  section,
+  onSectionChange,
+}: SettingsModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
-  const [section, setSection] = useState<SettingsSection | null>(null)
   const { openUserProfile } = useClerk()
 
   useEffect(() => {
@@ -31,11 +37,6 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     if (isOpen && !dialog.open) dialog.showModal()
     if (!isOpen && dialog.open) dialog.close()
   }, [isOpen])
-
-  function closeSettings() {
-    setSection(null)
-    onClose()
-  }
 
   const title =
     section === 'preferences'
@@ -52,10 +53,10 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       aria-labelledby="settings-title"
       onCancel={(event) => {
         event.preventDefault()
-        closeSettings()
+        onClose()
       }}
       onClick={(event) => {
-        if (event.target === event.currentTarget) closeSettings()
+        if (event.target === event.currentTarget) onClose()
       }}
       className="m-auto max-h-[min(90dvh,48rem)] w-[min(92vw,32rem)] overflow-y-auto rounded-2xl border p-5 shadow-2xl backdrop:bg-black/60 sm:rounded-3xl sm:p-7"
       style={{
@@ -70,7 +71,7 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             <button
               type="button"
               aria-label="Back to settings"
-              onClick={() => setSection(null)}
+              onClick={() => onSectionChange(null)}
               className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
               style={{
                 color: colors.foreground,
@@ -99,7 +100,7 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         <button
           type="button"
           aria-label="Close settings"
-          onClick={closeSettings}
+          onClick={onClose}
           className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-xl transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
           style={{ color: colors.muted, outlineColor: colors.primary }}
         >
@@ -125,14 +126,14 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               title="Account & security"
               description="Manage your profile, sign-in methods, and account security."
               onClick={() => {
-                closeSettings()
+                onClose()
                 openUserProfile()
               }}
             />
             <SettingsOptionButton
-              title="Preferences"
+              title="Preferences/Goals"
               description="Save the activities and experiences you enjoy."
-              onClick={() => setSection('preferences')}
+              onClick={() => onSectionChange('preferences')}
             />
           </SignedIn>
           <SignedOut>
@@ -140,19 +141,19 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               <SettingsOptionButton
                 title="Sign in to your account"
                 description="Manage your profile and save your personal preferences."
-                onClick={closeSettings}
+                onClick={onClose}
               />
             </SignInButton>
           </SignedOut>
           <SettingsOptionButton
             title="Location & privacy"
             description="Check location permission and learn how location is used."
-            onClick={() => setSection('location')}
+            onClick={() => onSectionChange('location')}
           />
           <SettingsOptionButton
             title="Help & about"
             description="Learn how to use Sidequester and find quick answers."
-            onClick={() => setSection('help')}
+            onClick={() => onSectionChange('help')}
           />
         </div>
       )}

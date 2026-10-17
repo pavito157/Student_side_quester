@@ -1,12 +1,28 @@
+import { useState } from 'react'
 import Header from './componenets/Header'
 import QuestFilterButtons from './componenets/Buttons/QuestFilterButtons'
 import FirebaseTextBox from './componenets/FirebaseTextBox'
+import SettingsModal, { type SettingsSection } from './componenets/SettingsModal'
+import UserPreferencesSummary from './componenets/UserPreferencesSummary'
 import { colors } from './constants/colors'
 
 function App() {
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null)
+
+  function openSettings(section: SettingsSection | null = null) {
+    setSettingsSection(section)
+    setIsSettingsOpen(true)
+  }
+
+  function closeSettings() {
+    setIsSettingsOpen(false)
+    setSettingsSection(null)
+  }
+
   return (
     <>
-      <Header />
+      <Header onSettingsClick={() => openSettings()} />
       <main className="min-h-[calc(100vh-4rem)] bg-gradient-glow px-4 py-12 sm:px-6 sm:py-20">
         <section className="mx-auto max-w-3xl">
           <div className="mb-9 text-center sm:mb-12">
@@ -39,9 +55,16 @@ function App() {
             </div>
             <QuestFilterButtons />
           </div>
+          <UserPreferencesSummary onEdit={() => openSettings('preferences')} />
           <FirebaseTextBox />
         </section>
       </main>
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        section={settingsSection}
+        onSectionChange={setSettingsSection}
+        onClose={closeSettings}
+      />
     </>
   )
 }

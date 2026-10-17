@@ -2,7 +2,10 @@ import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 
 import { useUser } from '@clerk/clerk-react'
 import { colors } from '../../constants/colors'
 import { buildSidequestRequest, toQuestApiPayload } from '../../services/sidequestJson'
-import { requestAssignedQuest, type SavedQuestResponse } from '../../services/questAssignment'
+import {
+  requestAssignedQuest,
+  type SavedQuestResponse,
+} from '../../services/questAssignment'
 import { getUserGoals, getUserPreferences } from '../../services/userPreferences'
 import type {
   BudgetConstraint,

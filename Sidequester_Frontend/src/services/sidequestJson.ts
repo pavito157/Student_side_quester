@@ -122,7 +122,9 @@ export function toQuestApiPayload(request: SidequestRequestPayload): GenerateQue
     username: request.username,
     location: request.location,
     ...(request.originCoordinates ? { originCoordinates: { ...request.originCoordinates } } : {}),
-    time: { ...request.time },
+    time: request.time.selection === 'custom'
+      ? { selection: request.time.selection, customMinutes: request.time.customMinutes }
+      : { selection: request.time.selection },
     budget: { ...request.budget },
     distance: request.distance ? { ...request.distance } : null,
     goals: [...request.goals],

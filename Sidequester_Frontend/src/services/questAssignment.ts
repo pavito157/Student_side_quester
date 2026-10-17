@@ -213,7 +213,9 @@ export async function requestGeneratedQuest(
 
 // Step 5: save a verified quest, or reuse the student's existing active assignment.
 export async function requestAssignedQuest(
-  expectedUserId: string, payload: GenerateQuestPayload, options: QuestRequestOptions = {},
+  expectedUserId: string,
+  payload: GenerateQuestPayload,
+  options: QuestRequestOptions = {},
 ): Promise<SavedQuestResponse> {
   const result = await requestQuest('/quests/assign', expectedUserId, payload, options)
   if (!isSavedQuest(result, expectedUserId)) throw new Error('The backend returned an invalid saved assignment.')

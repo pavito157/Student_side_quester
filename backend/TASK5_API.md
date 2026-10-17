@@ -9,6 +9,14 @@ can still be loaded/reused. The unsaved Gemini preview continues to work.
 No frontend component was changed. Frontend teammates own button wiring, loading,
 error display, refreshing state, and cancelling requests on account changes.
 
+Backend branch integration keeps `firebase_config.py` as a compatibility shim for
+the shared Firebase helpers. It uses ADC / GOOGLE_APPLICATION_CREDENTIALS rather
+than a hardcoded service-account filename. The app registers each quest endpoint
+once. Incoming unfinished `/users`, `/users/{user_id}` and `/leaderboard` routes
+require UF authentication and return 501; they do not advertise a working feature.
+`POST /test-firestore` is authenticated and read-only, returning connection status
+and whether the existing test document exists without creating/overwriting it.
+
 ## Endpoints
 
 All endpoints below require a verified UF **Firebase ID token** in the Bearer

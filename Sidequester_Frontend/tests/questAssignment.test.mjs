@@ -305,3 +305,24 @@ test('frontend helper accepts FastAPI JSON generated with live Gemini and Places
   f.state.fetch = async () => ({ ok: true, status: 201, json: async () => structuredClone(captured) })
   assert.deepEqual(await f.api.requestAssignedQuest('example-user', payload), captured)
 })
+
+test('completion sends fresh GPS to FastAPI with the authenticated identity and uses server XP', async () => {
+  const f = await fixture()
+  f.state.fetch = async (url, options) => {
+    f.calls.push(['fetch', url, options])
+    return { ok: true, status: 200, json: async () => ({ questId: 'quest-1', status: 'completed', xpAwarded: 40 }) }
+  }
+  assert.equal(await f.api.requestQuestCompletion('user_student', 'quest-1', { latitude: 29.65, longitude: -82.34, accuracy: 12 }), 40)
+  const [, url, request] = f.calls[1]
+  assert.equal(url, 'http://localhost:8000/quests/quest-1/complete')
+  assert.equal(request.headers.Authorization, 'Bearer firebase-id-token')
+  assert.deepEqual(JSON.parse(request.body), { latitude: 29.65, longitude: -82.34, accuracy: 12 })
+})
+
+test('completion surfaces proximity failures and refuses inconsistent successful responses', async () => {
+  const f = await fixture()
+  f.state.fetch = async () => ({ ok: false, status: 400, json: async () => ({ detail: { valid: false, reason: 'Move closer to the destination and try again.' } }) })
+  await assert.rejects(f.api.requestQuestCompletion('user_student', 'quest-1', {}), /Move closer/)
+  f.state.fetch = async () => ({ ok: true, status: 200, json: async () => ({ questId: 'another-quest', status: 'completed', xpAwarded: 999 }) })
+  await assert.rejects(f.api.requestQuestCompletion('user_student', 'quest-1', {}), /invalid completion response/)
+})

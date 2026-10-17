@@ -6,52 +6,13 @@ import SidequestMap from './SidequestMap'
 import { colors } from '../../constants/colors'
 import { navigateTo } from '../../services/navigation'
 import { completeSidequest, subscribeToActiveSidequest } from '../../services/sidequests'
-import type {
-  ActiveSidequest,
-  BudgetConstraint,
-  DistanceConstraint,
-  TimeConstraint,
-} from '../../types/sidequest'
+import type { ActiveSidequest } from '../../types/sidequest'
 
 type SidequestState =
   | { key: string; status: 'loading' }
   | { key: string; status: 'error'; message: string }
   | { key: string; status: 'ready'; sidequest: ActiveSidequest }
   | { key: string; status: 'not-found' }
-
-function getTimeLabel(time: TimeConstraint): string {
-  switch (time.selection) {
-    case 'any':
-      return 'Any time'
-    case '30':
-      return '30 minutes or less'
-    case '60':
-      return '1 hour or less'
-    case '120':
-      return '2+ hours'
-    case 'custom':
-      return `${time.customMinutes ?? 'Custom'} minutes`
-  }
-}
-
-function getBudgetLabel(budget: BudgetConstraint): string {
-  switch (budget.selection) {
-    case 'any':
-      return 'Any budget'
-    case '0':
-      return 'Free'
-    case '10':
-      return 'Under $10'
-    case '10-25':
-      return '$10–$25'
-    case 'custom':
-      return `$${budget.customDollars ?? 'Custom'}`
-  }
-}
-
-function getDistanceLabel(distance: DistanceConstraint): string {
-  return distance ? `Within ${distance.maxDistance} ${distance.unit}` : 'Any distance'
-}
 
 function formatDate(date: string): string {
   return new Date(date).toLocaleString(undefined, {
@@ -109,17 +70,8 @@ function SidequestDetailPage({ sidequestId }: { sidequestId: string }) {
     setCompletionMessage('')
     try {
       const awardedXp = await completeSidequest(userId, sidequestId)
-      if (awardedXp < 0) {
-        setStoredState({ key: routeKey, status: 'not-found' })
-        setCompletionMessage('This sidequest expired and was removed.')
-      } else {
-        setCompletionMessage(
-          awardedXp > 0
-            ? `Sidequest completed. You earned ${awardedXp} XP.`
-            : 'This sidequest was already completed.',
-        )
-        setStoredState({ key: routeKey, status: 'not-found' })
-      }
+      setCompletionMessage(`Sidequest completed. You earned ${awardedXp} XP.`)
+      setStoredState({ key: routeKey, status: 'not-found' })
     } catch (error) {
       setCompletionError(
         error instanceof Error ? error.message : 'Could not complete this sidequest.',
@@ -132,9 +84,9 @@ function SidequestDetailPage({ sidequestId }: { sidequestId: string }) {
   const sidequest = state.status === 'ready' ? state.sidequest : null
   const directionsUrl = sidequest
     ? `https://www.google.com/maps/search/?api=1&query=${
-        sidequest.request.latitude !== null && sidequest.request.longitude !== null
-          ? `${sidequest.request.latitude},${sidequest.request.longitude}`
-          : encodeURIComponent(sidequest.request.location)
+        sidequest.latitude !== null && sidequest.longitude !== null
+          ? `${sidequest.latitude},${sidequest.longitude}`
+          : encodeURIComponent(sidequest.locationName)
       }`
     : null
 
@@ -175,7 +127,7 @@ function SidequestDetailPage({ sidequestId }: { sidequestId: string }) {
             <section className="rpg-panel p-8 text-center">
               <h2 className="text-xl font-bold">Sidequest unavailable</h2>
               <p className="mt-2 text-sm" style={{ color: colors.muted }}>
-                This sidequest may have expired, been completed, or no longer be available.
+                This sidequest may have been completed or no longer be available.
               </p>
               {completionMessage && (
                 <p role="status" className="mt-3 text-sm" style={{ color: colors.success }}>
@@ -193,21 +145,18 @@ function SidequestDetailPage({ sidequestId }: { sidequestId: string }) {
                   Active sidequest
                 </p>
                 <h1 className="mt-1 break-words text-2xl font-black sm:text-4xl">
-                  {sidequest.request.location === 'Anywhere' ||
-                  sidequest.request.location === 'Not selected'
-                    ? 'Sidequest'
-                    : sidequest.request.location}
+                  {sidequest.title}
                 </h1>
                 <p className="mt-2 text-sm" style={{ color: colors.muted }}>
-                  Created {formatDate(sidequest.createdAt)} · Expires {formatDate(sidequest.expiresAt)}
+                  Created {formatDate(sidequest.createdAt)}
                 </p>
               </div>
 
               <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(19rem,0.75fr)]">
                 <SidequestMap
-                  location={sidequest.request.location}
-                  latitude={sidequest.request.latitude}
-                  longitude={sidequest.request.longitude}
+                  location={sidequest.locationName}
+                  latitude={sidequest.latitude}
+                  longitude={sidequest.longitude}
                 />
 
                 <section className="rpg-panel p-5 sm:p-6">
@@ -226,32 +175,19 @@ function SidequestDetailPage({ sidequestId }: { sidequestId: string }) {
                   </div>
 
                   <dl className="mt-3">
-                    <Detail label="Time">{getTimeLabel(sidequest.request.time)}</Detail>
-                    <Detail label="Budget">{getBudgetLabel(sidequest.request.budget)}</Detail>
-                    <Detail label="Distance">{getDistanceLabel(sidequest.request.distance)}</Detail>
-                    {(sidequest.request.latitude !== null ||
-                      sidequest.request.longitude !== null) && (
-                      <Detail label="Coordinates">
-                        {sidequest.request.latitude ?? 'Not provided'}, {sidequest.request.longitude ?? 'Not provided'}
-                      </Detail>
-                    )}
-                    {sidequest.request.preferences && (
-                      <Detail label="Preferences">{sidequest.request.preferences}</Detail>
-                    )}
-                    {sidequest.request.goals.length > 0 && (
-                      <Detail label="Goals">
-                        <ul className="list-inside list-disc">
-                          {sidequest.request.goals.map((goal) => <li key={goal}>{goal}</li>)}
-                        </ul>
-                      </Detail>
-                    )}
-                    {sidequest.request.vibePreferences && (
-                      <Detail label="Vibe">{sidequest.request.vibePreferences}</Detail>
-                    )}
+                    <Detail label="Destination">{sidequest.locationName}</Detail>
+                    <Detail label="Quest">{sidequest.description}</Detail>
+                    <Detail label="Steps">
+                      <ol className="list-inside list-decimal">
+                        {sidequest.steps.map((step, index) => <li key={index}>{step}</li>)}
+                      </ol>
+                    </Detail>
+                    <Detail label="Estimated time">{sidequest.estimatedMinutes} minutes</Detail>
+                    <Detail label="Estimated cost">${sidequest.estimatedCostDollars}</Detail>
                   </dl>
 
                   <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                    {directionsUrl && sidequest.request.location !== 'Anywhere' && (
+                    {directionsUrl && sidequest.locationName !== 'Anywhere' && (
                       <a
                         href={directionsUrl}
                         target="_blank"

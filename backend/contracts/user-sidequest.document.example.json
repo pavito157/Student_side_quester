@@ -1,0 +1,26 @@
+{
+  "title": "Prototype a nature journal app",
+  "description": "Spend an outdoor activity session sketching and coding a simple nature journal prototype.",
+  "steps": [
+    "Bring a notebook and your laptop to the destination.",
+    "Sketch a nature journal interface, then implement one small feature."
+  ],
+  "locationName": "Example UF destination",
+  "latitude": 29.65,
+  "longitude": -82.34,
+  "radiusMeters": 100,
+  "xpReward": 25,
+  "isActive": true,
+  "estimatedMinutes": 150,
+  "estimatedCostDollars": 15,
+  "placeId": null,
+  "userId": "example-user",
+  "questId": "example-quest",
+  "status": "assigned",
+  "assignedAt": "2026-10-17T15:00:00Z",
+  "completedAt": null,
+  "xpAwarded": 0,
+  "ownerId": "example-user",
+  "source": "gemini",
+  "createdAt": "2026-10-17T15:00:00Z"
+}

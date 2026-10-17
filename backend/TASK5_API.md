@@ -140,27 +140,36 @@ these values. Completion's independent accuracy limit defaults to 50 meters.
 
 ## Persistence and concurrency
 
-Collections are preserved: `Users`, `quests`, `userQuests`, `dorms`.
+Generated quests now live at **`Users/{uid}/sidequests/{quest.id}`**. The user UID
+comes from the verified Firebase ID token; the client cannot choose the owner.
+Each document combines quest fields and assignment fields (without either public
+`id` field), plus `ownerId`, `source: "gemini"`, and server `createdAt`.
+`questId` equals the child document ID. The public response remains unchanged:
+`{quest, assignment, reusedExisting}`, including `quest.xpReward`.
+`assignment.id` remains the API identifier `{uid}_{questId}` for compatibility;
+it is not the child document ID. Use `response.quest.id` for detail-page links.
+No raw preferences, origin GPS, token or API key is stored in the sidequest.
 
-- `Users/{uid}` gains server-owned `activeQuestId`; other fields are preserved.
-- `quests/{id}` contains quest fields plus `ownerId`, `source: "gemini"`, and
-  server `createdAt`. No raw preferences, origin GPS, token or API key is stored.
-- `userQuests/{uid}_{questId}` contains the assignment fields above.
-- Dorms and XP totals are untouched by assignment creation.
+Assignment creation atomically creates that document and updates the user's
+`activeQuestId`. Competing creators serialize on the user document; one wins and
+the other reuses it. External providers run outside transactions. Assignment
+creation does not change XP or dorm balances.
 
-The final transaction rereads the user/current assignment before creating all
-three records/updates. Concurrent creators serialize on the user document; one
-wins and the other returns the same assignment without an orphan quest. Overlapping
-first requests can both call Gemini, but only one assignment is saved. Later
-requests avoid the provider entirely. External providers are never called inside
-a Firestore transaction that may retry.
+Existing active global `userQuests`/`quests` assignments migrate on the next
+`GET /me/quest` or assignment request, within a transaction. The old assignment is
+marked `migrated` and the quest content copied under the user; no XP changes.
+Completed global records remain available as legacy history. Direct legacy
+completion remains supported. Old frontend `status: prepared` request snapshots
+are left untouched and excluded from active quests; they cannot earn server XP.
+Multiple active assignments, corrupt ownership or incomplete records fail with
+409. Global collections are no longer written for new generated quests.
 
-A completed pointer is harmless: retrieval returns null, and the next successful
-assignment replaces it atomically. Completion/XP code did not need a rewrite.
-Legacy assignments without a pointer are recovered by the existing userId query.
-Multiple legacy active records, corrupt ownership or incomplete records fail with
-409 instead of silently creating another assignment. API quest reads hide other
-students' generated quests. Legacy ownerless predefined records remain readable.
+The active list and detail page subscribe to this user subcollection and display
+the generated title, description, steps, verified destination, estimates and XP.
+There is no automatic expiration/deletion of backend assignments. Completion gets
+a fresh browser GPS reading and calls the authenticated FastAPI endpoint. One
+transaction marks the sidequest completed/inactive, clears its active pointer,
+and awards user/dorm XP once. Completed documents remain stored for history.
 
 The authenticated profile must exist. Assignment does not require dorm selection;
 completion still requires a valid dorm and integer XP totals under the existing

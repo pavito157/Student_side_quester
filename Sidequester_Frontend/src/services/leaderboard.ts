@@ -19,7 +19,7 @@ export async function getLeaderboardEntries(): Promise<LeaderboardData> {
 
   const entries = usersSnapshot.docs.flatMap((userDocument) => {
     const userData = userDocument.data()
-    const username = userData.username
+    const username = userData.username || userData.displayName
     let xp: number
     try {
       xp = getUserXp(userData)

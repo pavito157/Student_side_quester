@@ -122,10 +122,13 @@ The service reads these records **inside the transaction**:
 
 | Document | Fields read |
 | --- | --- |
-| `userQuests/{uid}_{questId}` | `userId`, `questId`, `status` |
-| `quests/{questId}` | `isActive`, `latitude`, `longitude`, `radiusMeters`, `xpReward` |
+| `Users/{uid}/sidequests/{questId}` | `userId`, `questId`, `status`, `isActive`, `latitude`, `longitude`, `radiusMeters`, `xpReward` |
 | `Users/{uid}` | `dormId`, `xp` |
 | `dorms/{dormId}` | `xp` |
+
+Older global `userQuests`/`quests` records remain readable for compatibility; new
+generated assignments use the user subcollection. Active legacy records migrate
+transactionally when retrieved (see [TASK5_API.md](TASK5_API.md)).
 
 The assignment must belong to the caller, refer to this quest, and have status
 `assigned`. The quest must still be active. The user's dorm comes from the stored

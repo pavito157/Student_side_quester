@@ -50,7 +50,7 @@ function ActiveSidequests({
         </p>
       ) : sidequests.length === 0 ? (
         <p className="text-sm leading-relaxed" style={{ color: colors.muted }}>
-          No active sidequests yet. Saved requests will appear here for three days.
+          No active sidequests yet. Generate a quest to start exploring.
         </p>
       ) : (
         <ul className="space-y-2">
@@ -63,17 +63,11 @@ function ActiveSidequests({
                 style={{ outlineColor: colors.secondary }}
               >
                 <span className="block truncate text-sm font-semibold">
-                  {sidequest.request.location === 'Anywhere' ||
-                  sidequest.request.location === 'Not selected'
-                    ? 'Sidequest'
-                    : sidequest.request.location}
+                  {sidequest.title}
                 </span>
                 <span className="mt-1 flex justify-between gap-2 text-xs" style={{ color: colors.muted }}>
                   <span>
-                    Expires {new Date(sidequest.expiresAt).toLocaleDateString(undefined, {
-                      month: 'short',
-                      day: 'numeric',
-                    })}
+                    {sidequest.locationName}
                   </span>
                   <span className="shrink-0">+{sidequest.xpValue} XP</span>
                 </span>

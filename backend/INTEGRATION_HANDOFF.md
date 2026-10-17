@@ -332,13 +332,13 @@ The prior `getCurrentLocationLabel` helper remains available for other callers.
 
 Loading disables duplicate submission. Account changes/unmounts abort outstanding
 requests and clear account-specific UI state. Backend error messages display in
-the modal. Existing request-history metadata is saved best-effort for new quests
-only; failure cannot hide a successfully saved assignment. Guest clicks show a
+the modal. FastAPI alone saves the generated assignment; the button no longer creates a
+second browser-owned prepared request. Guest clicks show a
 sign-in requirement and do not call the protected assignment endpoint. Closing
 the modal hides it and does not cancel a server-side save already in progress.
 
 Component tests exercise submission payloads, errors, account-switch cancellation,
-duplicate clicks, history failures, reused quests, reward presentation and exact
+duplicate clicks, absence of duplicate client writes, reused quests, reward presentation and exact
 JSON-download contents. The browser loads the app; a real signed-in button click
 against production Firestore remains a manual check (no student login was automated).
 
@@ -347,7 +347,8 @@ select a place/current location if using distance, click Sidequest me. Confirm
 Network POST `/quests/assign` returns 201 (new) or 200 (reused), inspect the modal,
 and download the JSON. Confirm its `quest.xpReward` equals the badge and its
 `assignment.xpAwarded` is 0. Click again and confirm the same active quest is reused.
-Completion UI wiring is separate from this generation button.
+The quest list/detail page now reads the backend-owned user subcollection, and
+the detail Complete button calls FastAPI with fresh GPS.
 
 ## Hackathon authentication update
 
@@ -370,3 +371,55 @@ FastAPI or loosen the backend's extra-field validation to accept the duplication
 The actual frontend-built payload passed the real FastAPI route's validation and
 returned 201 with mocked services; no live data was modified. Frontend regression
 suite: 43 tests passed; build and lint passed.
+
+
+## User-owned generated sidequests (current storage contract)
+
+New generated quests are saved at `Users/{Firebase uid}/sidequests/{quest.id}`.
+The child document combines quest content and assignment state. See
+`contracts/user-sidequest.document.example.json` for its fields (timestamp fields
+are represented as ISO strings in that JSON example; Firestore stores timestamps).
+The existing structured HTTP response and its schema do not change.
+`assignment.id` stays `{uid}_{questId}` as a public API identifier; use `quest.id`
+as the Firestore document ID and detail-page route ID.
+
+Frontend changes: the button stops writing duplicate prepared request documents;
+the list and detail page read actual generated content from the user's
+subcollection, use destination GPS for the map, and show the backend reward.
+Complete requests fresh GPS and calls `POST /quests/{quest.id}/complete` with a
+Firebase ID token. Client code no longer awards XP or deletes expired records.
+Generated assignments remain active until completed; they do not inherit the
+old preview snapshots' three-day expiration. Legacy prepared snapshots are
+retained in Firestore but excluded from the generated quest list. Existing active
+global assignments migrate transactionally when requested, without awarding XP.
+The old assignment is marked migrated to prevent duplicate completion via old
+code. No production bulk migration or deletion is performed.
+
+Firestore rules must allow the signed-in owner to read their sidequests and deny
+client creation/update/deletion of those documents. User `xp`, legacy `totalXp`,
+`activeQuestId`, and dorm XP must also remain server-owned. Firebase Admin bypasses
+client rules. Rules are managed outside this repo: no rules were deployed or
+verified here. A broader permissive rule can override a narrower denial, so the
+backend teammate must check the project's effective rules before relying on XP
+integrity. An owner-read/backend-write subcollection rule is:
+
+```text
+match /Users/{uid}/sidequests/{questId} {
+  allow read: if request.auth != null && request.auth.uid == uid;
+  allow write: if false;
+}
+```
+
+Manual check after restarting FastAPI: sign in, click Sidequest me, and confirm
+201/200 plus unchanged response JSON. In Firestore, open Users → your Firebase
+UID → sidequests → response.quest.id; the content should match the response.
+Refresh and open the active quest: title/steps/destination/XP should persist.
+Complete from outside the radius to see rejection, then at the destination with
+good accuracy and a valid dorm to earn the stored reward. A repeated completion
+returns 409; user/dorm XP increase once, and the completed record remains stored.
+
+Validation for the storage transition: full backend suite 178/178 passed with the
+local Firestore emulator. Frontend 49/49 tests passed, as did
+the TypeScript/Vite build and lint. Tests use mocked authentication and provider
+responses with real emulator transactions. No signed-in production completion or
+Firestore rules deployment was performed.

@@ -66,6 +66,8 @@ class PersistenceEmulatorTests(unittest.TestCase):
             for collection, field in [("quests", "ownerId"), ("userQuests", "userId")]:
                 for snapshot in self.db.collection(collection).where(filter=FieldFilter(field, "==", uid)).stream():
                     snapshot.reference.delete()
+            for snapshot in persistence.sidequests(self.db, uid).stream():
+                snapshot.reference.delete()
             self.db.collection("Users").document(uid).delete()
         self.db.collection("dorms").document(self.dorm_id).delete()
 
@@ -73,10 +75,8 @@ class PersistenceEmulatorTests(unittest.TestCase):
         return persistence.assign_generated_quest(self.db, uid or self.uid, self.preferences,
                                                    self.resolver if resolver else None)
 
-    def records(self, collection):
-        from google.cloud.firestore_v1.base_query import FieldFilter
-        field = "ownerId" if collection == "quests" else "userId"
-        return list(self.db.collection(collection).where(filter=FieldFilter(field, "==", self.uid)).stream())
+    def records(self):
+        return list(persistence.sidequests(self.db, self.uid).stream())
 
     def assert_xp(self, user=10, dorm=100):
         self.assertEqual(self.db.collection("Users").document(self.uid).get().to_dict()["xp"], user)
@@ -85,8 +85,10 @@ class PersistenceEmulatorTests(unittest.TestCase):
     def test_saved_documents_match_response_and_preserve_profile(self):
         result = self.create()
         self.assertFalse(result.reusedExisting)
-        quest = self.db.collection("quests").document(result.quest.id).get().to_dict()
-        assignment = self.db.collection("userQuests").document(result.assignment.id).get().to_dict()
+        quest = persistence.sidequests(self.db, self.uid).document(result.quest.id).get().to_dict()
+        assignment = quest
+        self.assertFalse(self.db.collection("quests").document(result.quest.id).get().exists)
+        self.assertFalse(self.db.collection("userQuests").document(result.assignment.id).get().exists)
         self.assertEqual(quest["ownerId"], self.uid)
         self.assertEqual(quest["locationName"], "Canonical UF place")
         self.assertEqual(quest["placeId"], "verified-place")
@@ -117,8 +119,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
         self.assertEqual(second.quest.id, first.quest.id)
         self.provider.assert_not_called()
         self.resolver.assert_not_called()
-        self.assertEqual(len(self.records("quests")), 1)
-        self.assertEqual(len(self.records("userQuests")), 1)
+        self.assertEqual(len(self.records()), 1)
 
     def test_concurrent_requests_commit_one_assignment_and_no_orphan_quest(self):
         barrier = threading.Barrier(2)
@@ -132,8 +133,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
             results = list(pool.map(lambda _: self.create(), range(2)))
         self.assertCountEqual([result.reusedExisting for result in results], [False, True])
         self.assertEqual(results[0].quest.id, results[1].quest.id)
-        self.assertEqual(len(self.records("quests")), 1)
-        self.assertEqual(len(self.records("userQuests")), 1)
+        self.assertEqual(len(self.records()), 1)
         self.assertEqual(persistence.get_current_assignment(self.db, self.uid).quest.id, results[0].quest.id)
         self.assert_xp()
 
@@ -147,7 +147,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
 
             def fail(ref, data):
                 create(ref, data)
-                if ref.parent.id == "userQuests":
+                if ref.parent.id == "sidequests":
                     raise ServiceUnavailable("test rollback after queued writes")
 
             transaction.create = fail
@@ -157,8 +157,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
             with self.assertRaises(HTTPException) as caught:
                 persistence.save_verified_assignment(self.db, self.uid, preview, persistence.AssignmentPolicy())
         self.assertEqual(caught.exception.status_code, 503)
-        self.assertEqual(self.records("quests"), [])
-        self.assertEqual(self.records("userQuests"), [])
+        self.assertEqual(self.records(), [])
         self.assertNotIn("activeQuestId", self.db.collection("Users").document(self.uid).get().to_dict())
         self.assert_xp()
 
@@ -171,8 +170,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
         with self.assertRaises(HTTPException) as caught:
             self.create()
         self.assertEqual(caught.exception.status_code, 502)
-        self.assertEqual(self.records("quests"), [])
-        self.assertEqual(self.records("userQuests"), [])
+        self.assertEqual(self.records(), [])
         self.assert_xp()
 
     def test_unverified_preview_is_rejected_by_persistence_boundary(self):
@@ -180,7 +178,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
         with self.assertRaises(HTTPException) as caught:
             persistence.save_verified_assignment(self.db, self.uid, preview, persistence.AssignmentPolicy())
         self.assertEqual(caught.exception.status_code, 503)
-        self.assertEqual(self.records("quests"), [])
+        self.assertEqual(self.records(), [])
 
     def test_completed_assignment_allows_next_quest_without_reawarding_old_xp(self):
         first = self.create()
@@ -189,7 +187,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
         second = self.create()
         self.assertNotEqual(first.quest.id, second.quest.id)
         self.assertFalse(second.reusedExisting)
-        self.assertEqual(len(self.records("quests")), 2)
+        self.assertEqual(len(self.records()), 2)
         self.assert_xp(35, 125)
         with self.assertRaises(CompletionError):
             complete_quest(self.db, self.uid, first.quest.id, 29.65, -82.34, 10)
@@ -220,11 +218,11 @@ class PersistenceEmulatorTests(unittest.TestCase):
         with self.assertRaises(HTTPException) as caught:
             self.create()
         self.assertEqual(caught.exception.status_code, 409)
-        self.assertEqual(len(self.records("quests")), 1)
+        self.assertEqual(len(self.records()), 1)
 
     def test_corrupt_owner_or_missing_destination_never_creates_new_quest(self):
         first = self.create()
-        ref = self.db.collection("quests").document(first.quest.id)
+        ref = persistence.sidequests(self.db, self.uid).document(first.quest.id)
         saved = ref.get().to_dict()
         for change in [{"ownerId": "another-user"}, {"isActive": False}]:
             ref.update(change)
@@ -236,7 +234,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
         with self.assertRaises(HTTPException) as caught:
             self.create()
         self.assertEqual(caught.exception.status_code, 409)
-        self.assertEqual(len(self.records("userQuests")), 1)
+        self.assertEqual(len(self.records()), 0)
 
     def test_missing_profile_fails_before_generation(self):
         self.db.collection("Users").document(self.uid).delete()
@@ -253,7 +251,88 @@ class PersistenceEmulatorTests(unittest.TestCase):
         self.assertIsNone(persistence.get_current_assignment(self.db, other))
         # Even a corrupt other user's pointer cannot expose the private quest:
         self.db.collection("Users").document(other).update({"activeQuestId": first.quest.id})
-        self.assertIsNone(persistence.get_current_assignment(self.db, other))
+        with self.assertRaises(HTTPException) as caught:
+            persistence.get_current_assignment(self.db, other)
+        self.assertEqual(caught.exception.status_code, 409)
+
+    def test_legacy_active_assignment_migrates_once_without_xp_or_generation(self):
+        first = self.create()
+        nested = persistence.sidequests(self.db, self.uid).document(first.quest.id)
+        nested.delete()
+        self.db.collection("quests").document(first.quest.id).set({
+            **first.quest.model_dump(exclude={"id"}), "ownerId": self.uid,
+        })
+        old = self.db.collection("userQuests").document(first.assignment.id)
+        old.set(first.assignment.model_dump(exclude={"id"}))
+        self.provider.reset_mock()
+        loaded = persistence.get_current_assignment(self.db, self.uid)
+        self.assertEqual(loaded.quest, first.quest)
+        self.assertTrue(nested.get().exists)
+        self.assertEqual(old.get().to_dict()["status"], "migrated")
+        self.assertEqual(old.get().to_dict()["migratedTo"], nested.path)
+        self.assert_xp()
+        self.provider.assert_not_called()
+        complete_quest(self.db, self.uid, first.quest.id, 29.65, -82.34, 10)
+        self.assertIsNone(persistence.get_current_assignment(self.db, self.uid))
+        with self.assertRaises(CompletionError):
+            complete_quest(self.db, self.uid, first.quest.id, 29.65, -82.34, 10)
+        self.assert_xp(35, 125)
+
+    def test_old_completed_pointer_does_not_block_new_assignments(self):
+        self.db.collection("Users").document(self.uid).update({"activeQuestId": "old-completed"})
+        self.db.collection("userQuests").document(f"{self.uid}_old-completed").set({
+            "userId": self.uid, "questId": "old-completed", "status": "completed", "xpAwarded": 25,
+        })
+        self.assertIsNone(persistence.get_current_assignment(self.db, self.uid))
+        self.assertFalse(self.create().reusedExisting)
+        self.assert_xp()
+
+    def test_nested_completion_race_awards_once_and_keeps_completed_record(self):
+        first = self.create()
+        def complete_once(_):
+            try:
+                return complete_quest(self.db, self.uid, first.quest.id, 29.65, -82.34, 10)["status"]
+            except CompletionError as error:
+                return error.status_code
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(complete_once, range(2)))
+        self.assertCountEqual(results, ["completed", 409])
+        saved = persistence.sidequests(self.db, self.uid).document(first.quest.id).get().to_dict()
+        self.assertEqual(saved["status"], "completed")
+        self.assertFalse(saved["isActive"])
+        self.assertEqual(saved["xpAwarded"], 25)
+        self.assertNotIn("activeQuestId", self.db.collection("Users").document(self.uid).get().to_dict())
+        self.assert_xp(35, 125)
+
+    def test_nested_completion_rejects_corruption_without_mutating_state_or_xp(self):
+        first = self.create()
+        ref = persistence.sidequests(self.db, self.uid).document(first.quest.id)
+        saved = ref.get().to_dict()
+        for changes, expected in [({"ownerId": None}, 403), ({"userId": "another-user"}, 403),
+                                  ({"questId": "another-quest"}, 409), ({"xpReward": -1}, 409)]:
+            ref.update(changes)
+            with self.assertRaises(CompletionError) as caught:
+                complete_quest(self.db, self.uid, first.quest.id, 29.65, -82.34, 10)
+            self.assertEqual(caught.exception.status_code, expected)
+            self.assertEqual(ref.get().to_dict()["status"], "assigned")
+            self.assert_xp()
+            ref.set(saved)
+
+    def test_nested_assignment_is_private_and_prepared_requests_are_not_quests(self):
+        persistence.sidequests(self.db, self.uid).document("old-preview").set({
+            "status": "prepared", "isActive": True, "xpValue": 500,
+        })
+        first = self.create()
+        with self.wired_resolver_client() as (client, _lookup, _place):
+            headers = {"Authorization": "Bearer test-token"}
+            self.assertEqual([q["id"] for q in client.get("/quests", headers=headers).json()["quests"]], [first.quest.id])
+            self.assertEqual(client.get(f"/quests/{first.quest.id}", headers=headers).status_code, 200)
+            self.assertEqual(len(client.get("/me/quests?status=assigned", headers=headers).json()["quests"]), 1)
+        with self.assertRaises(CompletionError):
+            complete_quest(self.db, self.uid, "old-preview", 29.65, -82.34, 10)
+        with self.assertRaises(CompletionError):
+            complete_quest(self.db, "someone-else", first.quest.id, 29.65, -82.34, 10)
+        self.assert_xp()
 
     @contextmanager
     def wired_resolver_client(self):
@@ -344,8 +423,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
                 with self.subTest(label=label):
                     result = client.post("/quests/assign", json=body, headers=headers)
                     self.assertEqual(result.status_code, status, result.text)
-                    self.assertEqual(self.records("quests"), [])
-                    self.assertEqual(self.records("userQuests"), [])
+                    self.assertEqual(self.records(), [])
                     self.assert_xp()
             lookup.side_effect = URLError("test provider unavailable")
             self.assertEqual(client.post("/quests/assign", json=body, headers=headers).status_code, 503)
@@ -356,8 +434,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
             for missing in ["GOOGLE_PLACES_API_KEY", "GAINESVILLE_BOUNDARY_PATH"]:
                 with patch.dict(os.environ, {missing: ""}):
                     self.assertEqual(client.post("/quests/assign", json=body, headers=headers).status_code, 503)
-            self.assertEqual(self.records("quests"), [])
-            self.assertEqual(self.records("userQuests"), [])
+            self.assertEqual(self.records(), [])
             self.assertNotIn("activeQuestId", self.db.collection("Users").document(self.uid).get().to_dict())
             self.assert_xp()
 

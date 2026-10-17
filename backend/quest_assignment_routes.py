@@ -103,7 +103,7 @@ def generate_assignment_preview(
     "/quests/assign", response_model=AssignQuestResponse, status_code=201,
     summary="Create or reuse the student's saved assignment",
     description=("Returns an existing active assignment before calling Gemini. Otherwise "
-                 "requires destination resolution and atomically saves one quest, assignment, "
+                 "requires destination resolution and atomically saves one user-owned sidequest "
                  "and user activeQuestId. No XP awarded. Identity comes only from the token."),
     responses={200: {"model": AssignQuestResponse, "description": "Reused existing active assignment"},
                409: {"description": "Profile/state conflict or destination beyond distance limit"},

@@ -145,6 +145,7 @@ export class QuestApiError extends Error {
 
   constructor(status: number, detail: unknown) {
     let message = typeof detail === 'string' ? detail : `Quest request failed (HTTP ${status}).`
+    if (isRecord(detail) && typeof detail.reason === 'string') message = detail.reason
     if (Array.isArray(detail)) {
       const messages = detail.filter(isRecord).slice(0, 3).map((item) => {
         const path = Array.isArray(item.loc) ? item.loc.filter((part) => part !== 'body').join('.') : ''
@@ -229,8 +230,20 @@ export async function getCurrentQuest(
   return result
 }
 
+export type CompletionLocation = { latitude: number; longitude: number; accuracy: number }
+
+export async function requestQuestCompletion(userId: string, questId: string, location: CompletionLocation): Promise<number> {
+  if (!questId || questId.includes('/')) throw new Error('Choose a valid sidequest.')
+  const result = await requestQuest(`/quests/${encodeURIComponent(questId)}/complete`, userId, location, {})
+  if (!isRecord(result) || result.status !== 'completed' || result.questId !== questId
+      || typeof result.xpAwarded !== 'number' || !Number.isSafeInteger(result.xpAwarded) || result.xpAwarded < 0) {
+    throw new Error('The backend returned an invalid completion response.')
+  }
+  return result.xpAwarded
+}
+
 async function requestQuest(
-  path: string, expectedUserId: string, payload: AssignQuestPayload | undefined,
+  path: string, expectedUserId: string, payload: AssignQuestPayload | CompletionLocation | undefined,
   options: QuestRequestOptions, method: 'POST' | 'GET' = 'POST',
 ): Promise<unknown> {
   const started = now()

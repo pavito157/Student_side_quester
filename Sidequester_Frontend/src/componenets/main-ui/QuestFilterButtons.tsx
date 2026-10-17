@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 
 import { useUser } from '@clerk/clerk-react'
 import { colors } from '../../constants/colors'
 import { buildSidequestRequest, toQuestApiPayload } from '../../services/sidequestJson'
-import { saveSidequestRequest } from '../../services/sidequests'
 import { requestAssignedQuest, type SavedQuestResponse } from '../../services/questAssignment'
 import { getUserGoals, getUserPreferences } from '../../services/userPreferences'
 import type {
@@ -107,7 +106,7 @@ function QuestFilterControls({
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [isLoadingPreview, setIsLoadingPreview] = useState(false)
   const [previewError, setPreviewError] = useState('')
-  const [historyWarning, setHistoryWarning] = useState('')
+  const historyWarning = ''
   const [assignment, setAssignment] = useState<SavedQuestResponse | null>(null)
   const controllerRef = useRef<AbortController | null>(null)
   const inFlightRef = useRef(false)
@@ -128,7 +127,6 @@ function QuestFilterControls({
     setIsPreviewOpen(true)
     setIsLoadingPreview(true)
     setPreviewError('')
-    setHistoryWarning('')
     setAssignment(null)
     setRequestJson('')
 
@@ -181,14 +179,6 @@ function QuestFilterControls({
       const saved = await requestAssignedQuest(user.id, apiRequest, { signal: controller.signal })
       if (controller.signal.aborted) return
       setAssignment(saved)
-      // Preserve request-history metadata without delaying or blocking the quest.
-      if (!saved.reusedExisting) {
-        void saveSidequestRequest(user.id, email, request).catch(() => {
-          if (!controller.signal.aborted) {
-            setHistoryWarning('Your quest was saved, but request history could not be updated.')
-          }
-        })
-      }
     } catch (error) {
       if (controller.signal.aborted) return
       setPreviewError(

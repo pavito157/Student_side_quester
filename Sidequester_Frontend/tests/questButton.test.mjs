@@ -123,7 +123,7 @@ test('button submits current selections and renders saved server XP/JSON', async
   assert.deepEqual(plain(f.calls[0][1].distance), { maxDistance: 1, unit: 'miles' })
   assert.deepEqual(plain(f.props('SidequestJsonModal').response), saved)
   assert.equal(f.props('SidequestJsonModal').response.quest.xpReward, 25)
-  assert.equal(f.historyCalls.length, 1)
+  assert.equal(f.historyCalls.length, 0)
   assert.equal(f.props('SidequestMeButton').isLoading, false)
 })
 
@@ -149,12 +149,13 @@ test('backend errors are shown without a fabricated successful result', async ()
   assert.equal(f.historyCalls.length, 0)
 })
 
-test('request-history failure cannot discard a committed assignment', async () => {
+test('backend owns persistence; button never writes a duplicate prepared request', async () => {
   const f = await fixture()
   f.history = async () => { throw new Error('Permission denied') }
   f.click(); await f.settle()
   assert.deepEqual(plain(f.props('SidequestJsonModal').response), saved)
-  assert.match(f.props('SidequestJsonModal').historyWarning, /quest was saved/)
+  assert.equal(f.props('SidequestJsonModal').historyWarning, '')
+  assert.equal(f.historyCalls.length, 0)
 })
 
 test('reusing a saved quest does not create another history record', async () => {

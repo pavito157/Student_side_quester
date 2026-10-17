@@ -16,6 +16,7 @@ class RouteTests(unittest.TestCase):
         app = FastAPI()
         app.include_router(quest_routes.router)
         self.db = Mock()
+        self.db.collection.return_value.document.return_value.collection.return_value.stream.return_value = []
         app.dependency_overrides[quest_routes.get_db] = lambda: self.db
         self.client = TestClient(app)
         self.addCleanup(self.client.close)

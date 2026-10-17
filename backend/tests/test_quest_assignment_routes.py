@@ -53,7 +53,7 @@ class QuestAssignmentPreviewTests(unittest.TestCase):
         self.verify.side_effect = auth.InvalidIdTokenError("Not an ID token")
         self.assertEqual(self.post().status_code, 401)
         self.verify.side_effect = None
-        for email, verified in [("student@gmail.com", True), ("student@ufl.edu", False)]:
+        for email, verified in [("student@gmail.com", False), ("student@ufl.edu", False)]:
             self.verify.return_value = {"uid": "user_token_owner", "email": email, "email_verified": verified}
             self.assertEqual(self.post().status_code, 403)
 

@@ -33,9 +33,9 @@ this code does not silently combine their XP or identities.
    Restart Vite after environment changes. For deployment it must point to the
    HTTPS backend. No Clerk secret, service account, or Gemini key belongs in a
    `VITE_` variable.
-7. Sign in with an account whose **primary** Clerk email is a verified
-   `@ufl.edu` email. A verified secondary UF address alone is not selected. The
-   server rejects non-UF, unverified, banned, locked, and disabled accounts.
+7. Sign in with an account whose **primary** Clerk email is verified. All email
+   domains are accepted. A verified secondary address alone is not selected. The
+   server rejects unverified, banned, locked, and disabled accounts.
 
 The frontend will now wait for the bridge before rendering the signed-in app.
 Until this backend configuration is present, signed-in users see a connection
@@ -58,7 +58,7 @@ assignments require the pending destination resolver.
 3. The server retrieves the user from Clerk's backend API using its secret and
    checks the primary email's verified status. Browser email/UID claims are not
    accepted as profile input. The body rejects extra fields.
-4. Firebase Auth creates or updates the same UID with that verified UF email.
+4. Firebase Auth creates or updates the same UID with that verified email.
    Existing disabled users stay disabled. An email attached to a different
    Firebase UID returns 409 and requires explicit account linking; the bridge
    never guesses or merges identities by email.
@@ -137,3 +137,18 @@ remain unverified until the project configuration above is supplied and tested.
 
 References: [Clerk JWT verification](https://clerk.com/docs/guides/sessions/manual-jwt-verification),
 [Firebase custom tokens](https://firebase.google.com/docs/auth/admin/create-custom-tokens).
+
+## Hackathon sign-in policy: all verified email domains
+
+The backend accepts verified primary Clerk emails from any domain, including
+Gmail and Outlook. The UF-domain restriction and email allowlist were removed.
+No `AUTH_EMAIL_ALLOWLIST` setting is needed; an old value has no effect.
+
+Email verification remains required in Clerk and in verified Firebase ID tokens.
+Token signature/expiry/revocation checks, banned/locked/disabled-account checks,
+UID binding and ownership checks remain enforced. No guest API access was added.
+
+Restart FastAPI after updating the code. Users whose bridge previously failed
+can sign in again or choose Retry connection. If Clerk dashboard sign-up policies
+or deployed Firestore rules still impose a domain restriction, those independent
+settings must also be updated by their owner; backend code does not alter them.

@@ -58,13 +58,13 @@ def build_test_preview(preferences: NormalizedQuestPreferences) -> QuestPreviewR
 @router.post(
     "/quests/preview", response_model=QuestPreviewResponse,
     summary="Return a fixed test quest (not saved)",
-    description=("Task 3 preview only. Requires a verified UF Firebase ID token. "
+    description=("Task 3 preview only. Requires a verified Firebase ID token. "
                  "Validates the frontend payload and returns a constant test quest plus "
                  "normalized preferences. No Gemini calls, distance matching, Firestore "
                  "writes, assignments, or XP changes are performed. Always HTTP 200 on "
                  "success; this is not the future persisted HTTP 201 response."),
     responses={401: {"description": "Missing or invalid Firebase ID token"},
-               403: {"description": "Verified @ufl.edu account required"}},
+               403: {"description": "Verified email account required"}},
 )
 def preview_assignment(
     response: Response,
@@ -80,7 +80,7 @@ def preview_assignment(
 @router.post(
     "/quests/generate", response_model=GeneratedQuestResponse,
     summary="Generate a personalized Gemini preview (not saved)",
-    description=("Requires a verified UF Firebase ID token. Discovers and verifies a city "
+    description=("Requires a verified Firebase ID token. Discovers and verifies a city "
                  "destination first, then Gemini writes activity content. Validates estimated time and cost. "
                  "The connected selector verifies the destination and city scope; "
                  "requested distance requires origin coordinates. No Firestore access or XP writes."),

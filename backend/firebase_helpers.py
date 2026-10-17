@@ -1,4 +1,4 @@
-"""Shared Firebase initialization, database client, and verified UF identity."""
+"""Shared Firebase initialization, database client, and verified identity."""
 
 from functools import lru_cache
 from typing import Optional
@@ -25,9 +25,10 @@ def get_db():
     return firestore.client(app=get_firebase_app())
 
 
-def is_uf_email(email):
+def is_valid_email(email):
+    """Accept all email domains; callers must still require provider verification."""
     return (isinstance(email, str) and email.count("@") == 1
-            and bool(email.split("@")[0]) and email.lower().endswith("@ufl.edu"))
+            and all(email.split("@")) and not any(c.isspace() for c in email))
 
 
 def current_uid(credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer)):
@@ -40,8 +41,8 @@ def current_uid(credentials: Optional[HTTPAuthorizationCredentials] = Depends(be
         raise HTTPException(401, "Invalid or expired ID token", headers={"WWW-Authenticate": "Bearer"})
     except auth.CertificateFetchError:
         raise HTTPException(503, "Authentication temporarily unavailable")
-    if not is_uf_email(claims.get("email")) or claims.get("email_verified") is not True:
-        raise HTTPException(403, "A verified @ufl.edu account is required")
+    if not is_valid_email(claims.get("email")) or claims.get("email_verified") is not True:
+        raise HTTPException(403, "A verified email account is required")
     uid = claims.get("uid")
     if not isinstance(uid, str) or not uid or "/" in uid or len(uid) > 128:
         raise HTTPException(401, "Invalid ID token")

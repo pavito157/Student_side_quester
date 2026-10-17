@@ -60,13 +60,18 @@ class RouteTests(unittest.TestCase):
         self.verify.side_effect = auth.CertificateFetchError("Unavailable", None)
         self.assertEqual(self.post().status_code, 503)
 
-    def test_uf_email_must_be_verified_and_exact_domain(self):
-        for email, verified in [("student@ufl.edu", False), ("student@ufl.edu", "true"),
-                                ("student@ufl.edu.evil.com", True), ("student@gmail.com", True),
-                                ("ufl.edu", True), (None, True)]:
+    def test_email_must_be_present_well_formed_and_verified(self):
+        for email, verified in [("student@gmail.com", False), ("student@gmail.com", "true"),
+                                ("ufl.edu", True), (None, True), ("@gmail.com", True),
+                                ("student@", True), ("has space@gmail.com", True)]:
             self.verify.return_value = {"uid": "student", "email": email, "email_verified": verified}
             self.assertEqual(self.post().status_code, 403)
         self.complete.assert_not_called()
+
+    def test_verified_emails_from_all_domains_are_accepted(self):
+        for email in ["Teammate@gmail.com", "tester@outlook.com", "tester@another-university.edu", "student@ufl.edu"]:
+            self.verify.return_value["email"] = email
+            self.assertEqual(self.post().status_code, 200)
 
     def test_uppercase_domain_is_allowed(self):
         self.verify.return_value["email"] = "Student@UFL.EDU"

@@ -307,7 +307,7 @@ class GenerationTests(unittest.TestCase):
             self.assertIn("Server-Timing", response.headers["access-control-expose-headers"])
             db.assert_not_called()
             verify.assert_called_once_with("test-token", check_revoked=True)
-            verify.return_value["email"] = "student@gmail.com"
+            verify.return_value.update(email="student@gmail.com", email_verified=False)
             self.assertEqual(client.post("/quests/generate", json=self.body,
                                         headers={"Authorization": "Bearer test-token"}).status_code, 403)
         

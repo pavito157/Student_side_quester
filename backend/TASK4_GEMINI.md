@@ -128,7 +128,7 @@ import `requestGeneratedQuest` from `src/services/questAssignment.ts` when wirin
 its button and result display. That helper validates the new response flags and
 optional resolved destination. `requestTestQuest` still calls the fixed test.
 
-Keep both servers running, log in with a verified UF account, and run this in the
+Keep both servers running, log in with a verified-email account, and run this in the
 frontend browser console. Each call requests a generation and may consume quota.
 
 ```js
@@ -166,7 +166,7 @@ if `gemini` is high, inspect the provider. Revocation and UF account checks rema
 fully enabled. The resolver is currently pending, so real destination verification
 will add time later. See [LATENCY_RESULTS.md](LATENCY_RESULTS.md) for benchmarks.
 
-Errors: 401 invalid token, 403 non-UF account, 409 resolved destination beyond the
+Errors: 401 invalid token, 403 unverified email, 409 resolved destination beyond the
 distance limit, 422 invalid input, 429 provider quota, 502 invalid/blocked generated
 content or failed destination verification, 503 provider configuration/outage,
 and 504 timeout. The generator does not retry billable calls automatically.

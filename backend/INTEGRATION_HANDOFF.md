@@ -37,7 +37,7 @@ Backend owner:
 
 1. Finish the pending Git merge commit before pushing the integration branch.
 2. Keep the existing Firebase Admin and Clerk bridge configuration. Sign in with
-   a verified `@ufl.edu` account so `Users/{Firebase uid}` exists.
+   a verified email account so `Users/{Firebase uid}` exists.
 3. In ignored repository-root `.env` (the file loaded by the command below), set
    `GEMINI_API_KEY`, `GOOGLE_PLACES_API_KEY`, and `GAINESVILLE_BOUNDARY_PATH`.
    Use a server Places key with Places API (New) enabled in its Google project;
@@ -163,7 +163,7 @@ rejections may put the validation object inside `detail`.
 | HTTP | Meaning / UI behavior |
 | --- | --- |
 | 401 | Missing/expired/invalid Firebase token; reconnect/sign in |
-| 403 | Account is not a verified UF account; show restriction |
+| 403 | Account is not a verified-email account; show restriction |
 | 404 | Quest/assignment missing on completion |
 | 409 | No eligible destination found in the sampled city/distance search, incomplete profile/dorm, corrupt state, or already completed; show detail and refresh current state |
 | 422 | Invalid selections/coordinates, distance without origin coordinates, or forbidden extra fields; fix request |
@@ -186,7 +186,7 @@ direct name/address lookups.
 | Valid frontend JSON, real resolver wiring | 201 structured JSON; quest + assignment + user pointer saved atomically | Passed, provider I/O mocked |
 | Null vibe and object distance + origin | Accepted; distance validated | Passed |
 | Missing origin, bad unit, invalid GPS/accuracy | 422/400, no completion/award | Passed |
-| No/invalid token, non-UF/unverified account | 401/403 | Passed with mocked token verification |
+| No/invalid token or unverified account | 401/403 | Passed with mocked token verification |
 | No unambiguous candidate within city/distance bounds | 409 before Gemini; no saved records/XP | Passed |
 | Missing key/boundary or provider failure | 503, no saved records/XP | Passed |
 | Destination beyond requested distance | 409, no saved records/XP | Passed |
@@ -342,9 +342,19 @@ duplicate clicks, history failures, reused quests, reward presentation and exact
 JSON-download contents. The browser loads the app; a real signed-in button click
 against production Firestore remains a manual check (no student login was automated).
 
-Manual check: run the backend and frontend, sign in with a verified UF account,
+Manual check: run the backend and frontend, sign in with a verified-email account,
 select a place/current location if using distance, click Sidequest me. Confirm
 Network POST `/quests/assign` returns 201 (new) or 200 (reused), inspect the modal,
 and download the JSON. Confirm its `quest.xpReward` equals the badge and its
 `assignment.xpAwarded` is 0. Click again and confirm the same active quest is reused.
 Completion UI wiring is separate from this generation button.
+
+## Hackathon authentication update
+
+All verified email domains are now accepted. The UF-only policy and temporary
+email allowlist have been removed from both the Clerk-to-Firebase bridge and
+protected Firebase-token routes. Token verification, verified primary email,
+account status, UID binding and ownership checks remain required. Restart the
+backend after updating the code; the frontend sign-in message reflects this policy.
+The authentication changes passed 141 backend tests (32 emulator-dependent tests
+skipped) and the frontend passed 42 tests, build and lint.

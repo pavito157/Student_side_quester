@@ -24,7 +24,7 @@ and whether the existing test document exists without creating/overwriting it.
 
 ## Endpoints
 
-All endpoints below require a verified UF **Firebase ID token** in the Bearer
+All endpoints below require a verified **Firebase ID token** in the Bearer
 header. Use the typed helper to obtain it; do not send a UID in request JSON.
 
 | Endpoint | Success | Purpose |
@@ -169,7 +169,7 @@ activity or protection against location spoofing.
 
 ## Error behavior and tests
 
-401 token invalid/missing; 403 non-UF; 409 profile/current-state conflict or resolved
+401 token invalid/missing; 403 unverified email; 409 profile/current-state conflict or resolved
 destination too far away; 422 invalid frontend input; 429 Gemini quota; 502 invalid
 generated content or failed destination resolution; 503 missing resolver, bad
 policy or provider/database outage; 504 Gemini timeout. Failed saves never return

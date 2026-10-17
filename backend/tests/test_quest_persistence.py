@@ -126,11 +126,11 @@ class PersistenceRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(response.json())
 
-    def test_missing_or_non_uf_identity_is_rejected_before_database(self):
+    def test_missing_or_unverified_identity_is_rejected_before_database(self):
         self.assertEqual(self.client.post("/quests/assign", json=self.body).status_code, 401)
         self.assertEqual(self.client.get("/me/quest").status_code, 401)
         self.db.assert_not_called()
-        self.verify.return_value["email"] = "student@gmail.com"
+        self.verify.return_value.update(email="student@gmail.com", email_verified=False)
         self.assertEqual(self.client.post("/quests/assign", json=self.body, headers=self.headers).status_code, 403)
         self.db.assert_not_called()
         self.assign.assert_not_called()

@@ -6,7 +6,6 @@ import unittest
 from collections import Counter
 from unittest.mock import MagicMock, patch
 
-from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from backend import firebase_helpers
@@ -28,18 +27,35 @@ class BackendMergeTests(unittest.TestCase):
         self.headers = {"Authorization": "Bearer firebase-test-token"}
 
     def test_no_duplicate_or_parameter_renamed_routes(self):
-        endpoints = Counter((method, re.sub(r"\{[^}]+\}", "{}", route.path))
-                            for route in app.routes if isinstance(route, APIRoute)
-                            for method in route.methods)
+        endpoints = Counter(
+            (method.upper(), re.sub(r"\{[^}]+\}", "{}", path))
+            for path, methods in app.openapi()["paths"].items()
+            for method in methods
+        )
         self.assertEqual([key for key, count in endpoints.items() if count > 1], [])
         self.assertIn(("POST", "/quests/assign"), endpoints)
         self.assertIn(("POST", "/quests/{}/complete"), endpoints)
 
     def test_placeholders_require_auth_and_return_explicit_not_implemented(self):
-        for method, path in [("POST", "/users"), ("GET", "/users/user_student"), ("GET", "/leaderboard")]:
+        for method, path in [("POST", "/users"), ("GET", "/users/user_student")]:
             self.assertEqual(self.client.request(method, path).status_code, 401)
             self.assertEqual(self.client.request(method, path, headers=self.headers).status_code, 501)
         self.db.collection.assert_not_called()
+
+    def test_leaderboards_require_authentication(self):
+        self.assertEqual(self.client.get("/leaderboard").status_code, 401)
+        self.assertEqual(self.client.get("/leaderboard/dorms").status_code, 401)
+
+    def test_dorm_selection_put_is_allowed_by_cors(self):
+        response = self.client.options(
+            "/me/dorm",
+            headers={
+                "Origin": "http://localhost:5173",
+                "Access-Control-Request-Method": "PUT",
+                "Access-Control-Request-Headers": "authorization,content-type",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
 
     def test_firestore_connection_check_is_authenticated_and_read_only(self):
         self.assertEqual(self.client.post("/test-firestore").status_code, 401)

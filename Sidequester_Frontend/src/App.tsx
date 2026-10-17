@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import Header from './componenets/main-ui/Header'
 import CinematicHero from './componenets/main-ui/CinematicHero'
+import DormSelectionGate from './componenets/main-ui/DormSelectionGate'
 import LeaderboardPage from './componenets/main-ui/LeaderboardPage'
 import SidequestDetailPage from './componenets/main-ui/SidequestDetailPage'
 import QuestFilterButtons, { type QuestFilters } from './componenets/main-ui/QuestFilterButtons'
@@ -174,15 +175,17 @@ function App() {
   }, [])
 
   return (
-    <div key={pathname} className="route-transition">
-      {pathname === '/leaderboard' ? (
-        <LeaderboardPage />
-      ) : pathname.startsWith('/sidequests/') ? (
-        <SidequestDetailPage sidequestId={decodeURIComponent(pathname.slice('/sidequests/'.length))} />
-      ) : (
-        <HomePage />
-      )}
-    </div>
+    <DormSelectionGate>
+      <div key={pathname} className="route-transition">
+        {pathname === '/leaderboard' ? (
+          <LeaderboardPage />
+        ) : pathname.startsWith('/sidequests/') ? (
+          <SidequestDetailPage sidequestId={decodeURIComponent(pathname.slice('/sidequests/'.length))} />
+        ) : (
+          <HomePage />
+        )}
+      </div>
+    </DormSelectionGate>
   )
 }
 

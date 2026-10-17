@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { colors } from '../constants/colors'
+import { CloseIcon } from './icons'
 
 interface SidebarModalProps {
   isOpen: boolean
@@ -65,7 +66,7 @@ function SidebarModal({ isOpen, onClose, title, children }: SidebarModalProps) {
             className="rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
             style={{ color: colors.muted, outlineColor: colors.primary }}
           >
-            Close
+            <CloseIcon />
           </button>
         </header>
         <div className="p-5">{children}</div>

@@ -1,0 +1,72 @@
+import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+import test from 'node:test'
+import vm from 'node:vm'
+import ts from 'typescript'
+
+async function load(name) {
+  const source = await readFile(new URL(`../src/services/${name}.ts`, import.meta.url), 'utf8')
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2023 },
+  }).outputText
+  const module = new vm.SourceTextModule(compiled)
+  await module.link(() => { throw new Error('Unexpected runtime dependency') })
+  await module.evaluate()
+  return module.namespace
+}
+const profile = await load('userProfile')
+const builder = await load('sidequestJson')
+
+test('XP reads preserve legacy values and canonical zero', () => {
+  assert.equal(profile.getUserXp({ totalXp: 42 }), 42)
+  assert.equal(profile.getUserXp({ xp: 0, totalXp: 42 }), 0)
+  assert.equal(profile.getUserXp(undefined), 0)
+  for (const xp of [null, true, -1, '25', NaN, Infinity, 1.5]) {
+    assert.throws(() => profile.getUserXp({ xp, totalXp: 42 }), /invalid/)
+  }
+})
+
+test('request metadata never writes balances, even from an untyped caller', () => {
+  const calls = []
+  profile.stageUserRequestMetadata({ set: (...args) => calls.push(args) }, 'user-ref', {
+    email: 'student@ufl.edu', username: 'Student', requestCount: 3,
+    xp: 0, totalXp: 0, activeQuestId: 'forged',
+  })
+  assert.deepEqual(JSON.parse(JSON.stringify(calls)), [['user-ref', {
+    email: 'student@ufl.edu', username: 'Student', requestCount: 3,
+  }, { merge: true }]])
+})
+
+const input = {
+  preferences: ' Nature ', username: ' Student ', location: 'Museum Road',
+  originCoordinates: { latitude: 29.65, longitude: -82.34 },
+  time: { selection: '60', customMinutes: null },
+  budget: { selection: '0', customDollars: null },
+  distance: { maxDistance: 2, unit: 'miles' }, goals: [' Relax '], vibePreferences: null,
+}
+
+test('actual frontend builder preserves the agreed distance object and null vibe', () => {
+  const before = structuredClone(input)
+  const payload = JSON.parse(builder.serializeSidequestRequest(builder.buildSidequestRequest(input)))
+  assert.deepEqual(payload.distance, { maxDistance: 2, unit: 'miles' })
+  assert.equal(payload.vibePreferences, null)
+  assert.deepEqual(payload.goals, ['Relax'])
+  assert.deepEqual(input, before)
+})
+
+test('distance builder rejects invalid limits and unsupported units', () => {
+  for (const distance of [
+    { maxDistance: 0, unit: 'miles' }, { maxDistance: -1, unit: 'miles' },
+    { maxDistance: NaN, unit: 'miles' }, { maxDistance: 2, unit: 'km' },
+  ]) {
+    assert.throws(() => builder.buildSidequestRequest({ ...input, distance }), /positive number of miles/)
+  }
+})
+
+
+test('distance requests require captured origin coordinates, never a silent filter bypass', () => {
+  assert.throws(() => builder.buildSidequestRequest({ ...input, originCoordinates: undefined }), /starting place/)
+  assert.throws(() => builder.buildSidequestRequest({ ...input, originCoordinates: { latitude: NaN, longitude: -82.34 } }), /valid coordinates/)
+  const payload = JSON.parse(builder.serializeSidequestRequest(builder.buildSidequestRequest(input)))
+  assert.deepEqual(payload.originCoordinates, input.originCoordinates)
+})

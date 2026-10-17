@@ -1,0 +1,15 @@
+{
+  "location": "Anywhere",
+  "time": {
+    "selection": "60"
+  },
+  "budget": {
+    "selection": "0"
+  },
+  "distance": null,
+  "preferences": "Programming and nature",
+  "goals": [
+    "Learn Computer Science"
+  ],
+  "vibePreferences": "Relax"
+}

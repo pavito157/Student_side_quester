@@ -1,0 +1,88 @@
+"""Atomic quest completion, independent of FastAPI application startup."""
+
+from firebase_admin import firestore
+
+from .quest_validation import validate_completion
+from .firebase_helpers import USERS
+from .xp import read_xp
+
+ASSIGNMENTS = "userQuests"
+
+
+class CompletionError(Exception):
+    def __init__(self, status_code, detail):
+        super().__init__(str(detail))
+        self.status_code = status_code
+        self.detail = detail
+
+
+def complete_quest(
+    db, user_id, quest_id, latitude, longitude, accuracy, max_accuracy=50,
+):
+    """user_id MUST come from a verified Firebase ID token, never request JSON.
+
+    Firestore retries the callback on conflicts. All reads precede all writes;
+    the assignment state and both XP totals commit together or not at all.
+    """
+    if any(not isinstance(value, str) or not value or "/" in value
+           for value in (user_id, quest_id)):
+        raise CompletionError(400, "Invalid user or quest ID.")
+    assignment_ref = db.collection(ASSIGNMENTS).document(f"{user_id}_{quest_id}")
+    quest_ref = db.collection("quests").document(quest_id)
+    user_ref = db.collection(USERS).document(user_id)
+
+    @firestore.transactional
+    def commit(transaction):
+        assignment_snapshot = assignment_ref.get(transaction=transaction)
+        quest_snapshot = quest_ref.get(transaction=transaction)
+        if not assignment_snapshot.exists or not quest_snapshot.exists:
+            raise CompletionError(404, "Quest or assignment not found.")
+        assignment, quest = assignment_snapshot.to_dict(), quest_snapshot.to_dict()
+        if assignment.get("userId") != user_id:
+            raise CompletionError(403, "This quest is not assigned to you.")
+        if assignment.get("questId") != quest_id:
+            raise CompletionError(409, "The assignment refers to a different quest.")
+        if assignment.get("status") != "assigned":
+            raise CompletionError(409, "This quest is not currently assigned.")
+        if quest.get("isActive") is not True:
+            raise CompletionError(409, "This quest is no longer active.")
+
+        validation = validate_completion(
+            user_id, assignment, quest, latitude, longitude, accuracy, max_accuracy,
+        )
+        if not validation["valid"]:
+            raise CompletionError(400, validation)
+        reward = quest.get("xpReward")
+        if type(reward) is not int or reward < 0:
+            raise CompletionError(409, "The quest XP reward is not configured correctly.")
+
+        user_snapshot = user_ref.get(transaction=transaction)
+        if not user_snapshot.exists:
+            raise CompletionError(409, "Create your user profile and choose a dorm first.")
+        user = user_snapshot.to_dict()
+        dorm_id = user.get("dormId")
+        if not isinstance(dorm_id, str) or not dorm_id or "/" in dorm_id:
+            raise CompletionError(409, "Choose a valid dorm first.")
+        dorm_ref = db.collection("dorms").document(dorm_id)
+        dorm_snapshot = dorm_ref.get(transaction=transaction)
+        if not dorm_snapshot.exists:
+            raise CompletionError(409, "Your dorm no longer exists.")
+        dorm = dorm_snapshot.to_dict()
+        try:
+            user_xp, dorm_xp = read_xp(user), read_xp(dorm)
+        except ValueError:
+            raise CompletionError(409, "User and dorm XP totals must be nonnegative integers.") from None
+
+        # Firestore integer fields are signed 64-bit values.
+        if any(balance + reward > 2**63 - 1 for balance in (user_xp, dorm_xp)):
+            raise CompletionError(409, "The XP award exceeds the supported total.")
+        transaction.update(assignment_ref, {
+            "status": "completed",
+            "completedAt": firestore.SERVER_TIMESTAMP,
+            "xpAwarded": reward,
+        })
+        transaction.update(user_ref, {"xp": user_xp + reward})
+        transaction.update(dorm_ref, {"xp": dorm_xp + reward})
+        return {**validation, "questId": quest_id, "status": "completed", "xpAwarded": reward}
+
+    return commit(db.transaction())

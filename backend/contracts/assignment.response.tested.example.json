@@ -1,0 +1,29 @@
+{
+  "quest": {
+    "id": "example-quest",
+    "title": "Test task",
+    "description": "Draw three leaf shapes.",
+    "steps": [
+      "Draw three leaves."
+    ],
+    "locationName": "AI proposed name",
+    "placeId": "provider-test-place",
+    "latitude": 29.65,
+    "longitude": -82.34,
+    "radiusMeters": 100.0,
+    "xpReward": 25,
+    "isActive": true,
+    "estimatedMinutes": 30,
+    "estimatedCostDollars": 0.0
+  },
+  "assignment": {
+    "id": "example-user_example-quest",
+    "userId": "example-user",
+    "questId": "example-quest",
+    "status": "assigned",
+    "assignedAt": "2026-10-17T19:00:00Z",
+    "completedAt": null,
+    "xpAwarded": 0
+  },
+  "reusedExisting": false
+}

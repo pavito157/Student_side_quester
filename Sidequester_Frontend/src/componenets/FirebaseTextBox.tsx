@@ -21,7 +21,7 @@ function FirebaseTextBox({
           : `Could not load document: ${state.message}`
 
   return (
-    <div className="mt-6">
+    <div>
       <TextBox
         id="firebase-connection"
         title="Firebase connection"

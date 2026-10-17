@@ -17,6 +17,13 @@ permission and a secure context (HTTPS or localhost). Sidequest suggestions
 are currently available for the campus locations listed in
 `src/componenets/Buttons/QuestFilterButtons.tsx`.
 
+## User preferences and goals
+
+For signed-in users, general preferences are stored as plain text in the
+`preferences` field of `Users/{Clerk user ID}`. Individual sidequest goals are
+stored separately as a string array in that document's `goals` field. Both use
+the Firebase client SDK; Firestore security rules are managed separately.
+
 Currently, two official plugins are available:
 
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)

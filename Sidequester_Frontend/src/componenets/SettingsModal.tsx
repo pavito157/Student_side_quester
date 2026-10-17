@@ -10,9 +10,10 @@ import { colors } from '../constants/colors'
 import { BackIcon, CloseIcon } from './icons'
 import LocationPrivacySettings from './LocationPrivacySettings'
 import PreferencesEditor from './PreferencesEditor'
+import UserGoals from './UserGoals'
 import SettingsOptionButton from './SettingsOptionButton'
 
-export type SettingsSection = 'preferences' | 'location' | 'help'
+export type SettingsSection = 'preferences' | 'goals' | 'location' | 'help'
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -41,11 +42,13 @@ function SettingsModal({
   const title =
     section === 'preferences'
       ? 'Preferences'
-      : section === 'location'
-        ? 'Location & privacy'
-        : section === 'help'
-          ? 'Help & about'
-          : 'Settings'
+      : section === 'goals'
+        ? 'Goals'
+        : section === 'location'
+          ? 'Location & privacy'
+          : section === 'help'
+            ? 'Help & about'
+            : 'Settings'
 
   return (
     <dialog
@@ -112,6 +115,10 @@ function SettingsModal({
         <SignedIn>
           <UserPreferences />
         </SignedIn>
+      ) : section === 'goals' ? (
+        <SignedIn>
+          <UserGoals idPrefix="settings" />
+        </SignedIn>
       ) : section === 'location' ? (
         <LocationPrivacySettings />
       ) : section === 'help' ? (
@@ -131,9 +138,14 @@ function SettingsModal({
               }}
             />
             <SettingsOptionButton
-              title="Preferences/Goals"
-              description="Save the activities and experiences you enjoy."
+              title="Preferences"
+              description="Set general preferences that guide your sidequest suggestions."
               onClick={() => onSectionChange('preferences')}
+            />
+            <SettingsOptionButton
+              title="Goals"
+              description="Add specific outcomes you want to work toward with sidequests."
+              onClick={() => onSectionChange('goals')}
             />
           </SignedIn>
           <SignedOut>

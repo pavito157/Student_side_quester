@@ -9,14 +9,14 @@ interface UserPreferencesSummaryProps {
 
 function UserPreferencesSummary({ onEdit }: UserPreferencesSummaryProps) {
   return (
-    <div className="mt-6">
+    <div>
       <SignedIn>
         <SignedInPreferences onEdit={onEdit} />
       </SignedIn>
       <SignedOut>
         <TextBox
           id="user-preferences"
-          title="Your preferences"
+          title="Your general preferences"
           content="Sign in to save preferences that guide your sidequest suggestions."
           action={
             <SignInButton mode="modal">
@@ -46,7 +46,7 @@ function SignedInPreferences({ onEdit }: UserPreferencesSummaryProps) {
     return (
       <TextBox
         id="user-preferences"
-        title="Your preferences"
+        title="Your general preferences"
         content="Loading your saved preferences…"
       />
     )
@@ -77,8 +77,8 @@ function PreferencesTextBox({
   return (
     <TextBox
       id="user-preferences"
-      title="Your preferences/goals"
-      caption="Used to personalize sidequests/have goals for AI. Not shared with other users."
+      title="Your general preferences"
+      caption="Used to personalize sidequests"
       content={content}
       tone={state.status === 'error' || hasInvalidValue ? 'error' : 'default'}
       action={

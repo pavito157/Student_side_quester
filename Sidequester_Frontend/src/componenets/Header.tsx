@@ -9,6 +9,7 @@ import {
 import { AccountIcon, MenuIcon, SettingsIcon } from './icons'
 import { colors } from '../constants/colors'
 import SidebarModal from './SidebarModal'
+import SettingsModal from './SettingsModal'
 
 interface HeaderProps {
   title?: string
@@ -20,6 +21,7 @@ function Header({
   onSettingsClick,
 }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isAuthMenuOpen, setIsAuthMenuOpen] = useState(false)
   const authMenuRef = useRef<HTMLDivElement>(null)
 
@@ -74,7 +76,12 @@ function Header({
             <button
               type="button"
               aria-label="Settings"
-              onClick={onSettingsClick}
+              aria-haspopup="dialog"
+              aria-expanded={isSettingsOpen}
+              onClick={() => {
+                setIsSettingsOpen(true)
+                onSettingsClick?.()
+              }}
               className="rounded-lg p-2 transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
               style={{ color: colors.secondary, outlineColor: colors.secondary }}
             >
@@ -149,6 +156,10 @@ function Header({
           Your next side quest is just around the corner.
         </p>
       </SidebarModal>
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </>
   )
 }

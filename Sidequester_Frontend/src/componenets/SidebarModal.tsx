@@ -5,11 +5,22 @@ import { CloseIcon } from './icons'
 interface SidebarModalProps {
   isOpen: boolean
   onClose: () => void
+  onAddVibe: () => void
   title: string
   children: ReactNode
+  onBack?: () => void
+  showAddVibe?: boolean
 }
 
-function SidebarModal({ isOpen, onClose, title, children }: SidebarModalProps) {
+function SidebarModal({
+  isOpen,
+  onClose,
+  onAddVibe,
+  title,
+  children,
+  onBack,
+  showAddVibe = true,
+}: SidebarModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
@@ -56,9 +67,21 @@ function SidebarModal({ isOpen, onClose, title, children }: SidebarModalProps) {
           className="flex items-center justify-between border-b px-5 py-4"
           style={{ borderColor: colors.border }}
         >
-          <h2 id="sidebar-modal-title" className="text-xl font-semibold">
-            {title}
-          </h2>
+          <div className="flex min-w-0 items-center gap-3">
+            {onBack && (
+              <button
+                type="button"
+                onClick={onBack}
+                className="min-h-10 cursor-pointer rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+                style={{ color: colors.primary, outlineColor: colors.primary }}
+              >
+                Back
+              </button>
+            )}
+            <h2 id="sidebar-modal-title" className="truncate text-xl font-semibold">
+              {title}
+            </h2>
+          </div>
           <button
             type="button"
             aria-label="Close menu"
@@ -69,7 +92,26 @@ function SidebarModal({ isOpen, onClose, title, children }: SidebarModalProps) {
             <CloseIcon />
           </button>
         </header>
-        <div className="p-5">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
+        {showAddVibe && (
+          <div
+            className="mt-auto border-t p-5"
+            style={{ borderColor: colors.border }}
+          >
+            <button
+              type="button"
+              onClick={onAddVibe}
+              className="min-h-12 w-full cursor-pointer rounded-lg px-4 py-3 font-semibold transition hover:brightness-110 active:brightness-90 focus-visible:outline-2 focus-visible:outline-offset-2"
+              style={{
+                backgroundColor: colors.primary,
+                color: colors.primaryForeground,
+                outlineColor: colors.primary,
+              }}
+            >
+              Add vibe
+            </button>
+          </div>
+        )}
       </section>
     </dialog>
   )

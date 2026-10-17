@@ -10,6 +10,7 @@ import { AccountIcon, MenuIcon, SettingsIcon } from './icons'
 import { colors } from '../constants/colors'
 import SidebarModal from './SidebarModal'
 import SettingsModal from './SettingsModal'
+import VibeEditor, { type Vibe } from './VibeEditor'
 
 interface HeaderProps {
   title?: string
@@ -21,6 +22,9 @@ function Header({
   onSettingsClick,
 }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isAddVibeOpen, setIsAddVibeOpen] = useState(false)
+  const [vibeToEdit, setVibeToEdit] = useState<Vibe | null>(null)
+  const [vibes, setVibes] = useState<Vibe[]>([])
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isAuthMenuOpen, setIsAuthMenuOpen] = useState(false)
   const authMenuRef = useRef<HTMLDivElement>(null)
@@ -151,12 +155,84 @@ function Header({
       
       <SidebarModal
         isOpen={isMenuOpen}
-        onClose={() => setIsMenuOpen(false)}
-        title="Quick menu"
+        onClose={() => {
+          setIsMenuOpen(false)
+          setIsAddVibeOpen(false)
+          setVibeToEdit(null)
+        }}
+        onAddVibe={() => {
+          setVibeToEdit(null)
+          setIsAddVibeOpen(true)
+        }}
+        onBack={isAddVibeOpen ? () => {
+          setIsAddVibeOpen(false)
+          setVibeToEdit(null)
+        } : undefined}
+        showAddVibe={!isAddVibeOpen}
+        title={isAddVibeOpen ? (vibeToEdit ? 'Edit vibe' : 'Add a vibe') : 'Quick menu'}
       >
-        <p className="text-sm" style={{ color: colors.muted }}>
-          Your next side quest is just around the corner.
-        </p>
+        {isAddVibeOpen ? (
+          <VibeEditor
+            key={vibeToEdit?.id ?? 'new-vibe'}
+            vibeToEdit={vibeToEdit}
+            onSave={(vibe) => {
+              if (vibeToEdit) {
+                setVibes((savedVibes) =>
+                  savedVibes.map((savedVibe) =>
+                    savedVibe.id === vibeToEdit.id ? { ...vibe, id: vibeToEdit.id } : savedVibe,
+                  ),
+                )
+              } else {
+                setVibes((savedVibes) => [...savedVibes, { ...vibe, id: crypto.randomUUID() }])
+              }
+              setIsAddVibeOpen(false)
+              setVibeToEdit(null)
+            }}
+            onDelete={(id) => {
+              setVibes((savedVibes) => savedVibes.filter((vibe) => vibe.id !== id))
+              setIsAddVibeOpen(false)
+              setVibeToEdit(null)
+            }}
+          />
+        ) : vibes.length === 0 ? (
+          <p className="text-sm" style={{ color: colors.muted }}>
+            Your next side quest is just around the corner. Add a vibe to save your preferences.
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {vibes.map((vibe) => (
+              <li
+                key={vibe.id}
+                className="rounded-xl border p-4"
+                style={{ backgroundColor: colors.surfaceRaised, borderColor: colors.border }}
+              >
+                <h3 className="truncate font-semibold">{vibe.name}</h3>
+                <p
+                  className="mt-1 line-clamp-2 text-sm"
+                  style={{ color: colors.muted }}
+                  title={vibe.description}
+                >
+                  {vibe.description}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVibeToEdit(vibe)
+                    setIsAddVibeOpen(true)
+                  }}
+                  className="mt-3 min-h-10 cursor-pointer rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+                  style={{
+                    borderColor: colors.border,
+                    color: colors.primary,
+                    outlineColor: colors.primary,
+                  }}
+                >
+                  Edit vibe
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </SidebarModal>
       <SettingsModal
         isOpen={isSettingsOpen}

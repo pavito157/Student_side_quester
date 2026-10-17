@@ -12,7 +12,7 @@ import { colors } from '../../constants/colors'
 interface HeaderProps {
   title?: string
   onSettingsClick?: () => void
-  onMenuClick: () => void
+  onMenuClick?: () => void
 }
 
 function Header({
@@ -59,9 +59,19 @@ function Header({
             onClick={onMenuClick}
             className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-lg p-0 transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
             style={{ color: colors.foreground, outlineColor: colors.primary }}
+            hidden={!onMenuClick}
           >
             <MenuIcon />
           </button>
+          {!onMenuClick && (
+            <a
+              href="/"
+              className="rounded-lg px-2 py-2 text-sm font-semibold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+              style={{ color: colors.foreground, outlineColor: colors.primary }}
+            >
+              Sidequester
+            </a>
+          )}
 
           <h1
             className="pointer-events-none absolute left-1/2 max-w-[calc(100%-8rem)] -translate-x-1/2 truncate text-base font-bold sm:text-xl"
@@ -71,7 +81,7 @@ function Header({
           </h1>
 
           <div className="flex items-center gap-1">
-            <button
+            {onSettingsClick && <button
               type="button"
               aria-label="Settings"
               aria-haspopup="dialog"
@@ -82,7 +92,20 @@ function Header({
               style={{ color: colors.secondary, outlineColor: colors.secondary }}
             >
               <SettingsIcon />
-            </button>
+            </button>}
+            <a
+              href="/leaderboard"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-10 items-center rounded-lg border px-3 text-xs font-semibold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 sm:text-sm"
+              style={{
+                borderColor: colors.border,
+                color: colors.secondary,
+                outlineColor: colors.secondary,
+              }}
+            >
+              Leaderboard
+            </a>
             <SignedOut>
               <div className="relative" ref={authMenuRef}>
                 <button

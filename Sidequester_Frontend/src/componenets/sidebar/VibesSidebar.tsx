@@ -20,7 +20,7 @@ type VibeListState = {
 }
 
 function VibesSidebar({ isOpen, onClose, onApplyVibe }: VibesSidebarProps) {
-  const { isLoaded, user } = useUser()
+  const { isLoaded, isSignedIn, user } = useUser()
   const userId = user?.id
   const [isEditorOpen, setIsEditorOpen] = useState(false)
   const [vibeToEdit, setVibeToEdit] = useState<Vibe | null>(null)
@@ -33,6 +33,8 @@ function VibesSidebar({ isOpen, onClose, onApplyVibe }: VibesSidebarProps) {
   const vibes = userId && hasLoadedCurrentUser ? vibeList.vibes : []
   const vibeListError = userId && hasLoadedCurrentUser ? vibeList.error : ''
   const isLoadingVibes = !isLoaded || Boolean(userId && !hasLoadedCurrentUser)
+  const canManageVibes = isLoaded && isSignedIn === true && Boolean(userId)
+  const shouldShowEditor = isEditorOpen && canManageVibes
 
   useEffect(() => {
     if (!isOpen || !isLoaded || !userId) return
@@ -98,17 +100,18 @@ function VibesSidebar({ isOpen, onClose, onApplyVibe }: VibesSidebarProps) {
       isOpen={isOpen}
       onClose={closeSidebar}
       onAddVibe={() => {
+        if (!canManageVibes) return
         setVibeToEdit(null)
         setIsEditorOpen(true)
       }}
-      onBack={isEditorOpen ? () => {
+      onBack={shouldShowEditor ? () => {
         setIsEditorOpen(false)
         setVibeToEdit(null)
       } : undefined}
-      showAddVibe={!isEditorOpen}
-      title={isEditorOpen ? (vibeToEdit ? 'Edit vibe' : 'Add a vibe') : 'Quick menu'}
+      showAddVibe={!shouldShowEditor && canManageVibes}
+      title={shouldShowEditor ? (vibeToEdit ? 'Edit vibe' : 'Add a vibe') : 'Quick menu'}
     >
-      {isEditorOpen ? (
+      {shouldShowEditor ? (
         <VibeEditor
           key={vibeToEdit?.id ?? 'new-vibe'}
           vibeToEdit={vibeToEdit}

@@ -107,6 +107,7 @@ function QuestFilterButtons({
   const [persistenceMessage, setPersistenceMessage] = useState('')
   const [requestJson, setRequestJson] = useState('')
   const [requestCount, setRequestCount] = useState<number | null>(null)
+  const [guestPreference, setGuestPreference] = useState('')
 
   async function showSidequestRequest() {
     setIsPreviewOpen(true)
@@ -119,10 +120,11 @@ function QuestFilterButtons({
     try {
       if (!isLoaded) throw new Error('Your account is still loading. Please try again.')
 
-      const [preferences, goals] =
+      const [savedPreferences, goals] =
         isSignedIn && user
           ? await Promise.all([getUserPreferences(user.id), getUserGoals(user.id)])
           : ['', []]
+      const preferences = isSignedIn ? savedPreferences : guestPreference.trim()
       const email = user?.primaryEmailAddress?.emailAddress ?? null
       const customMinutes =
         filters.time === 'custom' && filters.customTime !== ''
@@ -276,6 +278,41 @@ function QuestFilterButtons({
           </div>
         </div>
       </section>
+
+      {isLoaded && isSignedIn === false && (
+        <section
+          aria-labelledby="guest-preference-label"
+          className="rounded-xl border p-4"
+          style={{ backgroundColor: colors.surfaceRaised, borderColor: colors.border }}
+        >
+          <label
+            id="guest-preference-label"
+            htmlFor="guest-preference"
+            className="block text-sm font-semibold"
+            style={{ color: colors.secondary }}
+          >
+            Add a preference for this quest
+          </label>
+          <textarea
+            id="guest-preference"
+            maxLength={240}
+            rows={2}
+            value={guestPreference}
+            onChange={(event) => setGuestPreference(event.target.value)}
+            placeholder="e.g. I’d like to get outside and learn something new."
+            className="mt-2 w-full resize-y rounded-lg border px-3 py-2.5 text-sm placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2"
+            style={{
+              backgroundColor: colors.background,
+              borderColor: colors.border,
+              color: colors.foreground,
+              outlineColor: colors.primary,
+            }}
+          />
+          <p className="mt-1.5 text-xs" style={{ color: colors.muted }}>
+            This preference is only included in this request and won’t be saved.
+          </p>
+        </section>
+      )}
 
       <SidequestMeButton onClick={() => void showSidequestRequest()} />
       <SidequestJsonModal

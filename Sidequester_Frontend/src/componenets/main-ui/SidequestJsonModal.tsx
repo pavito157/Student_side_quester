@@ -71,7 +71,7 @@ function SidequestJsonModal({
         </p>
         {isLoading && (
           <p role="status" className="mt-5 text-sm" style={{ color: colors.muted }}>
-            Preparing the request and saving your history...
+            Preparing your sidequest request...
           </p>
         )}
         {requestJson && (

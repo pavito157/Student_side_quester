@@ -5,8 +5,10 @@ export type Vibe = {
   where: string
   time: string
   budget: string
+  distance: string
   customTime?: string
   customBudget?: string
+  customDistance?: string
   createdAt?: string
   updatedAt?: string
 }

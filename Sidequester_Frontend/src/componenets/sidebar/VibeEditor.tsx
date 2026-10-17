@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { colors } from '../../constants/colors'
 import type { Vibe } from '../../types/vibe'
 import BudgetButton from '../Buttons/BudgetButton'
+import DistanceButton from '../Buttons/DistanceButton'
 import TimeButton from '../Buttons/TimeButton'
 import WhereButton from '../Buttons/WhereButton'
 
@@ -24,7 +25,9 @@ function VibeEditor({
   const [time, setTime] = useState(vibeToEdit?.time ?? 'any')
   const [customTime, setCustomTime] = useState(vibeToEdit?.customTime ?? '')
   const [budget, setBudget] = useState(vibeToEdit?.budget ?? 'any')
+  const [distance, setDistance] = useState(vibeToEdit?.distance ?? 'any')
   const [customBudget, setCustomBudget] = useState(vibeToEdit?.customBudget ?? '')
+  const [customDistance, setCustomDistance] = useState(vibeToEdit?.customDistance ?? '')
   const [isSaving, setIsSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -40,7 +43,9 @@ function VibeEditor({
         time,
         customTime,
         budget,
+        distance,
         customBudget,
+        customDistance,
       })
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Could not save this vibe.')
@@ -134,7 +139,7 @@ function VibeEditor({
           </span>
           <WhereButton autoLocate={false} value={where} onChange={setWhere} />
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="space-y-2">
             <span className="block text-xs font-medium" style={{ color: colors.muted }}>
               Time
@@ -144,6 +149,17 @@ function VibeEditor({
               customValue={customTime}
               onChange={setTime}
               onCustomChange={setCustomTime}
+            />
+          </div>
+          <div className="space-y-2">
+            <span className="block text-xs font-medium" style={{ color: colors.muted }}>
+              Distance from current location
+            </span>
+            <DistanceButton
+              value={distance}
+              customValue={customDistance}
+              onChange={setDistance}
+              onCustomChange={setCustomDistance}
             />
           </div>
           <div className="space-y-2">

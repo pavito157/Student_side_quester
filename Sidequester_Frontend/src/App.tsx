@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Header from './componenets/main-ui/Header'
+import LeaderboardPage from './componenets/main-ui/LeaderboardPage'
 import QuestFilterButtons, { type QuestFilters } from './componenets/main-ui/QuestFilterButtons'
 import FirebaseTextBox from './componenets/main-ui/FirebaseTextBox'
 import GoalsSidebar from './componenets/main-ui/GoalsSidebar'
@@ -9,7 +10,7 @@ import VibesSidebar from './componenets/sidebar/VibesSidebar'
 import type { Vibe } from './types/vibe'
 import { colors } from './constants/colors'
 
-function App() {
+function HomePage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isVibesSidebarOpen, setIsVibesSidebarOpen] = useState(false)
   const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null)
@@ -20,6 +21,8 @@ function App() {
     budget: '',
     customTime: '',
     customBudget: '',
+    distance: 'any',
+    customDistance: '',
   })
 
   function openSettings(section: SettingsSection | null = null) {
@@ -49,6 +52,8 @@ function App() {
             budget: vibe.budget || 'any',
             customTime: vibe.customTime ?? '',
             customBudget: vibe.customBudget ?? '',
+            distance: vibe.distance || 'any',
+            customDistance: vibe.customDistance ?? '',
           })
         }}
       />
@@ -104,6 +109,7 @@ function App() {
                 filters={questFilters}
                 setFilters={setQuestFilters}
                 activeVibe={vibeToApply}
+                onClearActiveVibe={() => setVibeToApply(null)}
               />
             </div>
           </section>
@@ -127,6 +133,12 @@ function App() {
       />
     </>
   )
+}
+
+function App() {
+  return window.location.pathname.replace(/\/+$/, '') === '/leaderboard'
+    ? <LeaderboardPage />
+    : <HomePage />
 }
 
 export default App

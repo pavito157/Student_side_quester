@@ -152,6 +152,20 @@ test('Gemini helper posts the same input plus optional search coordinates to its
   assert.deepEqual(JSON.parse(f.calls[1][2].body), body)
 })
 
+test('guests can request a preview without a Firebase token or persistence endpoint', async () => {
+  const f = await fixture()
+  f.state.fetch = async (url, options) => {
+    f.calls.push(['fetch', url, options])
+    return { ok: true, status: 200, json: async () => structuredClone(generatedExample) }
+  }
+  const result = await f.api.requestGeneratedQuest(null, payload)
+  assert.equal(result.saved, false)
+  assert.equal(f.calls.length, 1)
+  assert.equal(f.calls[0][0], 'fetch')
+  assert.equal(f.calls[0][2].headers.Authorization, undefined)
+  assert.equal(f.calls[0][1], 'http://localhost:8000/quests/generate')
+})
+
 test('Gemini helper rejects test, saved, and malformed destination responses', async () => {
   const f = await fixture()
   for (const result of [example, { ...generatedExample, saved: true },
@@ -308,22 +322,34 @@ test('frontend helper accepts FastAPI JSON generated with live Gemini and Places
 
 test('completion sends fresh GPS to FastAPI with the authenticated identity and uses server XP', async () => {
   const f = await fixture()
+  const response = {
+    questId: 'quest-1', status: 'completed', stopIndex: 0, xpAwarded: 40, xpAwardedSoFar: 40,
+    completedStops: [0], totalStops: 1,
+  }
   f.state.fetch = async (url, options) => {
     f.calls.push(['fetch', url, options])
-    return { ok: true, status: 200, json: async () => ({ questId: 'quest-1', status: 'completed', xpAwarded: 40 }) }
+    return { ok: true, status: 200, json: async () => response }
   }
-  assert.equal(await f.api.requestQuestCompletion('user_student', 'quest-1', { latitude: 29.65, longitude: -82.34, accuracy: 12 }), 40)
+  const completion = await f.api.requestQuestCompletion(
+    'user_student', 'quest-1', { latitude: 29.65, longitude: -82.34, accuracy: 12 },
+  )
+  assert.equal(completion.xpAwarded, response.xpAwarded)
+  assert.equal(completion.status, response.status)
+  assert.deepEqual(Array.from(completion.completedStops), response.completedStops)
   const [, url, request] = f.calls[1]
   assert.equal(url, 'http://localhost:8000/quests/quest-1/complete')
   assert.equal(request.headers.Authorization, 'Bearer firebase-id-token')
-  assert.deepEqual(JSON.parse(request.body), { latitude: 29.65, longitude: -82.34, accuracy: 12 })
+  assert.deepEqual(JSON.parse(request.body), { latitude: 29.65, longitude: -82.34, accuracy: 12, stopIndex: 0 })
 })
 
 test('completion surfaces proximity failures and refuses inconsistent successful responses', async () => {
   const f = await fixture()
   f.state.fetch = async () => ({ ok: false, status: 400, json: async () => ({ detail: { valid: false, reason: 'Move closer to the destination and try again.' } }) })
   await assert.rejects(f.api.requestQuestCompletion('user_student', 'quest-1', {}), /Move closer/)
-  f.state.fetch = async () => ({ ok: true, status: 200, json: async () => ({ questId: 'another-quest', status: 'completed', xpAwarded: 999 }) })
+  f.state.fetch = async () => ({ ok: true, status: 200, json: async () => ({
+    questId: 'another-quest', status: 'completed', stopIndex: 0, xpAwarded: 999,
+    xpAwardedSoFar: 999, completedStops: [0], totalStops: 1,
+  }) })
   await assert.rejects(f.api.requestQuestCompletion('user_student', 'quest-1', {}), /invalid completion response/)
 })
 
@@ -350,6 +376,19 @@ test('stale replacement errors retain HTTP 409 for actionable UI feedback', asyn
   const f = await fixture()
   f.state.fetch = async () => ({ ok: false, status: 409, json: async () => ({ detail: 'Your current quest changed. Reopen it before generating another.' }) })
   await assert.rejects(f.api.requestReplacementQuest('example-user', 'old-quest', payload), (error) => error.status === 409 && /Reopen/.test(error.message))
+})
+
+test('multi-stop completion validates and returns partial progress', async () => {
+  const f = await fixture()
+  f.state.fetch = async () => ({ ok: true, status: 200, json: async () => ({
+    questId: 'quest-1', status: 'in_progress', stopIndex: 1, xpAwarded: 14,
+    xpAwardedSoFar: 28, completedStops: [0, 1], totalStops: 3,
+  }) })
+  const progress = await f.api.requestQuestCompletion(
+    'user_student', 'quest-1', { latitude: 29.65, longitude: -82.34, accuracy: 12 }, 1,
+  )
+  assert.deepEqual(progress.completedStops, [0, 1])
+  assert.equal(progress.status, 'in_progress')
 })
 
 test('abandon sends an authenticated request and validates the deleted sidequest response', async () => {

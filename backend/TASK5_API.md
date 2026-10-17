@@ -39,6 +39,11 @@ header. Use the typed helper to obtain it; do not send a UID in request JSON.
 | `POST /quests/preview` | 200 fixed preview | Original Step 3 transport test, moved from `/quests/assign` |
 | `POST /quests/{quest_id}/complete` | 200 | Existing GPS/XP completion transaction, now mounted |
 
+`/quests/generate` is intentionally public for unsaved guest previews. All saved
+assignment, current-quest, completion, and abandon endpoints require a verified
+Firebase ID token. Public deployments must apply edge rate limits and provider
+quotas to the paid generation endpoint.
+
 **Breaking endpoint change:** `/quests/assign` now returns the saved-assignment
 contract, not the old fixed preview. `requestTestQuest` was updated to call
 `/quests/preview`. The button, quick menu and detail pages use saved assignments.
@@ -46,8 +51,12 @@ contract, not the old fixed preview. `requestTestQuest` was updated to call
 Request example/schema: `contracts/assignment.request.example.json` and
 `assignment.request.schema.json`. The request accepts the same preferences,
 location, time, budget, distance, goals and vibe fields as generation, plus
-optional `originCoordinates`. Coordinates of the selected search origin are
+optional `originCoordinates` and `multiQuest` (defaults to false). Coordinates of the selected search origin are
 required when `distance` is non-null. Defaults/time/budget meanings are unchanged.
+When `multiQuest` is true, `originCoordinates` is required and generation returns
+two or three distinct, resolver-verified destinations in nearest-first order.
+Generated steps correspond one-to-one with route stops. Each completed stop
+awards its share of the saved XP; the final stop deletes the active assignment.
 
 Response example/schema: `contracts/assignment.response.example.json` and
 `assignment.response.schema.json`. The example is illustrative, not seeded data.
@@ -56,7 +65,7 @@ Response example/schema: `contracts/assignment.response.example.json` and
 quest:
   id, title, description, steps, locationName, placeId (string|null),
   latitude, longitude, radiusMeters, xpReward, isActive,
-  estimatedMinutes, estimatedCostDollars
+  estimatedMinutes, estimatedCostDollars, destinations, completedStops
 assignment:
   id, userId, questId, status="assigned", assignedAt (RFC3339 UTC),
   completedAt=null, xpAwarded=0
@@ -70,6 +79,9 @@ the backend, stored as a Firestore timestamp, and serialized identically in JSON
 Assignment success occurs only after the transaction commits. No XP balance is
 awarded by generation or assignment; the saved reward is credited only when the
 quest is completed. Time/cost remain validated estimates.
+For single-stop assignments, `destinations` and `completedStops` are empty
+arrays. Multi-stop assignments persist the ordered verified destinations and
+sequentially completed zero-based stop indexes.
 
 `reusedExisting: false` accompanies new assignments (HTTP 201). Read endpoints
 set it to true for already saved quests. Each POST creates an independent quest;

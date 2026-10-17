@@ -87,6 +87,9 @@ export function buildSidequestRequest(
   if (origin && ['', 'any', 'anywhere', 'not selected'].includes(input.location.trim().toLowerCase())) {
     throw new Error('Choose a starting place for these coordinates.')
   }
+  if (input.multiQuest === true && !origin) {
+    throw new Error('Choose a starting location to create a multi-stop sidequest.')
+  }
 
   const username = input.username.trim()
   if (!username) throw new Error('A username is required to build the sidequest request.')
@@ -106,6 +109,7 @@ export function buildSidequestRequest(
     distance: input.distance ? { ...input.distance } : null,
     goals: input.goals.map((goal) => goal.trim()).filter(Boolean),
     vibePreferences: input.vibePreferences?.trim() || null,
+    multiQuest: input.multiQuest === true,
   }
 }
 
@@ -129,5 +133,6 @@ export function toQuestApiPayload(request: SidequestRequestPayload): GenerateQue
     distance: request.distance ? { ...request.distance } : null,
     goals: [...request.goals],
     vibePreferences: request.vibePreferences,
+    multiQuest: request.multiQuest,
   }
 }

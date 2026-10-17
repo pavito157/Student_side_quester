@@ -242,6 +242,11 @@
           ],
           "default": null,
           "title": "Maxdistancemiles"
+        },
+        "multiQuest": {
+          "default": false,
+          "title": "Multiquest",
+          "type": "boolean"
         }
       },
       "required": [
@@ -483,6 +488,14 @@
         }
       ],
       "default": null
+    },
+    "destinations": {
+      "items": {
+        "$ref": "#/$defs/ResolvedDestination"
+      },
+      "maxItems": 3,
+      "title": "Destinations",
+      "type": "array"
     },
     "message": {
       "title": "Message",

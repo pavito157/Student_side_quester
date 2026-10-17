@@ -5,15 +5,16 @@ import { completeQuest } from '../../services/questApi'
 type Props = {
   // The Firestore child document ID / response.quest.id.
   assignedQuestId: string
+  stopIndex?: number
 }
 
 export default function CompleteQuestButton(props: Props) {
   const { user } = useUser()
   // Remount account/quest-specific feedback when either identity changes.
-  return <CompletionControl key={`${user?.id ?? ''}:${props.assignedQuestId}`} {...props} userId={user?.id} />
+  return <CompletionControl key={`${user?.id ?? ''}:${props.assignedQuestId}:${props.stopIndex ?? 0}`} {...props} userId={user?.id} />
 }
 
-function CompletionControl({ assignedQuestId, userId }: Props & { userId?: string }) {
+function CompletionControl({ assignedQuestId, userId, stopIndex = 0 }: Props & { userId?: string }) {
   const [pending, setPending] = useState(false)
   const [hasCompleted, setHasCompleted] = useState(false)
   const [message, setMessage] = useState('')
@@ -29,10 +30,12 @@ function CompletionControl({ assignedQuestId, userId }: Props & { userId?: strin
     setMessage('')
     setError('')
     try {
-      const result = await completeQuest(userId, assignedQuestId)
+      const result = await completeQuest(userId, assignedQuestId, stopIndex)
       completed.current = true
       setHasCompleted(true)
-      setMessage(`Sidequest completed. You earned ${result.xpAwarded} XP.`)
+      setMessage(result.status === 'completed'
+        ? `Sidequest completed. You earned ${result.xpAwarded} XP.`
+        : `Stop ${stopIndex + 1} completed. You earned ${result.xpAwarded} XP. Open quest details for the next stop.`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not complete quest.')
       return

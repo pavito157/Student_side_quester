@@ -22,6 +22,7 @@ async function fixture(file = 'App.tsx', path = '/') {
     addEventListener(_event, fn) { listeners.add(fn) }, removeEventListener(_event, fn) { listeners.delete(fn) },
   }
   const react = {
+    useMemo(fn) { return fn() },
     useState(initial) {
       const i = cursor++
       if (!slots[i]) slots[i] = { value: typeof initial === 'function' ? initial() : initial }
@@ -53,6 +54,7 @@ async function fixture(file = 'App.tsx', path = '/') {
     if (name.endsWith('/colors')) return synthetic({ colors: {} })
     if (name.endsWith('/questAssignment')) return synthetic({
       MAX_ACTIVE_QUESTS: 3,
+      requestGeneratedQuest: async (...args) => { f.calls.push(['preview', ...args]); return { quest: { title: 'Guest challenge' }, saved: false } },
       getActiveQuests: async () => { f.reconciled = true; return [] },
       requestAssignedQuest: async (...args) => { f.calls.push(['assign', ...args]); return f.assign(...args) },
       requestAdditionalQuest: async (...args) => { f.calls.push(['replace', ...args]); return f.replace(...args) },
@@ -61,7 +63,7 @@ async function fixture(file = 'App.tsx', path = '/') {
     if (name.endsWith('/sidequests')) return synthetic({
       subscribeToActiveSidequests(_uid, callback) { f.activeCallback = callback; callback(f.activeQuests); return () => {} },
       subscribeToActiveSidequest(_uid, _id, callback) { callback(f.sidequest); return () => {} },
-      completeSidequest: async () => { f.calls.push(['complete']); return 10 },
+      completeSidequest: async () => { f.calls.push(['complete']); return { status: 'completed', xpAwarded: 10, xpAwardedSoFar: 10, completedStops: [0] } },
       abandonSidequest: async (...args) => { f.calls.push(['abandon', ...args]) },
     })
     if (name.endsWith('/navigation')) return synthetic({ navigateTo(path) {
@@ -213,4 +215,17 @@ test('root reconciles old alternatives once and keeps the list and detail count 
   assert.equal(f.props('SidequestDetailPage').activeQuestCount, 3)
   f.activeCallback([f.sidequest]); f.render()
   assert.equal(f.props('SidequestDetailPage').activeQuestCount, 1)
+})
+
+
+test('guest generation opens an unsaved preview without assignment or active-quest reconciliation', async () => {
+  const f = await fixture()
+  f.user = null; f.calls = []; f.reconciled = false; f.render()
+  await f.props('HomePage').onStartQuestGeneration(null, payload); f.render()
+  assert.equal(f.calls[0][0], 'preview')
+  assert.equal(f.calls[0][1], null)
+  assert.equal(f.calls.length, 1)
+  assert.equal(f.reconciled, false)
+  assert.equal(f.props('GuestQuestPreviewPage').result.saved, false)
+  assert.equal(f.navigations.at(-1), '/sidequests/guest-preview')
 })

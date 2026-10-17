@@ -586,6 +586,72 @@ class PersistenceEmulatorTests(unittest.TestCase):
         self.assertEqual(len(persistence.get_active_assignments(self.db, self.uid)), 2)
         self.assert_xp()
 
+    def test_multi_stop_quest_occupies_one_slot_and_preserves_other_active_quests(self):
+        first, second = self.create(), self.create()
+        with self.wired_resolver_client() as (client, lookup, place):
+            headers = {"Authorization": "Bearer test-token"}
+            other_place = {**place, "id": "second-place", "displayName": {"text": "Second verified stop"},
+                           "location": {"latitude": 29.655, "longitude": -82.345}}
+            lookup.side_effect = lambda *args, **kwargs: io.BytesIO(json.dumps({"places": [place, other_place]}).encode())
+            self.provider.return_value = self.proposal.model_copy(update={
+                "steps": ["Perform a small movement sequence at the first stop.", "Find three shapes at the second stop."],
+            })
+            body = {"location": "Origin", "originCoordinates": {"latitude": 29.65, "longitude": -82.34},
+                    "time": {"selection": "60"}, "budget": {"selection": "0"}, "multiQuest": True}
+            created = client.post("/quests/assign", json=body, headers=headers)
+            self.assertEqual(created.status_code, 201, created.text)
+            route = created.json()["quest"]
+            self.assertEqual(len(route["destinations"]), 2)
+            self.assertEqual(len(client.get("/me/active-quests", headers=headers).json()), 3)
+            self.provider.reset_mock()
+            self.assertEqual(client.post("/quests/assign", json=body, headers=headers).status_code, 429)
+            self.provider.assert_not_called()
+            url = f"/quests/{route['id']}/complete"
+            origin = {"latitude": 29.65, "longitude": -82.34, "accuracy": 10}
+            self.assertEqual(client.post(url, json={**origin, "stopIndex": 1}, headers=headers).status_code, 409)
+            self.assert_xp()
+            partial = client.post(url, json={**origin, "stopIndex": 0}, headers=headers)
+            self.assertEqual(partial.status_code, 200, partial.text)
+            self.assertEqual(partial.json()["status"], "in_progress")
+            self.assertEqual(partial.json()["xpAwarded"], 5)
+            self.assert_xp(15, 105)
+            self.assertEqual(client.post(url, json={**origin, "stopIndex": 0}, headers=headers).status_code, 409)
+            loaded = client.get("/me/active-quests", headers=headers).json()
+            self.assertEqual(len(loaded), 3)  # An unfinished route still occupies its slot.
+            self.assertEqual(next(item for item in loaded if item["quest"]["id"] == route["id"])["quest"]["completedStops"], [0])
+            self.assertEqual(client.post("/quests/assign", json=body, headers=headers).status_code, 429)
+            self.assertEqual(client.post(url, json={**origin, "stopIndex": 1}, headers=headers).status_code, 400)
+            destination = {"latitude": 29.655, "longitude": -82.345, "accuracy": 10, "stopIndex": 1}
+            completed = client.post(url, json=destination, headers=headers)
+            self.assertEqual(completed.status_code, 200, completed.text)
+            self.assertEqual(completed.json()["status"], "completed")
+            self.assertEqual(completed.json()["xpAwardedSoFar"], route["xpReward"])
+            self.assert_xp(20, 110)
+            self.assertEqual(client.post(url, json=destination, headers=headers).status_code, 404)
+            self.assertCountEqual([item.quest.id for item in persistence.get_active_assignments(self.db, self.uid)],
+                                  [first.quest.id, second.quest.id])
+            persistence.abandon_quest(self.db, self.uid, first.quest.id)
+            self.assert_xp(20, 110)
+            self.assertEqual([item.quest.id for item in persistence.get_active_assignments(self.db, self.uid)], [second.quest.id])
+
+    def test_guest_multi_stop_preview_has_structured_json_and_never_saves_or_awards_xp(self):
+        with self.wired_resolver_client() as (client, lookup, place):
+            second = {**place, "id": "second-place", "displayName": {"text": "Second verified stop"},
+                      "location": {"latitude": 29.655, "longitude": -82.345}}
+            lookup.side_effect = lambda *args, **kwargs: io.BytesIO(json.dumps({"places": [place, second]}).encode())
+            self.provider.return_value = self.proposal.model_copy(update={"steps": ["Try the first task.", "Try the second task."]})
+            result = client.post("/quests/generate", json={
+                "location": "Origin", "originCoordinates": {"latitude": 29.65, "longitude": -82.34},
+                "time": {"selection": "60"}, "budget": {"selection": "0"}, "multiQuest": True,
+            })
+            self.assertEqual(result.status_code, 200, result.text)
+            self.assertFalse(result.json()["saved"])
+            self.assertTrue(result.json()["destinationVerified"])
+            self.assertEqual(len(result.json()["destinations"]), 2)
+            self.assertEqual(self.records(), [])
+            self.assert_xp()
+            self.assertEqual(client.post("/quests/assign", json=self.user_request.model_dump(mode="json")).status_code, 401)
+
     @contextmanager
     def wired_resolver_client(self):
         """Real routes, resolver, models and DB; only auth/provider I/O is doubled."""

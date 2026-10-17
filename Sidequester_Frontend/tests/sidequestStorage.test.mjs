@@ -15,6 +15,7 @@ const record = () => ({
   userId: 'alice', ownerId: 'alice', questId: 'quest-1', status: 'assigned', isActive: true,
   title: 'Tree sketch', description: 'Draw three leaves.', steps: ['Walk there.', 'Draw three leaves.'],
   locationName: 'Verified park', latitude: 29.65, longitude: -82.34,
+  placeId: 'google-place-123',
   xpReward: 40, estimatedMinutes: 20, estimatedCostDollars: 0, assignedAt: new Timestamp(),
   userRequest: {
     preferences: 'Explore nature.',
@@ -48,7 +49,13 @@ async function fixture() {
     else if (name.endsWith('FirebaseConfig')) exports = { db: {} }
     else exports = {
       MAX_QUEST_REPLACEMENTS: 3,
-      requestQuestCompletion: async (...args) => { state.completions.push(args); return 40 },
+      requestQuestCompletion: async (...args) => {
+        state.completions.push(args)
+        return {
+          questId: args[1], status: 'completed', stopIndex: args[3], xpAwarded: 40,
+          xpAwardedSoFar: 40, completedStops: [args[3]], totalStops: 1,
+        }
+      },
       requestQuestAbandon: async (...args) => { state.abandonments.push(args) },
     }
     return new vm.SyntheticModule(Object.keys(exports), function () {
@@ -73,6 +80,7 @@ test('active quest subscriptions use Users/uid/sidequests and display generated 
   assert.equal(rows.length, 1)
   assert.equal(rows[0].title, 'Tree sketch')
   assert.equal(rows[0].locationName, 'Verified park')
+  assert.equal(rows[0].placeId, 'google-place-123')
   assert.equal(rows[0].xpValue, 40)
   assert.equal(rows[0].latitude, 29.65)
   assert.deepEqual(plain(rows[0].steps), ['Walk there.', 'Draw three leaves.'])
@@ -86,13 +94,44 @@ test('stored assignments reject a different account and invalid rewards', async 
   assert.throws(() => f.api.parseActiveSidequest('quest-1', record(), 'bob'), /invalid assignment/)
   assert.throws(() => f.api.parseActiveSidequest('quest-1', { ...record(), xpReward: -1 }, 'alice'), /invalid assignment/)
   assert.throws(() => f.api.parseActiveSidequest('quest-1', { ...record(), userRequest: 'invalid' }, 'alice'), /invalid assignment/)
+  assert.throws(() => f.api.parseActiveSidequest('quest-1', { ...record(), placeId: 123 }, 'alice'), /invalid assignment/)
+  assert.throws(() => f.api.parseActiveSidequest('quest-1', { ...record(), destinations: {} }, 'alice'), /invalid assignment/)
+  const legacy = { ...record() }
+  delete legacy.placeId
+  assert.equal(f.api.parseActiveSidequest('quest-1', legacy, 'alice').placeId, null)
+})
+
+test('active multi-stop assignments retain ordered verified pins and progress', async () => {
+  const f = await fixture()
+  const data = {
+    ...record(),
+    locationName: 'First park',
+    latitude: 29.65,
+    longitude: -82.34,
+    placeId: 'first',
+    destinations: [
+      { locationName: 'First park', latitude: 29.65, longitude: -82.34, placeId: 'first' },
+      { locationName: 'Second park', latitude: 29.66, longitude: -82.33, placeId: 'second' },
+    ],
+    completedStops: [0],
+    userRequest: { ...record().userRequest, multiQuest: true },
+  }
+  const parsed = f.api.parseActiveSidequest('quest-1', data, 'alice')
+  assert.deepEqual(plain(parsed.destinations.map((stop) => stop.locationName)), ['First park', 'Second park'])
+  assert.deepEqual(plain(parsed.completedStops), [0])
+  assert.throws(() => f.api.parseActiveSidequest('quest-1', {
+    ...data,
+    destinations: [],
+  }, 'alice'), /invalid route/)
 })
 
 test('completion requests a fresh precise GPS reading and delegates XP to FastAPI', async () => {
   const f = await fixture()
-  assert.equal(await f.api.completeSidequest('alice', 'quest-1'), 40)
+  assert.equal((await f.api.completeSidequest('alice', 'quest-1')).xpAwarded, 40)
   assert.deepEqual(plain(f.state.gpsOptions), { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 })
-  assert.deepEqual(plain(f.state.completions), [['alice', 'quest-1', { latitude: 29.6501, longitude: -82.3401, accuracy: 8 }]])
+  assert.deepEqual(plain(f.state.completions), [
+    ['alice', 'quest-1', { latitude: 29.6501, longitude: -82.3401, accuracy: 8 }, 0],
+  ])
 })
 
 test('denied GPS access cannot mark a quest complete or award XP', async () => {

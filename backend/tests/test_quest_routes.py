@@ -54,7 +54,7 @@ class RouteTests(unittest.TestCase):
         with patch.dict(os.environ, {"MAX_LOCATION_ACCURACY_METERS": "35"}):
             self.assertEqual(self.post().status_code, 200)
         self.verify.assert_called_once_with("signed-id-token", check_revoked=True)
-        self.complete.assert_called_once_with(self.db, "token-owner", "quest", 29.65, -82.34, 10, 35)
+        self.complete.assert_called_once_with(self.db, "token-owner", "quest", 29.65, -82.34, 10, 35, 0)
 
     def test_missing_or_wrong_auth_scheme(self):
         for headers in [{}, {"Authorization": "Basic abc"}]:

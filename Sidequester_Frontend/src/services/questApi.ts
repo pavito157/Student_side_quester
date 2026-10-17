@@ -1,7 +1,7 @@
 import { completeSidequest } from './sidequests'
 
 export type CompleteQuestResult = {
-  status: 'completed'
+  status: 'completed' | 'in_progress'
   xpAwarded: number
 }
 
@@ -11,7 +11,8 @@ export type CompleteQuestResult = {
 export async function completeQuest(
   expectedUserId: string,
   questId: string,
+  stopIndex = 0,
 ): Promise<CompleteQuestResult> {
-  const xpAwarded = await completeSidequest(expectedUserId, questId)
-  return { status: 'completed', xpAwarded }
+  const result = await completeSidequest(expectedUserId, questId, stopIndex)
+  return { status: result.status, xpAwarded: result.xpAwarded }
 }

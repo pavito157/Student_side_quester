@@ -206,6 +206,27 @@ class GenerationTests(unittest.TestCase):
         self.assertNotIn("placeId", json.dumps(context))
         self.assertNotIn("xpReward", json.dumps(context))
 
+    def test_multi_stop_prompt_combines_route_order_and_previous_activity_without_private_metadata(self):
+        self.proposal.pop("locationName")
+        self.proposal.pop("locationAddress")
+        self.http()
+        first = SelectedDestination(**self.destination.model_dump(), locationAddress="First provider address")
+        second = first.model_copy(update={"locationName": "Second venue", "locationAddress": "Second provider address",
+                                          "latitude": 29.65, "longitude": -82.34, "placeId": "second-id"})
+        previous = GeneratedQuestProposal(**{**self.proposal, "locationName": "Previous venue", "locationAddress": "Previous address"})
+        result = generation.call_gemini(self.preferences, [first, second], previous_quest=previous)
+        self.assertEqual(len(result.steps), 2)
+        body = json.loads(self.requests[-1].content)
+        instruction = body["systemInstruction"]["parts"][0]["text"]
+        self.assertIn("exactly 2 short action steps", instruction)
+        self.assertIn("different primary challenge", instruction)
+        self.assertNotIn("Keep every required step\nat that one destination", instruction)
+        context = json.loads(body["contents"][0]["parts"][0]["text"])
+        self.assertEqual(len(context["verifiedDestinations"]), 2)
+        self.assertEqual(context["previousActivity"]["steps"], previous.steps)
+        for field in ["latitude", "longitude", "placeId", "xpReward", "Private Student"]:
+            self.assertNotIn(field, json.dumps(context))
+
     def test_city_scope_and_adventure_rules_do_not_reselect_a_verified_destination(self):
         self.http()
         generation.call_gemini(self.preferences)
@@ -345,7 +366,9 @@ class GenerationTests(unittest.TestCase):
                 }) as verify, \
                 patch.object(firebase_helpers, "get_db", side_effect=AssertionError("No database access")) as db, \
                 patch.object(generation, "call_gemini", return_value=GeneratedQuestProposal(**self.proposal)): 
-            self.assertEqual(client.post("/quests/generate", json=self.body).status_code, 401)
+            guest_response = client.post("/quests/generate", json=self.body)
+            self.assertEqual(guest_response.status_code, 200, guest_response.text)
+            self.assertFalse(guest_response.json()["saved"])
             db.assert_not_called()
             response = client.post("/quests/generate", json=self.body,
                                    headers={"Authorization": "Bearer test-token", "Origin": "http://localhost:5173"})

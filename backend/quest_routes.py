@@ -79,6 +79,7 @@ class CompletionLocation(BaseModel):
     latitude: float = Field(..., strict=True, ge=-90, le=90, allow_inf_nan=False)
     longitude: float = Field(..., strict=True, ge=-180, le=180, allow_inf_nan=False)
     accuracy: float = Field(..., strict=True, gt=0, allow_inf_nan=False)
+    stopIndex: int = Field(default=0, strict=True, ge=0, le=2)
 
 
 def get_max_accuracy():
@@ -100,7 +101,7 @@ def complete(
     try:
         return complete_quest(
             db, uid, quest_id, location.latitude, location.longitude,
-            location.accuracy, max_accuracy,
+            location.accuracy, max_accuracy, location.stopIndex,
         )
     except CompletionError as error:
         raise HTTPException(error.status_code, error.detail) from error

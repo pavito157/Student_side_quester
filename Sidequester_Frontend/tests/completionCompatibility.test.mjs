@@ -8,7 +8,7 @@ const tick = () => new Promise((resolve) => setImmediate(resolve))
 async function fixture() {
   const f = { user: { id: 'alice' }, calls: [], tokens: [], denied: false,
     getToken: async () => 'firebase-id-token',
-    response: async () => ({ ok: true, status: 200, json: async () => ({ questId: 'quest-1', status: 'completed', xpAwarded: 40 }) }) }
+    response: async () => ({ ok: true, status: 200, json: async () => ({ questId: 'quest-1', status: 'completed', xpAwarded: 40, stopIndex: 0, xpAwardedSoFar: 40, completedStops: [0], totalStops: 1 }) }) }
   let slots = [], cursor = 0, key
   const react = {
     useState(initial) { const i = cursor++; if (!(i in slots)) slots[i] = initial; return [slots[i], (x) => { slots[i] = x }] },
@@ -71,7 +71,7 @@ test('teammate helper uses Firebase auth, fresh GPS, canonical API URL and camel
   const [url, options] = f.calls[0]
   assert.equal(url, 'http://localhost:8000/quests/quest-1/complete')
   assert.equal(options.headers.Authorization, 'Bearer firebase-id-token')
-  assert.deepEqual(JSON.parse(options.body), { latitude: 29.65, longitude: -82.34, accuracy: 8 })
+  assert.deepEqual(JSON.parse(options.body), { latitude: 29.65, longitude: -82.34, accuracy: 8, stopIndex: 0 })
 })
 test('teammate button blocks duplicate clicks and shows the server reward', async () => {
   const f = await fixture()
@@ -79,7 +79,7 @@ test('teammate button blocks duplicate clicks and shows the server reward', asyn
   f.response = () => new Promise((done) => { resolve = done })
   f.click(); f.click(); await f.settle()
   assert.equal(f.calls.length, 1); assert.equal(f.button().disabled, true)
-  resolve({ ok: true, status: 200, json: async () => ({ questId: 'quest-1', status: 'completed', xpAwarded: 40 }) })
+  resolve({ ok: true, status: 200, json: async () => ({ questId: 'quest-1', status: 'completed', xpAwarded: 40, stopIndex: 0, xpAwardedSoFar: 40, completedStops: [0], totalStops: 1 }) })
   await f.settle()
   assert.match(f.message('status'), /40 XP/)
   f.click(); await f.settle(); assert.equal(f.calls.length, 1)
@@ -109,6 +109,19 @@ test('signed-out requests are blocked; zero XP still represents completed status
   const f = await fixture(); f.user = null; f.render()
   assert.equal(f.button().disabled, true); f.click(); await f.settle(); assert.equal(f.calls.length, 0)
   f.user = { id: 'alice' }; f.render()
-  f.response = async () => ({ ok: true, status: 200, json: async () => ({ questId: 'quest-1', status: 'completed', xpAwarded: 0 }) })
+  f.response = async () => ({ ok: true, status: 200, json: async () => ({ questId: 'quest-1', status: 'completed', xpAwarded: 0, stopIndex: 0, xpAwardedSoFar: 0, completedStops: [0], totalStops: 1 }) })
   f.click(); await f.settle(); assert.match(f.message('status'), /completed.*0 XP/)
+})
+
+
+test('compatibility button reports a completed stop without claiming the whole route is complete', async () => {
+  const f = await fixture()
+  f.response = async () => ({ ok: true, status: 200, json: async () => ({
+    questId: 'quest-1', status: 'in_progress', stopIndex: 0, xpAwarded: 4,
+    xpAwardedSoFar: 4, completedStops: [0], totalStops: 3,
+  }) })
+  f.click(); await f.settle()
+  assert.match(f.message('status'), /Stop 1 completed.*4 XP/)
+  assert.doesNotMatch(f.message('status'), /Sidequest completed/)
+  assert.equal(f.button().disabled, true)
 })

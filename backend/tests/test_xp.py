@@ -1,6 +1,6 @@
 import unittest
 
-from backend.xp import quest_xp_reward, read_xp
+from backend.xp import quest_xp_reward, read_xp, xp_for_stop
 
 
 class XpTests(unittest.TestCase):
@@ -30,3 +30,15 @@ class XpTests(unittest.TestCase):
                 read_xp({"xp": value, "totalXp": 100})
         with self.assertRaises(ValueError):
             read_xp({})
+
+    def test_multi_stop_rewards_split_evenly_and_preserve_the_total(self):
+        self.assertEqual([xp_for_stop(40, 2, index) for index in range(2)], [20, 20])
+        rewards = [xp_for_stop(41, 3, index) for index in range(3)]
+        self.assertEqual(rewards, [14, 14, 13])
+        self.assertEqual(sum(rewards), 41)
+        self.assertEqual(xp_for_stop(40, 1, 0), 40)
+
+    def test_stop_reward_split_rejects_invalid_indexes_and_totals(self):
+        for values in [(True, 2, 0), (5, 0, 0), (5, 2, 2), (-1, 2, 0)]:
+            with self.subTest(values=values), self.assertRaises(ValueError):
+                xp_for_stop(*values)

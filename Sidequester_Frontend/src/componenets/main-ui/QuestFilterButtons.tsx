@@ -29,6 +29,7 @@ export type QuestFilters = {
   customBudget: string
   distance: string
   customDistance: string
+  multiQuest: boolean
 }
 
 interface QuestFilterButtonsProps {
@@ -37,7 +38,7 @@ interface QuestFilterButtonsProps {
   setFilters: Dispatch<SetStateAction<QuestFilters>>
   activeVibe: Vibe | null
   onClearActiveVibe: () => void
-  onStartQuestGeneration: (userId: string, payload: GenerateQuestPayload) => Promise<void>
+  onStartQuestGeneration: (userId: string | null, payload: GenerateQuestPayload) => Promise<void>
 }
 
 function getUsername(user: ReturnType<typeof useUser>['user'], email: string | null): string {
@@ -157,14 +158,12 @@ function QuestFilterControls({
         distance: getDistanceConstraint(filters.distance, filters.customDistance),
         goals,
         vibePreferences: activeVibe?.preferences ?? null,
+        multiQuest: filters.multiQuest,
       })
 
       const apiRequest = toQuestApiPayload(request)
 
-      if (!isSignedIn || !user) {
-        throw new Error('Sign in with a verified email account to get a saved quest.')
-      }
-      await onStartQuestGeneration(user.id, apiRequest)
+      await onStartQuestGeneration(isSignedIn && user ? user.id : null, apiRequest)
     } catch (error) {
       setPreviewError(
         error instanceof Error ? error.message : 'Could not get your sidequest. Please try again.',
@@ -292,12 +291,36 @@ function QuestFilterControls({
         </div>
       </section>
 
+      <label
+        className="flex cursor-pointer items-start gap-3 rounded-xl border p-4"
+        style={{ backgroundColor: colors.surfaceRaised, borderColor: colors.border }}
+      >
+        <input
+          type="checkbox"
+          checked={filters.multiQuest}
+          onChange={(event) => setFilters((current) => ({ ...current, multiQuest: event.target.checked }))}
+          className="mt-0.5 size-4 accent-orange-500"
+        />
+        <span>
+          <span className="block text-sm font-semibold">Multi-stop sidequest</span>
+          <span className="mt-1 block text-xs leading-relaxed" style={{ color: colors.muted }}>
+            Visit two or more verified destinations in order and earn a share of XP at each stop. Choose a starting location.
+          </span>
+        </span>
+      </label>
+
       {isLoaded && isSignedIn === false && (
         <section
           aria-labelledby="guest-preference-label"
-          className="rounded-xl border p-4"
-          style={{ backgroundColor: colors.surfaceRaised, borderColor: colors.border }}
+          className="space-y-3 rounded-xl border p-4"
+          style={{ backgroundColor: colors.surfaceRaised, borderColor: colors.warningBorder }}
         >
+          <p className="text-sm font-semibold" style={{ color: colors.warning }}>
+            Guest quests are previews only and will not be saved to an account.
+          </p>
+          <p className="text-xs leading-relaxed" style={{ color: colors.muted }}>
+            Sign in to keep your quest, track stop progress, and earn XP.
+          </p>
           <label
             id="guest-preference-label"
             htmlFor="guest-preference"

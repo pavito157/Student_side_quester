@@ -3,6 +3,7 @@
   "time": {"maxMinutes": 60},
   "budget": {"minDollars": 0, "maxDollars": 0},
   "maxDistanceMiles": null,
+  "multiQuest": false,
   "preferences": "I enjoy programming and spending time outside.",
   "goals": ["Take a break from studying"],
   "vibe": {

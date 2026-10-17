@@ -43,4 +43,12 @@ export type SavedSidequestRequest = {
   id: string
   request: SidequestRequestPayload
   createdAt: string
+  isActive: boolean
+  xpValue: number
+}
+
+export type ActiveSidequest = {
+  id: string
+  location: string
+  xpValue: number
 }

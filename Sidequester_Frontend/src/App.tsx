@@ -6,6 +6,7 @@ import QuestFilterButtons, { type QuestFilters } from './componenets/main-ui/Que
 import FirebaseTextBox from './componenets/main-ui/FirebaseTextBox'
 import GoalsSidebar from './componenets/main-ui/GoalsSidebar'
 import UserPreferencesSummary from './componenets/main-ui/UserPreferencesSummary'
+import ActiveSidequests from './componenets/main-ui/ActiveSidequests'
 import SettingsModal, { type SettingsSection } from './componenets/settings/SettingsModal'
 import VibesSidebar from './componenets/sidebar/VibesSidebar'
 import type { Vibe } from './types/vibe'
@@ -90,6 +91,8 @@ function HomePage() {
               />
             </div>
           </section>
+
+          <ActiveSidequests />
 
           <div className="mx-auto mt-8 grid w-full max-w-5xl grid-cols-1 items-start gap-5 sm:mt-12 lg:grid-cols-[minmax(15rem,0.8fr)_minmax(0,1.6fr)] lg:gap-7">
             <div className="min-w-0">

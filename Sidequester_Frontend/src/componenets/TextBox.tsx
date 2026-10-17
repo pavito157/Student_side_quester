@@ -32,7 +32,7 @@ function TextBox({
           {title}
         </h2>
         {caption && (
-          <span className="text-xs" style={{ color: colors.muted }}>
+          <span className="text-xs" style={{ color: colors.secondary }}>
             {caption}
           </span>
         )}

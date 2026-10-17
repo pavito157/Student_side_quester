@@ -80,7 +80,7 @@ function SettingsModal({
                 color: colors.foreground,
                 backgroundColor: colors.surfaceRaised,
                 borderColor: colors.border,
-                outlineColor: colors.primary,
+                outlineColor: colors.secondary,
               }}
             >
               <BackIcon />
@@ -90,7 +90,7 @@ function SettingsModal({
             {!section && (
               <p
                 className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.18em]"
-                style={{ color: colors.primary }}
+                style={{ color: colors.secondary }}
               >
                 Personalize
               </p>
@@ -105,7 +105,7 @@ function SettingsModal({
           aria-label="Close settings"
           onClick={onClose}
           className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-xl transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
-          style={{ color: colors.muted, outlineColor: colors.primary }}
+          style={{ color: colors.muted, outlineColor: colors.secondary }}
         >
           <CloseIcon />
         </button>

@@ -29,7 +29,7 @@ function App() {
           <div className="mb-8 text-center sm:mb-10">
             <p
               className="mb-3 text-xs font-semibold uppercase tracking-[0.22em]"
-              style={{ color: colors.muted }}
+              style={{ color: colors.secondary }}
             >
               A little adventure, close to home
             </p>
@@ -45,7 +45,7 @@ function App() {
             </p>
           </div>
 
-          <section className="mx-auto w-full max-w-4xl">
+          <section className="mx-auto w-full max-w-5xl">
             <div
               className="rounded-2xl border p-5 shadow-xl sm:rounded-3xl sm:p-8"
               style={{
@@ -54,6 +54,19 @@ function App() {
               }}
             >
               <div className="mb-6">
+                <div className="mb-2 flex items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="size-1.5 rounded-full"
+                    style={{ backgroundColor: colors.secondary }}
+                  />
+                  <p
+                    className="text-[0.65rem] font-semibold uppercase tracking-[0.16em]"
+                    style={{ color: colors.secondary }}
+                  >
+                    Your next move
+                  </p>
+                </div>
                 <h2 className="text-lg font-semibold sm:text-xl">Make it yours</h2>
                 <p className="mt-1 text-sm" style={{ color: colors.muted }}>
                   Choose what works for you. You can change these anytime.

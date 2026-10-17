@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { colors } from '../constants/colors'
-import { CloseIcon } from './icons'
+import { BackIcon, CloseIcon } from './icons'
 
 interface SidebarModalProps {
   isOpen: boolean
@@ -55,7 +55,7 @@ function SidebarModal({
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
-      className="sidebar-modal w-[min(88vw,24rem)] border p-0 shadow-2xl"
+      className="sidebar-modal w-[min(94vw,38rem)] border p-0 shadow-2xl"
       style={{
         backgroundColor: colors.surface,
         borderColor: colors.border,
@@ -71,11 +71,16 @@ function SidebarModal({
             {onBack && (
               <button
                 type="button"
+                aria-label="Back to quick menu"
                 onClick={onBack}
-                className="min-h-10 cursor-pointer rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
-                style={{ color: colors.primary, outlineColor: colors.primary }}
+                className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border transition-all hover:-translate-x-0.5 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+                style={{
+                  color: colors.secondary,
+                  borderColor: colors.border,
+                  outlineColor: colors.secondary,
+                }}
               >
-                Back
+                <BackIcon />
               </button>
             )}
             <h2 id="sidebar-modal-title" className="truncate text-xl font-semibold">
@@ -86,8 +91,8 @@ function SidebarModal({
             type="button"
             aria-label="Close menu"
             onClick={onClose}
-            className="cursor-pointer rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
-            style={{ color: colors.muted, outlineColor: colors.primary }}
+            className="inline-flex size-10 cursor-pointer items-center justify-center rounded-xl transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+            style={{ color: colors.muted, outlineColor: colors.secondary }}
           >
             <CloseIcon />
           </button>
@@ -96,16 +101,16 @@ function SidebarModal({
         {showAddVibe && (
           <div
             className="mt-auto border-t p-5"
-            style={{ borderColor: colors.border }}
+            style={{ borderColor: colors.border, backgroundColor: colors.surface }}
           >
             <button
               type="button"
               onClick={onAddVibe}
-              className="min-h-12 w-full cursor-pointer rounded-lg px-4 py-3 font-semibold transition hover:brightness-110 active:brightness-90 focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="min-h-12 w-full cursor-pointer rounded-xl px-4 py-3 font-semibold transition-all hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0 active:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2"
               style={{
-                backgroundColor: colors.primary,
-                color: colors.primaryForeground,
-                outlineColor: colors.primary,
+                backgroundColor: colors.secondary,
+                color: colors.secondaryForeground,
+                outlineColor: colors.secondary,
               }}
             >
               Add vibe

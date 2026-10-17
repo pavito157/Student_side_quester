@@ -45,14 +45,37 @@
   --gradient-glow: radial-gradient(ellipse at center, #3b82f633 0%, #071b1600 72%);
 }
 
+::selection {
+  background: #fb923c55;
+  color: var(--color-foreground);
+}
+
+* {
+  scrollbar-color: var(--color-border) transparent;
+  scrollbar-width: thin;
+}
+
+button,
+input,
+textarea,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
 .google-place-autocomplete-shell {
   display: flex;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .google-place-autocomplete {
   display: block;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  flex: 1 1 0;
   --gmp-mat-color-primary: var(--color-primary);
   --gmp-mat-color-on-surface: var(--color-foreground);
   --gmp-mat-color-surface: var(--color-surface-raised);

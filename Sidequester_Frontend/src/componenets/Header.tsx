@@ -9,7 +9,6 @@ import {
 import { AccountIcon, MenuIcon, SettingsIcon } from './icons'
 import { colors } from '../constants/colors'
 import SidebarModal from './SidebarModal'
-import SettingsModal from './SettingsModal'
 import VibeEditor, { type Vibe } from './VibeEditor'
 
 interface HeaderProps {
@@ -25,7 +24,6 @@ function Header({
   const [isAddVibeOpen, setIsAddVibeOpen] = useState(false)
   const [vibeToEdit, setVibeToEdit] = useState<Vibe | null>(null)
   const [vibes, setVibes] = useState<Vibe[]>([])
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isAuthMenuOpen, setIsAuthMenuOpen] = useState(false)
   const authMenuRef = useRef<HTMLDivElement>(null)
 
@@ -207,16 +205,28 @@ function Header({
             {vibes.map((vibe) => (
               <li
                 key={vibe.id}
-                className="rounded-xl border p-4"
-                style={{ backgroundColor: colors.surfaceRaised, borderColor: colors.border }}
+                className="rounded-xl border border-l-2 p-4 transition-colors hover:bg-white/5"
+                style={{
+                  backgroundColor: colors.surfaceRaised,
+                  borderColor: colors.border,
+                  borderLeftColor: colors.secondary,
+                }}
               >
-                <h3 className="truncate font-semibold">{vibe.name}</h3>
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="truncate font-semibold">{vibe.name}</h3>
+                  <span
+                    className="shrink-0 rounded-full px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide"
+                    style={{ backgroundColor: colors.background, color: colors.secondary }}
+                  >
+                    Vibe
+                  </span>
+                </div>
                 <p
                   className="mt-1 line-clamp-2 text-sm"
                   style={{ color: colors.muted }}
-                  title={vibe.description}
+                  title={vibe.preferences}
                 >
-                  {vibe.description}
+                  {vibe.preferences}
                 </p>
                 <button
                   type="button"
@@ -224,11 +234,11 @@ function Header({
                     setVibeToEdit(vibe)
                     setIsAddVibeOpen(true)
                   }}
-                  className="mt-3 min-h-10 cursor-pointer rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+                  className="mt-3 min-h-10 cursor-pointer rounded-lg border px-3 py-2 text-sm font-semibold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
                   style={{
-                    borderColor: colors.border,
-                    color: colors.primary,
-                    outlineColor: colors.primary,
+                    borderColor: colors.secondary,
+                    color: colors.secondary,
+                    outlineColor: colors.secondary,
                   }}
                 >
                   Edit vibe

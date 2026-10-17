@@ -30,6 +30,18 @@ function stopXpReward(totalXp: number, totalStops: number, index: number): numbe
   return Math.floor(totalXp / totalStops) + (index < totalXp % totalStops ? 1 : 0)
 }
 
+function getRewardProgress(totalXp: number, totalStops: number, completedStops: number[]) {
+  const earnedXp = completedStops.reduce(
+    (earned, index) => earned + stopXpReward(totalXp, totalStops, index),
+    0,
+  )
+  const nextStopXp = completedStops.length < totalStops
+    ? stopXpReward(totalXp, totalStops, completedStops.length)
+    : 0
+
+  return { earnedXp, nextStopXp, remainingXp: totalXp - earnedXp }
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -183,6 +195,9 @@ function SidequestDetailPage({
   }] : []), [sidequest])
   const completedStops = sidequest?.completedStops ?? EMPTY_COMPLETED_STOPS
   const nextStopIndex = completedStops.length
+  const rewardProgress = sidequest
+    ? getRewardProgress(sidequest.xpValue, sidequestStops.length, completedStops)
+    : null
   const mapStops: SidequestMapStop[] = useMemo(() => sidequestStops.map((stop, index) => ({
     name: stop.locationName,
     placeId: stop.placeId,
@@ -446,8 +461,47 @@ function SidequestDetailPage({
                     <Detail label="Estimated cost">
                       {sidequest.estimatedCostDollars === 0 ? 'Free' : `$${sidequest.estimatedCostDollars}`}
                     </Detail>
-                    <Detail label="Reward">Awarded after successful completion</Detail>
                   </dl>
+                  {rewardProgress && (
+                    <section
+                      aria-label="XP reward progress"
+                      className="mt-4 rounded-xl border p-3.5"
+                      style={{ borderColor: colors.border, backgroundColor: colors.background }}
+                    >
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <span className="font-semibold">XP reward</span>
+                        <span className="font-black" style={{ color: colors.secondary }}>
+                          {rewardProgress.earnedXp} / {sidequest.xpValue} XP earned
+                        </span>
+                      </div>
+                      {sidequest.xpValue > 0 && (
+                        <div
+                          role="progressbar"
+                          aria-label="XP reward progress"
+                          aria-valuemin={0}
+                          aria-valuemax={sidequest.xpValue}
+                          aria-valuenow={rewardProgress.earnedXp}
+                          className="mt-2 h-2 overflow-hidden rounded-full"
+                          style={{ backgroundColor: colors.surfaceRaised }}
+                        >
+                          <div
+                            className="h-full rounded-full transition-[width]"
+                            style={{
+                              width: `${(rewardProgress.earnedXp / sidequest.xpValue) * 100}%`,
+                              backgroundColor: colors.success,
+                            }}
+                          />
+                        </div>
+                      )}
+                      <p className="mt-2 text-xs leading-relaxed" style={{ color: colors.muted }}>
+                        {nextStopIndex >= sidequestStops.length
+                          ? 'All XP for this sidequest has been earned.'
+                          : rewardProgress.nextStopXp > 0
+                            ? `Complete the next stop and pass location verification to earn +${rewardProgress.nextStopXp} XP. ${rewardProgress.remainingXp} XP remains.`
+                            : 'No XP is available for the next stop.'}
+                      </p>
+                    </section>
+                  )}
                   {sidequestStops.length > 1 && (
                     <div className="mt-4 rounded-xl border p-3.5" style={{ borderColor: colors.border }}>
                       <div className="flex items-center justify-between gap-3 text-xs">

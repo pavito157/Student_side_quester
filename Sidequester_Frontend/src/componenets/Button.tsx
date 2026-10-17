@@ -13,7 +13,7 @@ const Button: React.FC<ButtonProps> = ({
   ...rest
 }) => {
   return (
-    <button className="py-2 px-4 rounded"
+    <button className="cursor-pointer rounded px-4 py-2"
       style={{
         backgroundColor: colors.secondary,
         borderColor: colors.border,

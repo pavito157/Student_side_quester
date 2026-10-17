@@ -11,6 +11,20 @@ function MenuIcon() {
   )
 }
 
+function BackIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="size-5">
+      <path
+        d="M19 12H5m0 0 7 7m-7-7 7-7"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 function AccountIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="size-5 sm:size-6">
@@ -53,4 +67,4 @@ function CloseIcon() {
   )
 }
 
-export { AccountIcon, CloseIcon, MenuIcon, SettingsIcon }
+export { AccountIcon, BackIcon, CloseIcon, MenuIcon, SettingsIcon }

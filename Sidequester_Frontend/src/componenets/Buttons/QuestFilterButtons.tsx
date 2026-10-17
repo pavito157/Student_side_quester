@@ -24,12 +24,6 @@ const sidequests = [
   { name: 'Do a 60-minute phone-free study sprint', where: 'Marston', minutes: 60, cost: 0 },
   { name: 'Reserve a group study room and start a study group with two classmates', where: 'Marston', minutes: 120, cost: 0 },
 
-  // Library West
-  { name: 'Write down your goals for the semester in a quiet corner', where: 'Libwest', minutes: 30, cost: 0 },
-  { name: 'Pick up a book outside your major and read the first chapter', where: 'Libwest', minutes: 45, cost: 0 },
-  { name: 'Swap flashcards with a friend for an hour', where: 'Libwest', minutes: 60, cost: 0 },
-  { name: 'Plan out your whole month of assignments and exams', where: 'Libwest', minutes: 90, cost: 0 },
-
   // Flavet Field
   { name: 'Toss a frisbee or kick a ball around with a friend', where: 'Flavet', minutes: 30, cost: 0 },
   { name: 'Pack a picnic and eat it on the field', where: 'Flavet', minutes: 60, cost: 8 },
@@ -55,6 +49,20 @@ const sidequests = [
   { name: 'Play pickup basketball with strangers, then get a smoothie', where: 'studentrec', minutes: 90, cost: 5 },
 ]
 
+const locationFilterIds: Record<string, string> = {
+  'reitz union': 'reitz-union',
+  'j wayne reitz union': 'reitz-union',
+  'reitz student union': 'reitz-union',
+  'marston library': 'Marston',
+  'marston science library': 'Marston',
+  'flavet field': 'Flavet',
+  'lake wauburg': 'Wauburg',
+  'southwest recreation center': 'SouthWest',
+  'southwest rec center': 'SouthWest',
+  'student recreation center': 'studentrec',
+  'student rec center': 'studentrec',
+}
+
 function QuestFilterButtons() {
   const [selectedFilters, setSelectedFilters] = useState<Filters>({
     where: '',
@@ -73,7 +81,13 @@ function QuestFilterButtons() {
       const matchesWhere =
         !selectedFilters.where ||
         selectedFilters.where === 'any' ||
-        sidequest.where === selectedFilters.where
+        sidequest.where ===
+          locationFilterIds[
+            selectedFilters.where
+              .toLocaleLowerCase()
+              .replace(/[^a-z0-9]+/g, ' ')
+              .trim()
+          ]
       const timeLimit = Number(selectedFilters.time)
       const matchesTime =
         !selectedFilters.time ||

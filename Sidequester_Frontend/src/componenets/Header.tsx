@@ -140,7 +140,7 @@ function Header({
               </div>
             </SignedOut>
             <SignedIn>
-              <div className="[&_button]:cursor-pointer">
+              <div className="[&_button]:cursor-pointer flex-center align-center justify-center">
                 <UserButton />
               </div>
             </SignedIn>

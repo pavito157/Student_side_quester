@@ -1,5 +1,16 @@
 # SideQuest quest validation and completion
 
+The saved-assignment API, frontend helpers, examples and integration boundary are
+in [TASK5_API.md](TASK5_API.md). `POST /quests/assign` saves a verified assignment
+or reuses the active one; `GET /me/quest` reloads it. New saves require the pending
+teammate destination resolver. `/quests/generate` remains an unsaved Gemini preview,
+and the original fixed test moved to `/quests/preview`. GET/completion routes are
+now mounted. No frontend components were changed.
+
+See [AUTH_SETUP.md](AUTH_SETUP.md) for Clerk-to-Firebase sign-in and
+[TASK4_GEMINI.md](TASK4_GEMINI.md) for backend-only Gemini configuration. The
+canonical profile collection is `Users`. JSON contracts live in [contracts](contracts/README.md).
+
 ## What is available
 
 The checked-out repository originally contained a React/Vite frontend shell
@@ -11,15 +22,16 @@ inspect or migrate.
 
 - `quest_validation.py` contains dependency-free Haversine and completion checks.
   It can be tested while FastAPI startup is unresolved.
-- `quest_routes.py` contains the supplied authentication/database helpers and GET
-  routes, finishes the truncated `/me/quests` response, and adds
-  `POST /quests/{quest_id}/complete`.
+- `quest_routes.py` contains the supplied GET/completion routes and uses the
+  shared authentication/database helpers in `firebase_helpers.py`.
 - `quest_completion.py` owns the Firestore completion transaction.
+- `quest_assignment_routes.py` mounts fixed/Gemini previews and saved/current
+  assignment endpoints. `quest_persistence.py` owns atomic assignment creation.
+- `quest_generation.py` owns direct Gemini generation and the resolver interface.
 
-Random assignment was absent from the supplied snippet; `/quests/assign` is not
-implemented here. There is no new application entry point, dorm picker, seed data,
-or change to the frontend. The teammate's full assignment code and application
-still need to be connected.
+The frontend team owns wiring the typed helper to the UI. Backend 1's completion
+transaction and leaderboard work remain separate; Step 5 reuses the existing
+completion implementation without changing its XP logic.
 
 ## Test without application startup
 
@@ -112,7 +124,7 @@ The service reads these records **inside the transaction**:
 | --- | --- |
 | `userQuests/{uid}_{questId}` | `userId`, `questId`, `status` |
 | `quests/{questId}` | `isActive`, `latitude`, `longitude`, `radiusMeters`, `xpReward` |
-| `users/{uid}` | `dormId`, `totalXp` |
+| `Users/{uid}` | `dormId`, `totalXp` |
 | `dorms/{dormId}` | `totalXp` |
 
 The assignment must belong to the caller, refer to this quest, and have status
@@ -145,3 +157,8 @@ checks.
 References: [Firebase transactions](https://firebase.google.com/docs/firestore/manage-data/transactions),
 [ID token verification](https://firebase.google.com/docs/auth/admin/verify-id-tokens),
 [Firestore emulator](https://firebase.google.com/docs/emulator-suite/connect_firestore).
+# Gemini integration (Step 4)
+
+See [TASK4_GEMINI.md](TASK4_GEMINI.md) for the authenticated `/quests/generate`
+preview, backend-only key setup, catalog requirements, frontend helper, and tests.
+The fixed Step 3 endpoint is preserved. Neither preview saves assignments or XP.

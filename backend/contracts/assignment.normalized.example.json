@@ -1,0 +1,13 @@
+{
+  "location": {"mode": "place", "label": "UF campus"},
+  "time": {"maxMinutes": 60},
+  "budget": {"minDollars": 0, "maxDollars": 0},
+  "maxDistanceMiles": null,
+  "preferences": "I enjoy programming and spending time outside.",
+  "goals": ["Take a break from studying"],
+  "vibe": {
+    "id": "study-vibe",
+    "name": "Study vibe",
+    "preferences": "Something quiet and outdoors to help me relax."
+  }
+}

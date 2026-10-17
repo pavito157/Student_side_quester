@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from firebase_admin import auth
 
-from backend import quest_routes
+from backend import firebase_helpers, quest_routes
 from backend.quest_completion import CompletionError
 
 
@@ -19,8 +19,8 @@ class RouteTests(unittest.TestCase):
         app.dependency_overrides[quest_routes.get_db] = lambda: self.db
         self.client = TestClient(app)
         self.addCleanup(self.client.close)
-        self.firebase_app = patch.object(quest_routes, "get_firebase_app").start()
-        self.verify = patch.object(quest_routes.auth, "verify_id_token", return_value={
+        self.firebase_app = patch.object(firebase_helpers, "get_firebase_app").start()
+        self.verify = patch.object(firebase_helpers.auth, "verify_id_token", return_value={
             "uid": "token-owner", "email": "student@ufl.edu", "email_verified": True,
         }).start()
         self.complete = patch.object(quest_routes, "complete_quest", return_value={
@@ -107,6 +107,24 @@ class RouteTests(unittest.TestCase):
         response = self.client.get("/me/quests?status=assigned", headers=self.headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"quests": [{"status": "assigned", "id": "a"}]})
+
+    def test_quest_catalog_does_not_expose_other_users_generated_content(self):
+        own, other, legacy = Mock(), Mock(), Mock()
+        for item, name, owner in [(own, "own", "token-owner"), (other, "other", "someone-else"),
+                                  (legacy, "legacy", None)]:
+            item.id = name
+            item.to_dict.return_value = {"isActive": True, **({"ownerId": owner} if owner else {})}
+        self.db.collection.return_value.where.return_value.stream.return_value = [own, other, legacy]
+        result = self.client.get("/quests", headers=self.headers)
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual([q["id"] for q in result.json()["quests"]], ["own", "legacy"])
+
+    def test_other_users_private_quest_returns_404(self):
+        snapshot = self.db.collection.return_value.document.return_value.get.return_value
+        snapshot.exists = True
+        snapshot.to_dict.return_value = {"isActive": True, "ownerId": "someone-else"}
+        result = self.client.get("/quests/another-quest", headers=self.headers)
+        self.assertEqual(result.status_code, 404)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,317 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "AnywhereLocation": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "anywhere",
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "AnywhereLocation",
+      "type": "object"
+    },
+    "BudgetConstraints": {
+      "additionalProperties": false,
+      "properties": {
+        "minDollars": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Mindollars",
+          "type": "number"
+        },
+        "maxDollars": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maxdollars"
+        },
+        "maxExclusive": {
+          "default": false,
+          "title": "Maxexclusive",
+          "type": "boolean"
+        }
+      },
+      "title": "BudgetConstraints",
+      "type": "object"
+    },
+    "Coordinates": {
+      "additionalProperties": false,
+      "properties": {
+        "latitude": {
+          "maximum": 90,
+          "minimum": -90,
+          "title": "Latitude",
+          "type": "number"
+        },
+        "longitude": {
+          "maximum": 180,
+          "minimum": -180,
+          "title": "Longitude",
+          "type": "number"
+        }
+      },
+      "required": [
+        "latitude",
+        "longitude"
+      ],
+      "title": "Coordinates",
+      "type": "object"
+    },
+    "CurrentLocation": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "current",
+          "title": "Mode",
+          "type": "string"
+        },
+        "coordinates": {
+          "$ref": "#/$defs/Coordinates"
+        },
+        "accuracyMeters": {
+          "exclusiveMinimum": 0,
+          "title": "Accuracymeters",
+          "type": "number"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        }
+      },
+      "required": [
+        "mode",
+        "coordinates",
+        "accuracyMeters"
+      ],
+      "title": "CurrentLocation",
+      "type": "object"
+    },
+    "PlaceLocation": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "place",
+          "title": "Mode",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "placeId": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Placeid"
+        },
+        "coordinates": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Coordinates"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "mode",
+        "label"
+      ],
+      "title": "PlaceLocation",
+      "type": "object"
+    },
+    "SelectedVibe": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[^/]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "preferences": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Preferences",
+          "type": "string"
+        }
+      },
+      "required": [
+        "preferences"
+      ],
+      "title": "SelectedVibe",
+      "type": "object"
+    },
+    "TimeConstraints": {
+      "additionalProperties": false,
+      "properties": {
+        "minMinutes": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minminutes"
+        },
+        "maxMinutes": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maxminutes"
+        }
+      },
+      "title": "TimeConstraints",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Internal constraints; the frontend does not need to construct this shape.",
+  "properties": {
+    "location": {
+      "discriminator": {
+        "mapping": {
+          "anywhere": "#/$defs/AnywhereLocation",
+          "current": "#/$defs/CurrentLocation",
+          "place": "#/$defs/PlaceLocation"
+        },
+        "propertyName": "mode"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/AnywhereLocation"
+        },
+        {
+          "$ref": "#/$defs/PlaceLocation"
+        },
+        {
+          "$ref": "#/$defs/CurrentLocation"
+        }
+      ],
+      "title": "Location"
+    },
+    "time": {
+      "$ref": "#/$defs/TimeConstraints"
+    },
+    "budget": {
+      "$ref": "#/$defs/BudgetConstraints"
+    },
+    "preferences": {
+      "default": "",
+      "maxLength": 4000,
+      "title": "Preferences",
+      "type": "string"
+    },
+    "goals": {
+      "items": {
+        "maxLength": 500,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 20,
+      "title": "Goals",
+      "type": "array"
+    },
+    "vibe": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SelectedVibe"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "maxDistanceMiles": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Maxdistancemiles"
+    }
+  },
+  "required": [
+    "location",
+    "time",
+    "budget"
+  ],
+  "title": "NormalizedQuestPreferences",
+  "type": "object"
+}

@@ -10,6 +10,7 @@ from google.auth.credentials import AnonymousCredentials
 from google.cloud.firestore import Client
 
 from backend.quest_completion import ASSIGNMENTS, CompletionError, complete_quest
+from backend.auth_routes import ensure_profile
 
 
 @unittest.skipUnless(os.environ.get("FIRESTORE_EMULATOR_HOST"), "Local Firestore emulator not configured")
@@ -41,7 +42,7 @@ class CompletionEmulatorTests(unittest.TestCase):
         return ref
 
     def seed_user(self, uid):
-        self.seed("users", uid, {"dormId": self.dorm_id, "totalXp": 10})
+        self.seed("Users", uid, {"dormId": self.dorm_id, "totalXp": 10})
         self.seed(ASSIGNMENTS, f"{uid}_{self.quest_id}", {
             "userId": uid, "questId": self.quest_id, "status": "assigned", "xpAwarded": 0,
         })
@@ -56,7 +57,7 @@ class CompletionEmulatorTests(unittest.TestCase):
         return complete_quest(**arguments)
 
     def assert_totals(self, user_xp=10, dorm_xp=100):
-        self.assertEqual(self.db.collection("users").document(self.uid).get().to_dict()["totalXp"], user_xp)
+        self.assertEqual(self.db.collection("Users").document(self.uid).get().to_dict()["totalXp"], user_xp)
         self.assertEqual(self.db.collection("dorms").document(self.dorm_id).get().to_dict()["totalXp"], dorm_xp)
 
     def assert_unchanged(self):
@@ -106,7 +107,7 @@ class CompletionEmulatorTests(unittest.TestCase):
             results = list(pool.map(attempt, [self.uid, other_uid]))
         self.assertTrue(all(result["status"] == "completed" for result in results))
         self.assert_totals(35, 150)
-        self.assertEqual(self.db.collection("users").document(other_uid).get().to_dict()["totalXp"], 35)
+        self.assertEqual(self.db.collection("Users").document(other_uid).get().to_dict()["totalXp"], 35)
 
     def test_rejected_location_does_not_write(self):
         for changes in [{"latitude": 0}, {"accuracy": 51}, {"longitude": float("nan")}]:
@@ -136,7 +137,7 @@ class CompletionEmulatorTests(unittest.TestCase):
         self.assert_unchanged()
 
     def test_missing_profile_dorm_quest_or_assignment(self):
-        for collection, document_id in [("users", self.uid), ("dorms", self.dorm_id),
+        for collection, document_id in [("Users", self.uid), ("dorms", self.dorm_id),
                                         ("quests", self.quest_id),
                                         (ASSIGNMENTS, f"{self.uid}_{self.quest_id}")]:
             ref = self.db.collection(collection).document(document_id)
@@ -158,12 +159,53 @@ class CompletionEmulatorTests(unittest.TestCase):
         with self.assertRaises(CompletionError):
             self.finish()
         self.assertEqual(self.assignment_ref().get().to_dict()["status"], "assigned")
-        self.assertEqual(self.db.collection("users").document(self.uid).get().to_dict()["totalXp"], 10)
+        self.assertEqual(self.db.collection("Users").document(self.uid).get().to_dict()["totalXp"], 10)
 
     def test_zero_xp_reward_still_marks_completion(self):
         self.db.collection("quests").document(self.quest_id).update({"xpReward": 0})
         self.assertEqual(self.finish()["status"], "completed")
         self.assert_totals()
+
+    def test_profile_setup_preserves_preferences_goals_dorm_and_xp(self):
+        ref = self.db.collection("Users").document(self.uid)
+        ref.update({"preferences": "Quiet and outdoors", "goals": ["Relax"], "displayName": "Original"})
+        ensure_profile(self.db, {"uid": self.uid, "displayName": "New name"})
+        profile = ref.get().to_dict()
+        self.assertEqual(profile["displayName"], "Original")
+        self.assertEqual(profile["preferences"], "Quiet and outdoors")
+        self.assertEqual(profile["goals"], ["Relax"])
+        self.assertEqual(profile["dormId"], self.dorm_id)
+        self.assertIsNotNone(profile["createdAt"])
+        self.assert_totals()
+
+    def test_new_profile_uses_canonical_collection_and_does_not_invent_dorm(self):
+        uid = self.uid + "-new"
+        ref = self.db.collection("Users").document(uid)
+        self.refs.append(ref)
+        ensure_profile(self.db, {"uid": uid, "displayName": "Student"})
+        profile = ref.get().to_dict()
+        self.assertEqual(profile["totalXp"], 0)
+        self.assertEqual(profile["displayName"], "Student")
+        self.assertNotIn("dormId", profile)
+        self.assertFalse(self.db.collection("users").document(uid).get().exists)
+
+    def test_profile_setup_racing_completion_does_not_reset_xp(self):
+        barrier = threading.Barrier(2)
+
+        def initialize():
+            barrier.wait(timeout=10)
+            ensure_profile(self.db, {"uid": self.uid, "displayName": "Student"})
+
+        def finish():
+            barrier.wait(timeout=10)
+            return self.finish()
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            profile_future = pool.submit(initialize)
+            quest_future = pool.submit(finish)
+            profile_future.result()
+            self.assertEqual(quest_future.result()["status"], "completed")
+        self.assert_totals(35, 125)
 
 
 if __name__ == "__main__":

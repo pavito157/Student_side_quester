@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "ActivityTimeFilter": {
+      "additionalProperties": false,
+      "properties": {
+        "selection": {
+          "default": "any",
+          "enum": [
+            "",
+            "any",
+            "30",
+            "60",
+            "120",
+            "custom"
+          ],
+          "title": "Selection",
+          "type": "string"
+        },
+        "customMinutes": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Customminutes"
+        }
+      },
+      "title": "ActivityTimeFilter",
+      "type": "object"
+    },
+    "BudgetFilter": {
+      "additionalProperties": false,
+      "properties": {
+        "selection": {
+          "default": "any",
+          "enum": [
+            "",
+            "any",
+            "0",
+            "10",
+            "10-25",
+            "custom"
+          ],
+          "title": "Selection",
+          "type": "string"
+        },
+        "customDollars": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Customdollars"
+        }
+      },
+      "title": "BudgetFilter",
+      "type": "object"
+    },
+    "Coordinates": {
+      "additionalProperties": false,
+      "properties": {
+        "latitude": {
+          "maximum": 90,
+          "minimum": -90,
+          "title": "Latitude",
+          "type": "number"
+        },
+        "longitude": {
+          "maximum": 180,
+          "minimum": -180,
+          "title": "Longitude",
+          "type": "number"
+        }
+      },
+      "required": [
+        "latitude",
+        "longitude"
+      ],
+      "title": "Coordinates",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "preferences": {
+      "default": "",
+      "maxLength": 4000,
+      "title": "Preferences",
+      "type": "string"
+    },
+    "username": {
+      "default": "",
+      "description": "Untrusted display text; not used for identity or profile updates.",
+      "maxLength": 160,
+      "title": "Username",
+      "type": "string"
+    },
+    "location": {
+      "maxLength": 300,
+      "title": "Location",
+      "type": "string"
+    },
+    "time": {
+      "$ref": "#/$defs/ActivityTimeFilter"
+    },
+    "budget": {
+      "$ref": "#/$defs/BudgetFilter"
+    },
+    "distance": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Maximum straight-line distance in miles from location; null means no limit.",
+      "title": "Distance"
+    },
+    "goals": {
+      "items": {
+        "maxLength": 500,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 20,
+      "title": "Goals",
+      "type": "array"
+    },
+    "vibePreferences": {
+      "default": "",
+      "maxLength": 4000,
+      "title": "Vibepreferences",
+      "type": "string"
+    },
+    "originCoordinates": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Coordinates"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Coordinates of the selected search origin; required for distance filtering."
+    }
+  },
+  "required": [
+    "location",
+    "time",
+    "budget"
+  ],
+  "title": "GenerateQuestRequest",
+  "type": "object"
+}

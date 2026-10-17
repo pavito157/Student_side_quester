@@ -5,54 +5,17 @@ The supplied snippet omitted POST /quests/assign; it is not recreated here.
 """
 
 import os
-from functools import lru_cache
 from typing import Literal, Optional
 
-import firebase_admin
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from firebase_admin import auth, firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 from pydantic import BaseModel, ConfigDict, Field
 
 from .quest_completion import ASSIGNMENTS, CompletionError, complete_quest
 from .quest_validation import valid_coordinates, valid_number
+from .firebase_helpers import current_uid, get_db
 
 router = APIRouter(tags=["Quests"])
-bearer = HTTPBearer(auto_error=False)
-
-
-@lru_cache
-def get_firebase_app():
-    try:
-        return firebase_admin.get_app()
-    except ValueError:
-        return firebase_admin.initialize_app()
-
-
-@lru_cache
-def get_db():
-    return firestore.client(app=get_firebase_app())
-
-
-def current_uid(credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer)):
-    if credentials is None:
-        raise HTTPException(401, "Firebase ID token required", headers={"WWW-Authenticate": "Bearer"})
-    get_firebase_app()
-    try:
-        claims = auth.verify_id_token(credentials.credentials, check_revoked=True)
-    except (auth.InvalidIdTokenError, auth.RevokedIdTokenError, auth.UserDisabledError, ValueError):
-        raise HTTPException(401, "Invalid or expired ID token", headers={"WWW-Authenticate": "Bearer"})
-    except auth.CertificateFetchError:
-        raise HTTPException(503, "Authentication temporarily unavailable")
-    email = claims.get("email")
-    if (not isinstance(email, str) or claims.get("email_verified") is not True
-            or email.lower().rsplit("@", 1)[-1] != "ufl.edu" or "@" not in email):
-        raise HTTPException(403, "A verified @ufl.edu account is required")
-    uid = claims.get("uid")
-    if not isinstance(uid, str) or not uid:
-        raise HTTPException(401, "Invalid ID token")
-    return uid
 
 
 def document(snapshot):
@@ -73,13 +36,15 @@ def list_quests(uid: str = Depends(current_uid), db=Depends(get_db)):
     snapshots = db.collection("quests").where(
         filter=FieldFilter("isActive", "==", True)
     ).stream()
-    return {"quests": [document(s) for s in snapshots]}
+    return {"quests": [document(s) for s in snapshots
+                       if s.to_dict().get("ownerId") in (None, uid)]}
 
 
 @router.get("/quests/{quest_id}")
 def get_quest(quest_id: str, uid: str = Depends(current_uid), db=Depends(get_db)):
     snapshot = db.collection("quests").document(quest_id).get()
-    if not snapshot.exists or snapshot.to_dict().get("isActive") is not True:
+    if (not snapshot.exists or snapshot.to_dict().get("isActive") is not True
+            or snapshot.to_dict().get("ownerId") not in (None, uid)):
         raise HTTPException(404, "Active quest not found")
     return document(snapshot)
 

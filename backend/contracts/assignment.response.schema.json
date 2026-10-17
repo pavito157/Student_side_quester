@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "AssignedQuest": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[^/]+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 160,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "steps": {
+          "items": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "title": "Steps",
+          "type": "array"
+        },
+        "locationName": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Locationname",
+          "type": "string"
+        },
+        "placeId": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Placeid"
+        },
+        "latitude": {
+          "maximum": 90,
+          "minimum": -90,
+          "title": "Latitude",
+          "type": "number"
+        },
+        "longitude": {
+          "maximum": 180,
+          "minimum": -180,
+          "title": "Longitude",
+          "type": "number"
+        },
+        "radiusMeters": {
+          "exclusiveMinimum": 0,
+          "title": "Radiusmeters",
+          "type": "number"
+        },
+        "xpReward": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "title": "Xpreward",
+          "type": "integer"
+        },
+        "isActive": {
+          "const": true,
+          "title": "Isactive",
+          "type": "boolean"
+        },
+        "estimatedMinutes": {
+          "description": "Estimated activity duration in minutes, excluding travel time.",
+          "exclusiveMinimum": 0,
+          "title": "Estimatedminutes",
+          "type": "integer"
+        },
+        "estimatedCostDollars": {
+          "minimum": 0,
+          "title": "Estimatedcostdollars",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "description",
+        "steps",
+        "locationName",
+        "latitude",
+        "longitude",
+        "radiusMeters",
+        "xpReward",
+        "isActive",
+        "estimatedMinutes",
+        "estimatedCostDollars"
+      ],
+      "title": "AssignedQuest",
+      "type": "object"
+    },
+    "SavedAssignment": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 257,
+          "minLength": 1,
+          "pattern": "^[^/]+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "userId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[^/]+$",
+          "title": "Userid",
+          "type": "string"
+        },
+        "questId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[^/]+$",
+          "title": "Questid",
+          "type": "string"
+        },
+        "status": {
+          "const": "assigned",
+          "title": "Status",
+          "type": "string"
+        },
+        "assignedAt": {
+          "format": "date-time",
+          "title": "Assignedat",
+          "type": "string"
+        },
+        "completedAt": {
+          "default": null,
+          "title": "Completedat",
+          "type": "null"
+        },
+        "xpAwarded": {
+          "default": 0,
+          "maximum": 0,
+          "minimum": 0,
+          "title": "Xpawarded",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "questId",
+        "status",
+        "assignedAt"
+      ],
+      "title": "SavedAssignment",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "quest": {
+      "$ref": "#/$defs/AssignedQuest"
+    },
+    "assignment": {
+      "$ref": "#/$defs/SavedAssignment"
+    },
+    "reusedExisting": {
+      "title": "Reusedexisting",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "quest",
+    "assignment",
+    "reusedExisting"
+  ],
+  "title": "AssignQuestResponse",
+  "type": "object"
+}

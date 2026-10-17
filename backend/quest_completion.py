@@ -3,6 +3,7 @@
 from firebase_admin import firestore
 
 from .quest_validation import validate_completion
+from .firebase_helpers import USERS
 
 ASSIGNMENTS = "userQuests"
 
@@ -27,7 +28,7 @@ def complete_quest(
         raise CompletionError(400, "Invalid user or quest ID.")
     assignment_ref = db.collection(ASSIGNMENTS).document(f"{user_id}_{quest_id}")
     quest_ref = db.collection("quests").document(quest_id)
-    user_ref = db.collection("users").document(user_id)
+    user_ref = db.collection(USERS).document(user_id)
 
     @firestore.transactional
     def commit(transaction):

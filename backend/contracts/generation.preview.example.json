@@ -1,0 +1,46 @@
+{
+  "mode": "generated",
+  "saved": false,
+  "filtersApplied": false,
+  "destinationVerified": false,
+  "distanceStatus": "not_requested",
+  "distanceMeters": null,
+  "destination": null,
+  "message": "Illustrative unsaved preview; destination not verified.",
+  "quest": {
+    "title": "Observe natural patterns",
+    "description": "Illustrative AI draft; destination is unverified.",
+    "steps": [
+      "Observe a natural pattern.",
+      "Sketch a simple algorithm to reproduce it."
+    ],
+    "locationName": "Proposed campus destination",
+    "locationAddress": "Proposed campus address, Gainesville, FL",
+    "estimatedMinutes": 30,
+    "estimatedCostDollars": 0.0
+  },
+  "normalizedPreferences": {
+    "location": {
+      "mode": "anywhere"
+    },
+    "time": {
+      "minMinutes": null,
+      "maxMinutes": 60
+    },
+    "budget": {
+      "minDollars": 0.0,
+      "maxDollars": 0.0,
+      "maxExclusive": false
+    },
+    "preferences": "Programming and nature",
+    "goals": [
+      "Learn Computer Science"
+    ],
+    "vibe": {
+      "id": null,
+      "name": null,
+      "preferences": "Relax"
+    },
+    "maxDistanceMiles": null
+  }
+}

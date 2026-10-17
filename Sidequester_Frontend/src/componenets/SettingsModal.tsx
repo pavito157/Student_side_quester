@@ -1,40 +1,35 @@
-import { useEffect, useRef, useState } from 'react'
-import {
-  SignInButton,
-  SignedIn,
-  SignedOut,
-  useUser,
-} from '@clerk/clerk-react'
-import { colors } from '../constants/colors'
-import PreferencesEditor from './PreferencesEditor'
+import { useEffect, useRef, useState } from "react";
+import { SignInButton, SignedIn, SignedOut, useUser } from "@clerk/clerk-react";
+import { colors } from "../constants/colors";
+import PreferencesEditor from "./PreferencesEditor";
 
 interface SettingsModalProps {
-  isOpen: boolean
-  onClose: () => void
+  isOpen: boolean;
+  onClose: () => void;
 }
 
 function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null)
-  const [showPreferences, setShowPreferences] = useState(false)
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [showPreferences, setShowPreferences] = useState(false);
 
   useEffect(() => {
-    const dialog = dialogRef.current
-    if (!dialog) return
+    const dialog = dialogRef.current;
+    if (!dialog) return;
 
-    if (isOpen && !dialog.open) dialog.showModal()
-    if (!isOpen && dialog.open) dialog.close()
-  }, [isOpen])
+    if (isOpen && !dialog.open) dialog.showModal();
+    if (!isOpen && dialog.open) dialog.close();
+  }, [isOpen]);
 
   return (
     <dialog
       ref={dialogRef}
       aria-labelledby="settings-title"
       onCancel={(event) => {
-        event.preventDefault()
-        onClose()
+        event.preventDefault();
+        onClose();
       }}
       onClick={(event) => {
-        if (event.target === event.currentTarget) onClose()
+        if (event.target === event.currentTarget) onClose();
       }}
       className="m-auto w-[min(92vw,32rem)] rounded-2xl border p-5 shadow-2xl backdrop:bg-black/60 sm:p-7"
       style={{
@@ -50,21 +45,21 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               type="button"
               aria-label="Back to settings"
               onClick={() => setShowPreferences(false)}
-              className="rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-white/10"
+              className="cursor-pointer rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-white/10"
               style={{ color: colors.muted }}
             >
               Back
             </button>
           )}
           <h2 id="settings-title" className="text-xl font-semibold">
-            {showPreferences ? 'Preferences' : 'Settings'}
+            {showPreferences ? "Preferences" : "Settings"}
           </h2>
         </div>
         <button
           type="button"
           aria-label="Close settings"
           onClick={onClose}
-          className="rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+          className="cursor-pointer rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
           style={{ color: colors.muted, outlineColor: colors.primary }}
         >
           Close
@@ -84,7 +79,7 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             <button
               type="button"
               onClick={() => setShowPreferences(true)}
-              className="w-full rounded-xl border p-4 text-left transition-colors hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="w-full cursor-pointer rounded-xl border p-4 text-left transition-all hover:-translate-y-px hover:border-primary hover:bg-white/10 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2"
               style={{
                 backgroundColor: colors.surfaceRaised,
                 borderColor: colors.border,
@@ -93,7 +88,10 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               }}
             >
               <span className="block font-medium">Preferences</span>
-              <span className="mt-1 block text-sm" style={{ color: colors.muted }}>
+              <span
+                className="mt-1 block text-sm"
+                style={{ color: colors.muted }}
+              >
                 Save the activities and experiences you enjoy.
               </span>
             </button>
@@ -109,8 +107,11 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           <SignInButton mode="modal">
             <button
               type="button"
-              className="rounded-lg px-4 py-2.5 text-sm font-semibold"
-              style={{ backgroundColor: colors.primary, color: colors.primaryForeground }}
+              className="cursor-pointer rounded-lg px-4 py-2.5 text-sm font-semibold"
+              style={{
+                backgroundColor: colors.primary,
+                color: colors.primaryForeground,
+              }}
             >
               Sign in
             </button>
@@ -118,14 +119,14 @@ function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         </div>
       </SignedOut>
     </dialog>
-  )
+  );
 }
 
 function UserPreferences() {
-  const { user } = useUser()
-  if (!user) return <p style={{ color: colors.muted }}>Loading account...</p>
+  const { user } = useUser();
+  if (!user) return <p style={{ color: colors.muted }}>Loading account...</p>;
 
-  return <PreferencesEditor userId={user.id} />
+  return <PreferencesEditor userId={user.id} />;
 }
 
-export default SettingsModal
+export default SettingsModal;

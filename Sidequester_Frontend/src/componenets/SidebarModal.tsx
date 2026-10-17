@@ -63,7 +63,7 @@ function SidebarModal({ isOpen, onClose, title, children }: SidebarModalProps) {
             type="button"
             aria-label="Close menu"
             onClick={onClose}
-            className="rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="cursor-pointer rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
             style={{ color: colors.muted, outlineColor: colors.primary }}
           >
             <CloseIcon />

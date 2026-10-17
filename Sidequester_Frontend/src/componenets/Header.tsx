@@ -59,7 +59,7 @@ function Header({
             aria-label="Open menu"
             aria-haspopup="dialog"
             onClick={() => setIsMenuOpen(true)}
-            className="rounded-lg p-2 transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="cursor-pointer rounded-lg p-2 transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
             style={{ color: colors.foreground, outlineColor: colors.primary }}
           >
             <MenuIcon />
@@ -82,7 +82,7 @@ function Header({
                 setIsSettingsOpen(true)
                 onSettingsClick?.()
               }}
-              className="rounded-lg p-2 transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="cursor-pointer rounded-lg p-2 transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
               style={{ color: colors.secondary, outlineColor: colors.secondary }}
             >
               <SettingsIcon />
@@ -96,7 +96,7 @@ function Header({
                   aria-expanded={isAuthMenuOpen}
                   aria-controls="auth-dropdown"
                   onClick={() => setIsAuthMenuOpen((open) => !open)}
-                  className="rounded-lg p-2 transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+                  className="cursor-pointer rounded-lg p-2 transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
                   style={{ color: colors.primary, outlineColor: colors.primary }}
                 >
                   <AccountIcon />
@@ -115,7 +115,7 @@ function Header({
                       <button
                         type="button"
                         onClick={() => setIsAuthMenuOpen(false)}
-                        className="w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+                        className="w-full cursor-pointer rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
                         style={{ color: colors.foreground, outlineColor: colors.primary }}
                       >
                         Sign in
@@ -125,7 +125,7 @@ function Header({
                       <button
                         type="button"
                         onClick={() => setIsAuthMenuOpen(false)}
-                        className="mt-1 w-full rounded-lg px-3 py-2.5 text-left text-sm font-semibold transition-colors hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2"
+                        className="mt-1 w-full cursor-pointer rounded-lg px-3 py-2.5 text-left text-sm font-semibold transition-colors hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2"
                         style={{
                           backgroundColor: colors.primary,
                           color: colors.primaryForeground,
@@ -140,7 +140,9 @@ function Header({
               </div>
             </SignedOut>
             <SignedIn>
-              <UserButton />
+              <div className="[&_button]:cursor-pointer">
+                <UserButton />
+              </div>
             </SignedIn>
           </div>
         </div>

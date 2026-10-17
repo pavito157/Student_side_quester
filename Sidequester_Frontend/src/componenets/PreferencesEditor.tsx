@@ -86,7 +86,7 @@ function PreferencesEditor({ userId }: PreferencesEditorProps) {
           type="button"
           onClick={() => void handleSave()}
           disabled={isLoading || isSaving}
-          className="rounded-lg px-4 py-2.5 text-sm font-semibold transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+          className="cursor-pointer rounded-lg px-4 py-2.5 text-sm font-semibold transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
           style={{ backgroundColor: colors.primary, color: colors.primaryForeground }}
         >
           {isLoading ? 'Loading...' : isSaving ? 'Saving...' : 'Save preferences'}

@@ -54,6 +54,20 @@ function SettingsIcon() {
   )
 }
 
+function LeaderboardIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="size-4 sm:size-5">
+      <path
+        d="M4 19V5m0 14h16M8 16v-4m4 4V8m4 8v-6m4 6V4"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 function CloseIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="size-4 sm:size-5">
@@ -67,4 +81,4 @@ function CloseIcon() {
   )
 }
 
-export { AccountIcon, BackIcon, CloseIcon, MenuIcon, SettingsIcon }
+export { AccountIcon, BackIcon, CloseIcon, LeaderboardIcon, MenuIcon, SettingsIcon }

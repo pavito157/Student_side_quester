@@ -6,7 +6,7 @@ function GoalsSidebar() {
   return (
     <aside
       aria-labelledby="goals-sidebar-title"
-      className="min-h-72 max-h-[min(60dvh,38rem)] overflow-y-auto overscroll-contain rounded-2xl border p-5 sm:min-h-80 sm:p-6"
+      className="rpg-panel min-h-72 max-h-[min(60dvh,38rem)] overflow-y-auto overscroll-contain p-5 sm:min-h-80 sm:p-6"
       style={{ backgroundColor: colors.surface, borderColor: colors.border }}
     >
       <header className="mb-5">

@@ -3,6 +3,7 @@ import { importLibrary, setOptions } from '@googlemaps/js-api-loader'
 const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
 let placesLibraryPromise: Promise<google.maps.PlacesLibrary> | undefined
 let geocodingLibraryPromise: Promise<google.maps.GeocodingLibrary> | undefined
+let mapsLibraryPromise: Promise<google.maps.MapsLibrary> | undefined
 let loaderOptionsConfigured = false
 
 function configureLoaderOptions(): void {
@@ -33,4 +34,13 @@ export function loadGeocodingLibrary(): Promise<google.maps.GeocodingLibrary> {
   }
 
   return geocodingLibraryPromise
+}
+
+export function loadMapsLibrary(): Promise<google.maps.MapsLibrary> {
+  if (!mapsLibraryPromise) {
+    configureLoaderOptions()
+    mapsLibraryPromise = importLibrary('maps')
+  }
+
+  return mapsLibraryPromise
 }

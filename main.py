@@ -1,11 +1,35 @@
-from firebase_config import db
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from auth import get_current_user_id
-from xp_service import complete_assigned_quest
+from google.api_core.exceptions import GoogleAPICallError
+
+from backend.firebase_helpers import current_uid, get_db
+
+from backend.auth_routes import frontend_origins, router as auth_router
+from backend.quest_assignment_routes import router as quest_assignment_router
+from backend.quest_routes import router as quest_router
+from backend.request_timing import measure_quest_request
+from backend.quest_generation import close_gemini_http_client
 
 
-app = FastAPI(title="Sidequester API")
+@asynccontextmanager
+async def lifespan(app):
+    try:
+        yield
+    finally:
+        close_gemini_http_client()
+
+
+app = FastAPI(title="Sidequester API", lifespan=lifespan)
+app.add_middleware(CORSMiddleware, allow_origins=frontend_origins(),
+                   allow_methods=["GET", "POST"],
+                   allow_headers=["Authorization", "Content-Type"],
+                   expose_headers=["Server-Timing"])
+app.middleware("http")(measure_quest_request)
+app.include_router(auth_router)
+app.include_router(quest_assignment_router)
+app.include_router(quest_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -24,71 +48,27 @@ def health():
     return {"status": "ok"}
 
 
-@app.post("/users")
-def create_user():
-    return {
-        "message": "Create user endpoint is ready",
-        "status": "not implemented"
-    }
+# Preserve Backend 1's unique API placeholders without advertising fake success.
+@app.post("/users", status_code=501)
+def create_user(uid: str = Depends(current_uid)):
+    raise HTTPException(501, "User creation is handled by /auth/firebase; this endpoint is not implemented")
 
 
-@app.get("/quests")
-def get_quests():
-    return {
-        "message": "Get quests endpoint is ready",
-        "status": "not implemented",
-        "quests": []
-    }
+@app.get("/users/{user_id}", status_code=501)
+def get_user(user_id: str, uid: str = Depends(current_uid)):
+    raise HTTPException(501, "User lookup is not implemented")
 
 
-@app.post("/quests/assign")
-def assign_quest():
-    return {
-        "message": "Assign quest endpoint is ready",
-        "status": "not implemented"
-    }
-
-
-@app.post("/quests/{assigned_quest_id}/complete")
-def complete_quest(assigned_quest_id: str, user_id: str = Depends(get_current_user_id)):
-    result = complete_assigned_quest(user_id, assigned_quest_id)
-    if result["status"] == "not_found":
-        raise HTTPException(status_code=404, detail="Quest or user not found")
-    if result["status"] in ("invalid_status", "invalid_xp"):
-        raise HTTPException(status_code=409, detail=f"Cannot complete: {result['status']}")
-    return result
-
-
-@app.get("/users/{id}")
-def get_user(id: int):
-    return {
-        "message": "Get user endpoint is ready",
-        "user_id": id,
-        "status": "not implemented"
-    }
-
-
-@app.get("/leaderboard")
-def get_leaderboard():
-    return {
-        "message": "Leaderboard endpoint is ready",
-        "status": "not implemented",
-        "leaderboard": []
-    }
+@app.get("/leaderboard", status_code=501)
+def get_leaderboard(uid: str = Depends(current_uid)):
+    raise HTTPException(501, "Leaderboard is not implemented")
 
 
 @app.post("/test-firestore")
-def test_firestore():
-    doc_ref = db.collection("connection_tests").document("fastapi_test")
-
-    doc_ref.set({
-        "message": "Hello from FastAPI!",
-        "status": "connected"
-    })
-
-    doc = doc_ref.get()
-
-    return {
-        "success": doc.exists,
-        "data": doc.to_dict()
-    }
+def test_firestore(uid: str = Depends(current_uid), db=Depends(get_db)):
+    """Authenticated connection check; never creates or overwrites test data."""
+    try:
+        snapshot = db.collection("connection_tests").document("fastapi_test").get(timeout=10)
+    except GoogleAPICallError:
+        raise HTTPException(503, "Firestore temporarily unavailable") from None
+    return {"connected": True, "documentExists": snapshot.exists}

@@ -1,8 +1,9 @@
-import { useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import { colors } from '../../constants/colors'
 import { buildSidequestRequest, serializeSidequestRequest } from '../../services/sidequestJson'
 import { saveSidequestRequest } from '../../services/sidequests'
+import { requestAssignedQuest, type SavedQuestResponse } from '../../services/questAssignment'
 import { getUserGoals, getUserPreferences } from '../../services/userPreferences'
 import type {
   BudgetConstraint,
@@ -19,6 +20,8 @@ import SidequestJsonModal from './SidequestJsonModal'
 
 export type QuestFilters = {
   where: string
+  latitude: number | null
+  longitude: number | null
   time: string
   budget: string
   customTime: string
@@ -94,7 +97,7 @@ function getDistanceConstraint(value: string, customValue: string): DistanceCons
   }
 }
 
-function QuestFilterButtons({
+function QuestFilterControls({
   filters,
   setFilters,
   activeVibe,
@@ -104,18 +107,30 @@ function QuestFilterButtons({
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [isLoadingPreview, setIsLoadingPreview] = useState(false)
   const [previewError, setPreviewError] = useState('')
-  const [persistenceMessage, setPersistenceMessage] = useState('')
+  const [historyWarning, setHistoryWarning] = useState('')
+  const [assignment, setAssignment] = useState<SavedQuestResponse | null>(null)
+  const controllerRef = useRef<AbortController | null>(null)
+  const inFlightRef = useRef(false)
   const [requestJson, setRequestJson] = useState('')
-  const [requestCount, setRequestCount] = useState<number | null>(null)
   const [guestPreference, setGuestPreference] = useState('')
 
+  useEffect(() => () => {
+    controllerRef.current?.abort()
+    controllerRef.current = null
+  }, [])
+
   async function showSidequestRequest() {
+    if (inFlightRef.current) return
+    controllerRef.current?.abort()
+    const controller = new AbortController()
+    controllerRef.current = controller
+    inFlightRef.current = true
     setIsPreviewOpen(true)
     setIsLoadingPreview(true)
     setPreviewError('')
-    setPersistenceMessage('')
+    setHistoryWarning('')
+    setAssignment(null)
     setRequestJson('')
-    setRequestCount(null)
 
     try {
       if (!isLoaded) throw new Error('Your account is still loading. Please try again.')
@@ -138,6 +153,11 @@ function QuestFilterButtons({
         preferences,
         username: getUsername(user, email),
         location: filters.where === 'any' ? 'Anywhere' : filters.where || 'Not selected',
+        originCoordinates: filters.latitude !== null && filters.longitude !== null
+          ? { latitude: filters.latitude, longitude: filters.longitude }
+          : null,
+        latitude: filters.latitude,
+        longitude: filters.longitude,
         time: {
           selection: getTimeSelection(filters.time),
           customMinutes,
@@ -151,21 +171,33 @@ function QuestFilterButtons({
         vibePreferences: activeVibe?.preferences ?? null,
       })
 
+      if (controller.signal.aborted) return
       setRequestJson(serializeSidequestRequest(request))
 
-      if (isSignedIn && user) {
-        const saved = await saveSidequestRequest(user.id, email, request)
-        setRequestCount(saved.requestCount)
-        setPersistenceMessage('Request saved to your account sidequest history.')
-      } else {
-        setPersistenceMessage('Sign in to save this request to your sidequest history.')
+      if (!isSignedIn || !user) {
+        throw new Error('Sign in with a verified email account to get a saved quest.')
+      }
+      const saved = await requestAssignedQuest(user.id, request, { signal: controller.signal })
+      if (controller.signal.aborted) return
+      setAssignment(saved)
+      // Preserve request-history metadata without delaying or blocking the quest.
+      if (!saved.reusedExisting) {
+        void saveSidequestRequest(user.id, email, request).catch(() => {
+          if (!controller.signal.aborted) {
+            setHistoryWarning('Your quest was saved, but request history could not be updated.')
+          }
+        })
       }
     } catch (error) {
+      if (controller.signal.aborted) return
       setPreviewError(
-        error instanceof Error ? error.message : 'Could not prepare the sidequest request.',
+        error instanceof Error ? error.message : 'Could not get your sidequest. Please try again.',
       )
     } finally {
-      setIsLoadingPreview(false)
+      if (controllerRef.current === controller) {
+        inFlightRef.current = false
+        setIsLoadingPreview(false)
+      }
     }
   }
 
@@ -173,7 +205,7 @@ function QuestFilterButtons({
     <div className="space-y-5">
       {activeVibe && (
         <div
-          className="flex items-start justify-between gap-3 rounded-xl border-l-2 px-4 py-3"
+          className="quest-tag flex items-start justify-between gap-3 rounded-xl border-l-2 px-4 py-3"
           style={{
             backgroundColor: colors.surfaceRaised,
             borderColor: colors.border,
@@ -216,7 +248,7 @@ function QuestFilterButtons({
 
       <section
         aria-labelledby="quest-location-heading"
-        className="rounded-2xl border p-4 sm:p-5"
+        className="quest-subpanel p-4 sm:p-5"
         style={{ backgroundColor: colors.background, borderColor: colors.border }}
       >
         <div className="mb-3">
@@ -228,9 +260,16 @@ function QuestFilterButtons({
           </p>
         </div>
         <WhereButton
-          autoLocate={isSignedIn === true && !activeVibe}
+          autoLocate={isSignedIn === true && !activeVibe && !filters.where}
           value={filters.where}
-          onChange={(where) => setFilters((current) => ({ ...current, where }))}
+          onChange={(where, coordinates) =>
+            setFilters((current) => ({
+              ...current,
+              where,
+              latitude: coordinates?.latitude ?? null,
+              longitude: coordinates?.longitude ?? null,
+            }))
+          }
         />
       </section>
 
@@ -314,18 +353,24 @@ function QuestFilterButtons({
         </section>
       )}
 
-      <SidequestMeButton onClick={() => void showSidequestRequest()} />
+      <SidequestMeButton onClick={() => void showSidequestRequest()} isLoading={isLoadingPreview} />
       <SidequestJsonModal
         isOpen={isPreviewOpen}
         isLoading={isLoadingPreview}
         requestJson={requestJson}
         errorMessage={previewError}
-        persistenceMessage={persistenceMessage}
-        requestCount={requestCount}
+        response={assignment}
+        historyWarning={historyWarning}
         onClose={() => setIsPreviewOpen(false)}
       />
     </div>
   )
+}
+
+// A different account gets fresh UI state and aborts the old account's request.
+function QuestFilterButtons(props: QuestFilterButtonsProps) {
+  const { user } = useUser()
+  return <QuestFilterControls key={user?.id ?? 'guest'} {...props} />
 }
 
 export default QuestFilterButtons

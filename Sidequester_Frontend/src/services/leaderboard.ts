@@ -1,5 +1,6 @@
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../configs/FirebaseConfig'
+import { getUserXp } from './userProfile'
 
 export type LeaderboardEntry = {
   userId: string
@@ -19,7 +20,13 @@ export async function getLeaderboardEntries(): Promise<LeaderboardData> {
   const entries = usersSnapshot.docs.flatMap((userDocument) => {
     const userData = userDocument.data()
     const username = userData.username
-    const xp = userData.xp
+    let xp: number
+    try {
+      xp = getUserXp(userData)
+    } catch {
+      skippedUsers += 1
+      return []
+    }
 
     if (
       typeof username !== 'string' ||

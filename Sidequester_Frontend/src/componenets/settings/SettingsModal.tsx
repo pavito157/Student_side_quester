@@ -61,7 +61,7 @@ function SettingsModal({
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
-      className="m-auto max-h-[min(90dvh,48rem)] w-[min(92vw,32rem)] overflow-y-auto rounded-2xl border p-5 shadow-2xl backdrop:bg-black/60 sm:rounded-3xl sm:p-7"
+      className="rpg-dialog m-auto max-h-[min(90dvh,48rem)] w-[min(92vw,32rem)] overflow-y-auto rounded-2xl border p-5 shadow-2xl backdrop:bg-black/60 sm:rounded-3xl sm:p-7"
       style={{
         backgroundColor: colors.surface,
         borderColor: colors.border,
@@ -75,7 +75,7 @@ function SettingsModal({
               type="button"
               aria-label="Back to settings"
               onClick={() => onSectionChange(null)}
-              className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="hud-button inline-flex size-10 shrink-0 cursor-pointer items-center justify-center transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
               style={{
                 color: colors.foreground,
                 backgroundColor: colors.surfaceRaised,
@@ -104,7 +104,7 @@ function SettingsModal({
           type="button"
           aria-label="Close settings"
           onClick={onClose}
-          className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-xl transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+          className="hud-button inline-flex size-10 shrink-0 cursor-pointer items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2"
           style={{ color: colors.muted, outlineColor: colors.secondary }}
         >
           <CloseIcon />
@@ -199,7 +199,7 @@ function HelpAndAbout() {
         </p>
       </section>
       <section
-        className="rounded-xl border p-4"
+        className="quest-tag rounded-xl p-4"
         style={{ backgroundColor: colors.surfaceRaised, borderColor: colors.border }}
       >
         <h3 className="font-semibold">About Sidequester</h3>

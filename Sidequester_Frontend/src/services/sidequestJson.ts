@@ -45,9 +45,25 @@ function validateBudget(budget: BudgetConstraint): void {
 function validateDistance(distance: DistanceConstraint): void {
   if (
     distance !== null &&
-    (!Number.isFinite(distance.maxDistance) || distance.maxDistance < 0)
+    (distance.unit !== 'miles' || !Number.isFinite(distance.maxDistance) || distance.maxDistance <= 0)
   ) {
-    throw new Error('Maximum distance must be a non-negative number of miles.')
+    throw new Error('Maximum distance must be a positive number of miles.')
+  }
+}
+
+function validateCoordinates(latitude: number | null, longitude: number | null): void {
+  if (latitude === null && longitude === null) return
+  if (
+    latitude === null ||
+    longitude === null ||
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude) ||
+    latitude < -90 ||
+    latitude > 90 ||
+    longitude < -180 ||
+    longitude > 180
+  ) {
+    throw new Error('Location coordinates must include a valid latitude and longitude.')
   }
 }
 
@@ -57,6 +73,19 @@ export function buildSidequestRequest(
   validateTime(input.time)
   validateBudget(input.budget)
   validateDistance(input.distance)
+  validateCoordinates(input.latitude, input.longitude)
+
+  const origin = input.originCoordinates
+  if (origin && (!Number.isFinite(origin.latitude) || Math.abs(origin.latitude) > 90 ||
+    !Number.isFinite(origin.longitude) || Math.abs(origin.longitude) > 180)) {
+    throw new Error('Choose a location with valid coordinates.')
+  }
+  if (input.distance !== null && !origin) {
+    throw new Error('Select a starting place or use your location to apply a distance limit.')
+  }
+  if (origin && ['', 'any', 'anywhere', 'not selected'].includes(input.location.trim().toLowerCase())) {
+    throw new Error('Choose a starting place for these coordinates.')
+  }
 
   const username = input.username.trim()
   if (!username) throw new Error('A username is required to build the sidequest request.')
@@ -67,7 +96,10 @@ export function buildSidequestRequest(
   return {
     preferences: input.preferences.trim(),
     username,
+    ...(origin ? { originCoordinates: { ...origin } } : {}),
     location: input.location.trim() || 'Not selected',
+    latitude: input.latitude,
+    longitude: input.longitude,
     time: { ...input.time },
     budget: { ...input.budget },
     distance: input.distance ? { ...input.distance } : null,

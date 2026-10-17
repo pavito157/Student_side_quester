@@ -54,8 +54,8 @@ function LeaderboardPage() {
   return (
     <>
       <Header title="Leaderboard" />
-      <main className="min-h-[calc(100vh-4rem)] bg-gradient-glow px-4 py-10 sm:px-6 sm:py-16">
-        <section className="mx-auto max-w-3xl">
+      <main className="min-h-[calc(100vh-4rem)] w-full min-w-0 bg-gradient-glow px-4 py-10 sm:px-6 sm:py-16">
+        <section className="mx-auto w-full min-w-0 max-w-3xl">
           <div className="mb-8 text-center">
             <p
               className="text-xs font-semibold uppercase tracking-[0.2em]"
@@ -72,7 +72,7 @@ function LeaderboardPage() {
           </div>
 
           <div
-            className="overflow-hidden rounded-2xl border shadow-xl sm:rounded-3xl"
+            className="rpg-panel w-full min-w-0 overflow-hidden"
             style={{ backgroundColor: colors.surface, borderColor: colors.border }}
           >
             {!isLoaded ? (
@@ -146,10 +146,11 @@ function LeaderboardPage() {
                         style={{ borderColor: colors.border }}
                       >
                         <span
-                          className="inline-flex size-9 items-center justify-center rounded-full text-sm font-bold"
+                          className="inline-flex size-9 items-center justify-center rounded-full border text-sm font-black shadow-[0_0_18px_rgb(250_70_22_/_20%)]"
                           style={{
                             backgroundColor: index < 3 ? colors.secondary : colors.surfaceRaised,
                             color: index < 3 ? colors.secondaryForeground : colors.foreground,
+                            borderColor: index < 3 ? 'rgb(255 154 74 / 45%)' : colors.border,
                           }}
                         >
                           {index + 1}
@@ -162,8 +163,8 @@ function LeaderboardPage() {
                             <span className="text-xs font-medium" style={{ color: colors.muted }}>
                               XP
                             </span>
-                            <span className="text-sm font-bold tabular-nums" style={{ color: colors.primary }}>
-                              {xp.toLocaleString()}
+                            <span className="rounded-full border px-2 py-0.5 text-sm font-black tabular-nums" style={{ color: colors.secondary, borderColor: 'rgb(250 70 22 / 35%)', backgroundColor: 'rgb(250 70 22 / 8%)' }}>
+                              {xp.toLocaleString()} XP
                             </span>
                           </div>
                           <div
@@ -179,7 +180,7 @@ function LeaderboardPage() {
                               className="h-full rounded-full transition-[width] duration-500"
                               style={{
                                 width: `${Math.max(0, Math.min(70, (xp / highestXp) * 70))}%`,
-                                backgroundColor: colors.primary,
+                                background: 'linear-gradient(90deg, #fa4616, #ff9a4a)',
                               }}
                             />
                           </div>

@@ -2,13 +2,16 @@ import { colors } from '../../constants/colors'
 
 type SidequestMeButtonProps = {
   onClick: () => void
+  isLoading?: boolean
 }
 
-function SidequestMeButton({ onClick }: SidequestMeButtonProps) {
+function SidequestMeButton({ onClick, isLoading = false }: SidequestMeButtonProps) {
   return (
     <button
       type="button"
-      className="group inline-flex min-h-12 w-full cursor-pointer touch-manipulation items-center justify-center gap-2 rounded-xl border px-5 py-3 text-sm font-semibold transition-all hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0 active:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2"
+      disabled={isLoading}
+      aria-busy={isLoading}
+      className="magic-cta group inline-flex min-h-14 w-full cursor-pointer touch-manipulation items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-black uppercase tracking-[0.12em] transition-all hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0 active:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-70"
       style={{
         backgroundColor: colors.primaryHover,
         borderColor: colors.primary,
@@ -17,7 +20,7 @@ function SidequestMeButton({ onClick }: SidequestMeButtonProps) {
       }}
       onClick={onClick}
     >
-      <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="size-4">
+      <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="size-5 transition-transform group-hover:rotate-12 group-hover:scale-125">
         <path
           d="m10 1.8 1.85 5.45L17.3 9.1l-5.45 1.85L10 16.4l-1.85-5.45L2.7 9.1l5.45-1.85L10 1.8Z"
           fill={colors.secondary}
@@ -27,7 +30,7 @@ function SidequestMeButton({ onClick }: SidequestMeButtonProps) {
           fill={colors.secondary}
         />
       </svg>
-      Sidequest me
+      {isLoading ? 'Finding your quest…' : 'Sidequest me'}
     </button>
   )
 }

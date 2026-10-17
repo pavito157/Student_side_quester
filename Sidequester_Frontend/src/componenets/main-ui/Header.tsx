@@ -6,17 +6,20 @@ import {
   SignedOut,
   UserButton,
 } from '@clerk/clerk-react'
-import { AccountIcon, MenuIcon, SettingsIcon } from '../icons'
+import { AccountIcon, LeaderboardIcon, MenuIcon, SettingsIcon } from '../icons'
 import { colors } from '../../constants/colors'
+import { navigateTo } from '../../services/navigation'
 
 interface HeaderProps {
   title?: string
+  activeSidequestCount?: number
   onSettingsClick?: () => void
   onMenuClick?: () => void
 }
 
 function Header({
   title = 'Sidequester',
+  activeSidequestCount = 0,
   onSettingsClick,
   onMenuClick,
 }: HeaderProps) {
@@ -48,25 +51,45 @@ function Header({
   return (
     <>
       <header
-        className="sticky top-0 z-10 w-full border-b px-3 py-2.5 sm:px-6 sm:py-3"
+        className="hud-header sticky top-0 z-30 w-full border-b px-3 py-2.5 sm:px-6 sm:py-3"
         style={{ backgroundColor: colors.surface, borderColor: colors.border }}
       >
-        <div className="relative flex w-full items-center justify-between">
+        <div className="grid w-full grid-cols-[minmax(2.5rem,1fr)_auto_minmax(2.5rem,1fr)] items-center gap-2">
           <button
             type="button"
-            aria-label="Open menu"
+            aria-label={`Open menu${activeSidequestCount > 0
+              ? `, ${activeSidequestCount} active sidequest${activeSidequestCount === 1 ? '' : 's'}`
+              : ''}`}
             aria-haspopup="dialog"
             onClick={onMenuClick}
-            className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-lg p-0 transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="hud-button relative inline-flex size-10 shrink-0 cursor-pointer items-center justify-center p-0 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
             style={{ color: colors.foreground, outlineColor: colors.primary }}
             hidden={!onMenuClick}
           >
             <MenuIcon />
+            {activeSidequestCount > 0 && (
+              <span
+                aria-hidden="true"
+                className="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border px-1 text-[0.65rem] font-bold leading-none"
+                style={{
+                  backgroundColor: colors.secondary,
+                  borderColor: colors.surface,
+                  color: colors.secondaryForeground,
+                }}
+              >
+                {activeSidequestCount > 99 ? '99+' : activeSidequestCount}
+              </span>
+            )}
           </button>
           {!onMenuClick && (
             <a
               href="/"
-              className="rounded-lg px-2 py-2 text-sm font-semibold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+              onClick={(event) => {
+                if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+                event.preventDefault()
+                navigateTo('/')
+              }}
+              className="hud-button w-fit max-w-full justify-self-start rounded-xl px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
               style={{ color: colors.foreground, outlineColor: colors.primary }}
             >
               Sidequester
@@ -74,13 +97,13 @@ function Header({
           )}
 
           <h1
-            className="pointer-events-none absolute left-1/2 max-w-[calc(100%-8rem)] -translate-x-1/2 truncate text-base font-bold sm:text-xl"
-            style={{ color: colors.foreground }}
+            className="min-w-0 truncate text-center text-sm font-black tracking-wide sm:text-xl"
+            style={{ color: colors.accent }}
           >
             {title}
           </h1>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center justify-end gap-1">
             {onSettingsClick && <button
               type="button"
               aria-label="Settings"
@@ -88,23 +111,27 @@ function Header({
               onClick={() => {
                 onSettingsClick?.()
               }}
-              className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-lg p-0 transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="hud-button inline-flex size-10 shrink-0 cursor-pointer items-center justify-center p-0 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
               style={{ color: colors.secondary, outlineColor: colors.secondary }}
             >
               <SettingsIcon />
             </button>}
             <a
               href="/leaderboard"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex min-h-10 items-center rounded-lg border px-3 text-xs font-semibold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 sm:text-sm"
+              onClick={(event) => {
+                if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+                event.preventDefault()
+                navigateTo('/leaderboard')
+              }}
+              aria-label="Leaderboard"
+              className="hud-button inline-flex size-10 items-center justify-center gap-2 p-0 text-xs font-bold uppercase tracking-wide transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 sm:size-auto sm:min-h-10 sm:px-3 sm:py-2 sm:text-sm"
               style={{
-                borderColor: colors.border,
                 color: colors.secondary,
                 outlineColor: colors.secondary,
               }}
             >
-              Leaderboard
+              <LeaderboardIcon />
+              <span className="hidden sm:inline">Leaderboard</span>
             </a>
             <SignedOut>
               <div className="relative" ref={authMenuRef}>
@@ -115,7 +142,7 @@ function Header({
                   aria-expanded={isAuthMenuOpen}
                   aria-controls="auth-dropdown"
                   onClick={() => setIsAuthMenuOpen((open) => !open)}
-                  className="cursor-pointer rounded-lg p-2 transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+                  className="hud-button cursor-pointer p-2 focus-visible:outline-2 focus-visible:outline-offset-2"
                   style={{ color: colors.primary, outlineColor: colors.primary }}
                 >
                   <AccountIcon />
@@ -124,7 +151,7 @@ function Header({
                   <div
                     id="auth-dropdown"
                     aria-label="Authentication options"
-                    className="absolute right-0 top-full z-20 mt-2 w-44 rounded-xl border p-2 shadow-xl"
+                    className="rpg-dialog absolute right-0 top-full z-40 mt-2 w-44 rounded-xl border p-2 shadow-xl"
                     style={{
                       backgroundColor: colors.surfaceRaised,
                       borderColor: colors.border,

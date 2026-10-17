@@ -21,7 +21,7 @@ function TextBox({
   return (
     <section
       aria-labelledby={`${id}-title`}
-      className="rounded-2xl border p-4 sm:p-5"
+      className="rpg-panel p-4 sm:p-5"
       style={{
         backgroundColor: colors.surface,
         borderColor: colors.border,
@@ -40,7 +40,7 @@ function TextBox({
       <div
         aria-labelledby={`${id}-title`}
         aria-readonly="true"
-        className="max-h-48 min-h-14 overflow-auto rounded-lg border p-3 text-xs leading-relaxed whitespace-pre-wrap break-words"
+        className="quest-subpanel max-h-48 min-h-14 overflow-auto p-3 text-xs leading-relaxed whitespace-pre-wrap break-words"
         role="textbox"
         tabIndex={0}
         style={{

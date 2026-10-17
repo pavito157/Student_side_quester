@@ -17,7 +17,7 @@ function SettingsOptionButton({
     <button
       type={type}
       onClick={onClick}
-      className="group flex w-full cursor-pointer items-center justify-between gap-4 rounded-xl border p-4 text-left transition-all hover:-translate-y-px hover:bg-white/10 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2"
+      className="quest-tag group flex w-full cursor-pointer items-center justify-between gap-4 rounded-xl border p-4 text-left transition-all focus-visible:outline-2 focus-visible:outline-offset-2"
       style={{
         backgroundColor: colors.surfaceRaised,
         borderColor: colors.border,

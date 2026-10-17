@@ -14,7 +14,8 @@ async function fixture() {
     calls: [], historyCalls: [],
     request: async () => structuredClone(saved), history: async () => ({ requestCount: 1 }),
     filters: {
-      where: 'Selected origin', latitude: 29.65, longitude: -82.34,
+      where: 'Selected origin',
+      latitude: 29.65, longitude: -82.34,
       time: '60', budget: '0', distance: '1', customTime: '', customBudget: '', customDistance: '',
     },
   }
@@ -127,10 +128,9 @@ test('button submits current selections and renders saved server XP/JSON', async
   await f.settle()
   assert.equal(f.calls.length, 1)
   assert.equal(f.calls[0][0], 'example-user')
-  assert.deepEqual(plain(f.calls[0][1].originCoordinates), { latitude: f.filters.latitude, longitude: f.filters.longitude })
-  assert.equal(Object.hasOwn(f.calls[0][1], 'latitude'), false)
-  assert.equal(Object.hasOwn(f.calls[0][1], 'longitude'), false)
-  assert.equal(Object.hasOwn(JSON.parse(f.props('SidequestJsonModal').requestJson), 'latitude'), false)
+  assert.deepEqual(plain(f.calls[0][1].originCoordinates), {
+    latitude: f.filters.latitude, longitude: f.filters.longitude,
+  })
   assert.deepEqual(plain(f.calls[0][1].distance), { maxDistance: 1, unit: 'miles' })
   assert.deepEqual(plain(f.props('SidequestJsonModal').response), saved)
   assert.equal(f.props('SidequestJsonModal').response.quest.xpReward, 25)

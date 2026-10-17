@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import { colors } from '../../constants/colors'
-import { buildSidequestRequest } from '../../services/sidequestJson'
+import { buildSidequestRequest, toQuestApiPayload } from '../../services/sidequestJson'
 import { saveSidequestRequest } from '../../services/sidequests'
 import {
   requestAssignedQuest,
-  toQuestApiPayload,
   type SavedQuestResponse,
 } from '../../services/questAssignment'
 import { getUserGoals, getUserPreferences } from '../../services/userPreferences'

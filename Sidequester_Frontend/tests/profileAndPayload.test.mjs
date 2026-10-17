@@ -76,10 +76,33 @@ test('distance requests require captured origin coordinates, never a silent filt
 test('merged frontend GPS fields are retained for maps but excluded from the API body', () => {
   const request = builder.buildSidequestRequest(input)
   const before = plainJson(request)
+  const payload = plainJson(builder.toQuestApiPayload(request))
   assert.equal(request.latitude, input.latitude)
   assert.equal(request.longitude, input.longitude)
   assert.deepEqual(request.originCoordinates, input.originCoordinates)
   assert.deepEqual(plainJson(request), before)
+  assert.deepEqual(payload.originCoordinates, input.originCoordinates)
+  assert.equal(Object.hasOwn(payload, 'latitude'), false)
+  assert.equal(Object.hasOwn(payload, 'longitude'), false)
+})
+
+test('API time JSON includes customMinutes only for custom selections', () => {
+  for (const selection of ['any', '30', '60', '120']) {
+    const request = builder.buildSidequestRequest({
+      ...input,
+      time: { selection, customMinutes: null },
+    })
+    assert.deepEqual(plainJson(builder.toQuestApiPayload(request).time), { selection })
+  }
+
+  const customRequest = builder.buildSidequestRequest({
+    ...input,
+    time: { selection: 'custom', customMinutes: 60 },
+  })
+  assert.deepEqual(plainJson(builder.toQuestApiPayload(customRequest).time), {
+    selection: 'custom',
+    customMinutes: 60,
+  })
 })
 
 function plainJson(value) { return JSON.parse(JSON.stringify(value)) }

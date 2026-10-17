@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { colors } from '../../constants/colors'
-import { getCurrentLocation } from '../../services/currentLocation'
-
-import type { OriginCoordinates } from '../../types/sidequest'
+import { getCurrentLocation, type CurrentLocation } from '../../services/currentLocation'
 
 type CurrentLocationButtonProps = {
   autoLocate: boolean
-  onLocationFound: (location: string, coordinates?: OriginCoordinates) => void
+  onLocationFound: (location: CurrentLocation) => void
 }
 
 function CurrentLocationButton({ autoLocate, onLocationFound }: CurrentLocationButtonProps) {
@@ -33,7 +31,7 @@ function CurrentLocationButton({ autoLocate, onLocationFound }: CurrentLocationB
         setIsLocating(true)
         const location = await getCurrentLocation()
         if (isCurrent && !manualLookupStartedRef.current) {
-          onLocationFoundRef.current(location.label, location.coordinates)
+          onLocationFoundRef.current(location)
         }
       } catch (locationError) {
         if (isCurrent) {
@@ -61,8 +59,7 @@ function CurrentLocationButton({ autoLocate, onLocationFound }: CurrentLocationB
     setIsManualLocating(true)
     setError('')
     try {
-      const location = await getCurrentLocation()
-      onLocationFoundRef.current(location.label, location.coordinates)
+      onLocationFoundRef.current(await getCurrentLocation())
     } catch (locationError) {
       setError(
         locationError instanceof Error

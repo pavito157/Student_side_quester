@@ -1,31 +1,31 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #071b16;
-  --color-surface: #0d2921;
-  --color-surface-raised: #14372c;
-  --color-border: #285044;
-  --color-foreground: #e8f4ef;
-  --color-muted: #9bb5aa;
+  --color-background: #06140e;
+  --color-surface: #0a2217;
+  --color-surface-raised: #0e2e20;
+  --color-border: #31503e;
+  --color-foreground: #f0f5e9;
+  --color-muted: #a5b8a8;
 
-  --color-primary: #3b82f6;
-  --color-primary-hover: #2563eb;
+  --color-primary: #0021a5;
+  --color-primary-hover: #173fce;
   --color-primary-foreground: #ffffff;
 
-  --color-secondary: #fb923c;
-  --color-secondary-hover: #f97316;
-  --color-secondary-foreground: #241307;
+  --color-secondary: #fa4616;
+  --color-secondary-hover: #ff6739;
+  --color-secondary-foreground: #fff7ee;
 
-  --color-accent: #a78bfa;
-  --color-accent-foreground: #160d2b;
+  --color-accent: #d5c486;
+  --color-accent-foreground: #211b0d;
 
-  --color-success: #4ade80;
+  --color-success: #8edb83;
   --color-success-subtle: #123321;
-  --color-success-border: #27613a;
+  --color-success-border: #3e7047;
   --color-warning: #facc15;
   --color-warning-subtle: #342b0c;
   --color-warning-border: #746016;
-  --color-error: #f87171;
+  --color-error: #ff927c;
   --color-error-subtle: #351c20;
   --color-error-border: #793943;
   --color-info: #38bdf8;
@@ -39,14 +39,17 @@
 }
 
 :root {
-  --gradient-brand: linear-gradient(120deg, #3b82f6 0%, #8b5cf6 52%, #fb923c 100%);
-  --gradient-blue: linear-gradient(135deg, #2563eb 0%, #38bdf8 100%);
-  --gradient-orange: linear-gradient(135deg, #f97316 0%, #facc15 100%);
-  --gradient-glow: radial-gradient(ellipse at center, #3b82f633 0%, #071b1600 72%);
+  --gradient-brand: linear-gradient(120deg, #0021a5 0%, #173fce 55%, #fa4616 100%);
+  --gradient-blue: linear-gradient(135deg, #0021a5 0%, #315cf0 100%);
+  --gradient-orange: linear-gradient(135deg, #fa4616 0%, #ff9a4a 100%);
+  --gradient-glow:
+    radial-gradient(ellipse at 12% 12%, #fa46161f 0%, transparent 38%),
+    radial-gradient(ellipse at 83% 28%, #0021a533 0%, transparent 42%),
+    radial-gradient(ellipse at 55% 100%, #0e2e20 0%, transparent 55%);
 }
 
 ::selection {
-  background: #fb923c55;
+  background: #fa461655;
   color: var(--color-foreground);
 }
 
@@ -60,6 +63,55 @@ input,
 textarea,
 select {
   -webkit-tap-highlight-color: transparent;
+  transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline-offset: 3px;
+}
+
+html {
+  background: var(--color-background);
+}
+
+body {
+  position: relative;
+  min-width: 320px;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-color: var(--color-background);
+  background-image:
+    radial-gradient(ellipse at 50% -20%, #0e2e2070 0%, transparent 65%),
+    linear-gradient(180deg, #06140e 0%, #081b12 48%, #06140e 100%);
+  color: var(--color-foreground);
+}
+
+body::before {
+  position: fixed;
+  z-index: 0;
+  inset: -20%;
+  pointer-events: none;
+  content: "";
+  background:
+    radial-gradient(circle at 24% 35%, #fa46160d 0 1px, transparent 2px),
+    radial-gradient(circle at 76% 60%, #d5c48612 0 1px, transparent 2px),
+    radial-gradient(ellipse at 70% 18%, #0021a51c, transparent 34%),
+    radial-gradient(ellipse at 25% 80%, #0e2e2070, transparent 40%);
+  background-size: 73px 83px, 101px 97px, auto, auto;
+  animation: forest-drift 32s ease-in-out infinite alternate;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
 }
 
 .google-place-autocomplete-shell {
@@ -83,6 +135,120 @@ select {
   --gmp-mat-font-family: inherit;
 }
 
+.rpg-panel {
+  position: relative;
+  border: 1px solid rgb(250 70 22 / 28%);
+  border-color: rgb(250 70 22 / 28%) !important;
+  border-radius: 1.5rem 1.25rem 1.75rem 1.15rem;
+  background:
+    linear-gradient(145deg, rgb(14 46 32 / 90%), rgb(10 34 23 / 96%)),
+    var(--color-surface);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 4%),
+    inset 0 -20px 40px rgb(0 0 0 / 14%),
+    0 18px 50px rgb(0 0 0 / 24%),
+    0 0 28px rgb(250 70 22 / 5%);
+}
+
+.quest-subpanel {
+  border: 1px solid rgb(213 196 134 / 17%);
+  border-radius: 1rem 1.15rem 0.9rem 1.1rem;
+  background: linear-gradient(140deg, rgb(6 20 14 / 82%), rgb(10 34 23 / 82%));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 3%);
+}
+
+.magic-cta {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgb(95 132 255 / 52%) !important;
+  background-image: linear-gradient(115deg, #0021a5, #173fce 56%, #0021a5) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 18%),
+    0 0 22px rgb(0 33 165 / 42%),
+    0 8px 28px rgb(0 0 0 / 28%);
+  animation: rune-pulse 4s ease-in-out infinite;
+}
+
+.magic-cta::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  content: "";
+  transform: translateX(-130%) skewX(-18deg);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 24%), transparent);
+  transition: transform 650ms ease;
+}
+
+.magic-cta:hover::before {
+  transform: translateX(130%) skewX(-18deg);
+}
+
+.magic-cta:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 24%),
+    0 0 34px rgb(0 33 165 / 68%),
+    0 12px 30px rgb(0 0 0 / 32%);
+}
+
+.quest-tag {
+  border-color: rgb(250 70 22 / 35%) !important;
+  background:
+    linear-gradient(145deg, rgb(250 70 22 / 10%), transparent 65%),
+    var(--color-surface-raised) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%), 0 5px 14px rgb(0 0 0 / 16%);
+  transition:
+    transform 180ms cubic-bezier(0.2, 1.4, 0.4, 1),
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.quest-tag:hover {
+  transform: translateY(-3px) rotate(-0.35deg);
+  border-color: rgb(250 70 22 / 75%) !important;
+  box-shadow: 0 0 22px rgb(250 70 22 / 13%), 0 8px 20px rgb(0 0 0 / 25%);
+}
+
+.rpg-dialog {
+  border-color: rgb(250 70 22 / 42%) !important;
+  background:
+    radial-gradient(ellipse at 100% 0%, rgb(0 33 165 / 14%), transparent 38%),
+    linear-gradient(145deg, #0e2e20, #0a2217 70%) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 6%),
+    0 0 0 1px rgb(213 196 134 / 9%),
+    0 24px 80px rgb(0 0 0 / 62%),
+    0 0 38px rgb(250 70 22 / 12%) !important;
+  animation: modal-arrive 300ms cubic-bezier(0.18, 0.9, 0.32, 1.2) both;
+}
+
+.rpg-dialog::backdrop {
+  background: rgb(1 8 5 / 72%);
+  backdrop-filter: blur(8px);
+}
+
+.hud-header {
+  border-color: rgb(250 70 22 / 25%) !important;
+  background: linear-gradient(90deg, rgb(14 46 32 / 97%), rgb(6 20 14 / 96%)) !important;
+  box-shadow: 0 8px 32px rgb(0 0 0 / 28%), inset 0 -1px 0 rgb(213 196 134 / 7%);
+  backdrop-filter: blur(16px);
+}
+
+.hud-button {
+  border: 1px solid rgb(213 196 134 / 18%);
+  border-radius: 0.8rem;
+  background: rgb(14 46 32 / 70%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.hud-button:hover {
+  transform: translateY(-2px);
+  border-color: rgb(250 70 22 / 55%);
+  box-shadow: 0 0 18px rgb(250 70 22 / 12%);
+}
+
 .sidebar-modal {
   position: fixed;
   inset: 0 auto 0 0;
@@ -90,7 +256,7 @@ select {
   max-height: none;
   margin: 0;
   border-radius: 0 1rem 1rem 0;
-  animation: sidebar-enter 220ms ease-out both;
+  animation: sidebar-enter 260ms cubic-bezier(0.18, 0.9, 0.32, 1.1) both;
 }
 
 .sidebar-modal::backdrop {
@@ -99,7 +265,8 @@ select {
 }
 
 .sidebar-modal[open]::backdrop {
-  background-color: rgb(0 0 0 / 60%);
+  background-color: rgb(0 0 0 / 68%);
+  backdrop-filter: blur(6px);
 }
 
 .sidebar-modal.is-closing {
@@ -107,26 +274,774 @@ select {
 }
 
 @keyframes sidebar-enter {
-  from {
-    transform: translateX(-100%);
-  }
-
-  to {
-    transform: translateX(0);
-  }
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
 }
 
 @keyframes sidebar-exit {
-  from {
-    transform: translateX(0);
-  }
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
 
-  to {
-    transform: translateX(-100%);
+@keyframes forest-drift {
+  from { transform: translate3d(-1%, 0, 0) scale(1); }
+  to { transform: translate3d(1%, -1%, 0) scale(1.04); }
+}
+
+@keyframes rune-pulse {
+  0%, 100% { box-shadow: inset 0 1px 0 rgb(255 255 255 / 18%), 0 0 20px rgb(0 33 165 / 35%), 0 8px 28px rgb(0 0 0 / 28%); }
+  50% { box-shadow: inset 0 1px 0 rgb(255 255 255 / 20%), 0 0 30px rgb(0 33 165 / 55%), 0 8px 28px rgb(0 0 0 / 28%); }
+}
+
+@keyframes modal-arrive {
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
+.cinematic-hero {
+  --scene-reveal: 0;
+  height: min(940px, calc(100svh - 4rem));
+  min-height: max(48rem, calc(100svh - 4rem));
+  background:
+    radial-gradient(ellipse at 50% 55%, rgb(0 33 165 / 12%), transparent 50%),
+    linear-gradient(180deg, #06140e 0%, #0a2217 74%, #06140e 100%);
+}
+
+.cinematic-hero canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.hero-grain {
+  z-index: 1;
+  opacity: 0.2;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.92' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' opacity='.13' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: soft-light;
+}
+
+.hero-horizon {
+  z-index: 1;
+  background: linear-gradient(180deg, transparent 0%, rgb(6 20 14 / 25%) 30%, #06140e 100%);
+}
+
+.hero-title {
+  color: #f5f4e9;
+  text-shadow: 0 4px 35px rgb(0 0 0 / 55%), 0 0 44px rgb(0 33 165 / 24%);
+}
+
+.hero-title > span {
+  text-shadow: 0 0 28px rgb(250 70 22 / 28%), 0 4px 28px rgb(0 0 0 / 45%);
+}
+
+.realm-cta {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 27%);
+  color: white;
+  background: linear-gradient(115deg, #0021a5 0%, #173fce 56%, #fa4616 150%);
+  box-shadow:
+    0 0 35px rgb(0 33 165 / 52%),
+    0 0 70px rgb(0 33 165 / 17%),
+    inset 0 1px 0 rgb(255 255 255 / 25%);
+  transition: transform 220ms cubic-bezier(0.2, 1.4, 0.4, 1), box-shadow 220ms ease;
+  animation: realm-pulse 3.8s ease-in-out infinite;
+}
+
+.realm-cta::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  content: "";
+  transform: translateX(-130%) skewX(-20deg);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 28%), transparent);
+  transition: transform 720ms ease;
+}
+
+.realm-cta:hover {
+  transform: translateY(-3px) scale(1.025);
+  box-shadow:
+    0 0 45px rgb(0 33 165 / 70%),
+    0 0 85px rgb(250 70 22 / 16%),
+    inset 0 1px 0 rgb(255 255 255 / 32%);
+}
+
+.realm-cta:hover::before {
+  transform: translateX(130%) skewX(-20deg);
+}
+
+.quest-terminal {
+  position: relative;
+  scroll-margin-top: 6rem;
+}
+
+.terminal-heading {
+  padding-inline: 0.35rem;
+}
+
+.terminal-seal {
+  align-items: center;
+  border: 1px solid rgb(213 196 134 / 38%);
+  border-radius: 0.45rem;
+  padding: 0.48rem 0.75rem;
+  color: #d5c486;
+  background: rgb(6 20 14 / 75%);
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.terminal-panel {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 5%),
+    inset 0 -30px 55px rgb(0 0 0 / 14%),
+    0 24px 65px rgb(0 0 0 / 32%),
+    0 0 46px rgb(0 33 165 / 8%);
+}
+
+@keyframes realm-pulse {
+  0%, 100% {
+    box-shadow: 0 0 30px rgb(0 33 165 / 42%), 0 0 68px rgb(0 33 165 / 15%), inset 0 1px 0 rgb(255 255 255 / 25%);
+  }
+  50% {
+    box-shadow: 0 0 44px rgb(0 33 165 / 62%), 0 0 80px rgb(250 70 22 / 14%), inset 0 1px 0 rgb(255 255 255 / 3%);
+  }
+}
+
+@media (max-width: 639px) {
+  .cinematic-hero {
+    min-height: 48rem;
+    height: calc(100svh - 4rem);
+  }
+}
+
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-old(root) {
+  animation: page-leave 220ms ease-in both;
+}
+
+::view-transition-new(root) {
+  animation: page-arrive 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes page-leave {
+  to {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes page-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.route-transition {
+  min-height: 100vh;
+  animation: route-arrive 300ms ease-out both;
+}
+
+@keyframes route-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root),
+  .route-transition {
+    animation-duration: 0.01ms;
+  }
+}
+
+.cinematic-hero {
+  --guild-wood: #593c29;
+  --guild-wood-light: #89623d;
+  --guild-parchment: #d8c394;
+  --guild-ink: #38291d;
+  height: auto;
+  min-height: max(56rem, calc(100svh - 4rem));
+  overflow: clip;
+  background:
+    radial-gradient(ellipse at 50% 60%, rgb(127 95 52 / 18%), transparent 44%),
+    linear-gradient(180deg, #101910 0%, #1b2a1a 48%, #0c150f 100%);
+}
+
+.cinematic-hero canvas {
+  pointer-events: none;
+}
+
+.hero-grain {
+  opacity: 0.08;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.72' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' opacity='.12' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: soft-light;
+}
+
+.guild-hero-content {
+  display: flex;
+  min-height: inherit;
+  flex-direction: column;
+  align-items: center;
+  padding-top: clamp(3.5rem, 7vh, 5.5rem);
+  padding-bottom: 1.5rem;
+}
+
+.hero-copy {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+}
+
+.hero-title {
+  color: #f1e6cd;
+  text-shadow: 0 3px 0 rgb(57 40 27 / 72%), 0 8px 26px rgb(0 0 0 / 38%);
+}
+
+.hero-title > span {
+  color: #df9257;
+  text-shadow: 0 2px 0 rgb(66 43 29 / 90%), 0 4px 15px rgb(0 0 0 / 34%);
+}
+
+.realm-cta {
+  position: relative;
+  border: 1px solid #b88b56;
+  border-radius: 0.55rem;
+  color: #f8ecd2;
+  background:
+    linear-gradient(180deg, rgb(255 229 174 / 10%), transparent 45%),
+    linear-gradient(125deg, #68482d, #4a3424 55%, #39291f);
+  box-shadow:
+    inset 0 1px 0 rgb(255 231 188 / 28%),
+    inset 0 -3px 0 rgb(25 18 13 / 42%),
+    0 7px 16px rgb(0 0 0 / 32%);
+  transition:
+    transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 240ms ease,
+    border-color 240ms ease;
+  animation: none;
+}
+
+.realm-cta::before {
+  content: none;
+}
+
+.realm-cta:hover {
+  transform: translateY(-2px);
+  border-color: #e1bb7f;
+  box-shadow:
+    inset 0 1px 0 rgb(255 231 188 / 38%),
+    inset 0 -3px 0 rgb(25 18 13 / 42%),
+    0 9px 20px rgb(0 0 0 / 38%),
+    0 0 18px rgb(255 174 82 / 14%);
+}
+
+.realm-cta:active {
+  transform: translateY(1px) scale(0.985);
+  box-shadow:
+    inset 0 2px 5px rgb(20 14 10 / 38%),
+    0 2px 6px rgb(0 0 0 / 26%);
+}
+
+@media (max-width: 639px) {
+  .cinematic-hero {
+    min-height: max(48rem, calc(100svh - 4rem));
+    height: auto;
+  }
+
+  .guild-hero-content {
+    min-height: 0;
+    padding-top: 3.25rem;
+    padding-bottom: 1.25rem;
+  }
+
+  .hero-copy {
+    padding-inline: 0.25rem;
+  }
+
+  .hero-title {
+    max-width: 21rem;
+    font-size: clamp(2.45rem, 11vw, 3rem);
+    line-height: 1.02;
+  }
+
+  .hero-copy > p {
+    max-width: 22rem;
+  }
+
+}
+
+body::before {
+  background:
+    radial-gradient(circle at 24% 35%, #c58b4320 0 1px, transparent 2px),
+    radial-gradient(circle at 76% 60%, #d5c48618 0 1px, transparent 2px),
+    radial-gradient(ellipse at 70% 18%, #4a38251c, transparent 34%),
+    radial-gradient(ellipse at 25% 80%, #35432b70, transparent 40%);
+  animation-duration: 44s;
+}
+
+.rpg-panel {
+  border-color: rgb(155 112 69 / 48%) !important;
+  background:
+    repeating-linear-gradient(
+      176deg,
+      transparent 0 13px,
+      rgb(221 178 117 / 2%) 13px 14px,
+      rgb(7 12 9 / 10%) 14px 17px
+    ),
+    linear-gradient(145deg, #17231a, #101b14 72%);
+  box-shadow:
+    inset 0 1px 0 rgb(236 203 150 / 8%),
+    inset 0 -2px 0 rgb(5 10 7 / 34%),
+    0 18px 50px rgb(0 0 0 / 28%);
+}
+
+.quest-subpanel {
+  border-color: rgb(167 128 81 / 32%);
+  background:
+    repeating-linear-gradient(178deg, transparent 0 12px, rgb(214 176 118 / 2%) 12px 13px),
+    linear-gradient(140deg, #121d15, #172218);
+  box-shadow: inset 0 1px 0 rgb(236 203 150 / 5%), inset 0 -2px 0 rgb(3 8 5 / 34%);
+}
+
+.magic-cta {
+  border-color: rgb(177 132 82 / 78%) !important;
+  background:
+    repeating-linear-gradient(178deg, transparent 0 8px, rgb(239 194 128 / 3%) 8px 9px),
+    linear-gradient(140deg, #62452e, #402e20 65%, #33251c) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(242 218 176 / 18%),
+    inset 0 -3px 0 rgb(14 11 8 / 42%),
+    0 6px 15px rgb(0 0 0 / 28%);
+  animation: none;
+  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+}
+
+.magic-cta::before {
+  content: none;
+}
+
+.magic-cta:hover {
+  transform: translateY(-2px);
+  border-color: #d5ad73 !important;
+  box-shadow:
+    inset 0 1px 0 rgb(242 218 176 / 24%),
+    inset 0 -3px 0 rgb(14 11 8 / 42%),
+    0 9px 20px rgb(0 0 0 / 34%);
+}
+
+.quest-tag {
+  border-color: rgb(159 120 74 / 48%) !important;
+  background:
+    repeating-linear-gradient(176deg, transparent 0 9px, rgb(221 178 117 / 2%) 9px 10px),
+    linear-gradient(145deg, #172219, #111b14) !important;
+  box-shadow: inset 0 1px 0 rgb(231 202 151 / 6%), 0 4px 12px rgb(0 0 0 / 18%);
+  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+}
+
+.quest-tag:hover {
+  transform: translateY(-2px);
+  border-color: rgb(207 153 89 / 78%) !important;
+  box-shadow: inset 0 1px 0 rgb(231 202 151 / 9%), 0 7px 16px rgb(0 0 0 / 24%);
+}
+
+.rpg-dialog {
+  border-color: rgb(163 122 75 / 72%) !important;
+  background:
+    repeating-linear-gradient(176deg, transparent 0 14px, rgb(221 178 117 / 2%) 14px 15px),
+    radial-gradient(ellipse at 100% 0%, rgb(125 89 48 / 16%), transparent 42%),
+    linear-gradient(145deg, #1b251b, #111a13 74%) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(236 203 150 / 8%),
+    inset 0 0 0 3px rgb(8 11 8 / 25%),
+    0 24px 70px rgb(0 0 0 / 66%) !important;
+  animation: modal-arrive 340ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.rpg-dialog::backdrop {
+  background: rgb(11 9 7 / 72%);
+  backdrop-filter: blur(6px);
+}
+
+.hud-header {
+  border-color: rgb(160 119 75 / 34%) !important;
+  box-shadow: 0 5px 24px rgb(0 0 0 / 24%), inset 0 -1px 0 rgb(223 185 127 / 8%);
+}
+
+.hud-button {
+  border-color: rgb(184 143 93 / 28%);
+  background:
+    repeating-linear-gradient(176deg, transparent 0 8px, rgb(221 178 117 / 2%) 8px 9px),
+    linear-gradient(145deg, rgb(58 46 31 / 72%), rgb(31 34 25 / 86%));
+  box-shadow: inset 0 1px 0 rgb(236 203 150 / 8%), 0 3px 8px rgb(0 0 0 / 12%);
+  transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+}
+
+.hud-button:hover {
+  transform: translateY(-1px);
+  border-color: rgb(211 158 92 / 64%);
+  box-shadow: inset 0 1px 0 rgb(236 203 150 / 12%), 0 5px 12px rgb(0 0 0 / 20%);
+}
+
+.sidebar-modal {
+  animation-name: sidebar-enter;
+  animation-duration: 480ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sidebar-modal::backdrop {
+  background-color: rgb(11 9 7 / 0%);
+  backdrop-filter: blur(0);
+  transition: background-color 420ms ease, backdrop-filter 420ms ease;
+}
+
+.sidebar-modal[open]::backdrop {
+  background-color: rgb(11 9 7 / 70%);
+}
+
+.sidebar-modal.is-closing {
+  animation-duration: 360ms;
+}
+
+@keyframes modal-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(9px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+:root {
+  --gradient-glow:
+    radial-gradient(ellipse at 14% 8%, rgb(0 33 165 / 16%), transparent 34%),
+    radial-gradient(ellipse at 84% 18%, rgb(250 70 22 / 8%), transparent 30%),
+    radial-gradient(ellipse at 50% 100%, #0e2e20 0%, transparent 62%);
+}
+
 body {
-  background-color: var(--color-background);
+  min-height: 100vh;
+  background-color: #06140e;
+  background-image:
+    radial-gradient(ellipse at 50% -20%, rgb(14 46 32 / 62%) 0%, transparent 64%),
+    linear-gradient(180deg, #06140e 0%, #081b12 55%, #06140e 100%);
+}
+
+body::before {
+  background:
+    radial-gradient(circle at 24% 35%, rgb(213 196 134 / 5%) 0 1px, transparent 2px),
+    radial-gradient(circle at 76% 60%, rgb(213 196 134 / 4%) 0 1px, transparent 2px),
+    radial-gradient(ellipse at 72% 18%, rgb(0 33 165 / 10%), transparent 36%),
+    radial-gradient(ellipse at 24% 82%, rgb(28 73 49 / 42%), transparent 42%);
+  background-size: 83px 91px, 107px 101px, auto, auto;
+  animation-duration: 52s;
+}
+
+.rpg-panel {
+  border-color: rgb(213 196 134 / 20%) !important;
+  border-radius: 1.15rem 1.3rem 1.05rem 1.25rem;
+  background:
+    linear-gradient(145deg, rgb(17 46 32 / 97%), rgb(8 28 19 / 98%)),
+    var(--color-surface);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 4%),
+    inset 0 -22px 42px rgb(0 0 0 / 16%),
+    0 18px 48px rgb(0 0 0 / 28%);
+}
+
+.quest-subpanel {
+  border-color: rgb(213 196 134 / 16%);
+  border-radius: 0.95rem 1.05rem 0.9rem 1.05rem;
+  background:
+    linear-gradient(145deg, rgb(7 24 16 / 84%), rgb(13 39 26 / 72%));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 3%);
+}
+
+.quest-subpanel input,
+.quest-subpanel textarea,
+.quest-subpanel select,
+.google-place-autocomplete-shell input {
+  border-color: rgb(213 196 134 / 25%);
+  border-radius: 0.7rem;
+  background-color: rgb(4 18 12 / 72%);
   color: var(--color-foreground);
+  transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+}
+
+.quest-subpanel input:focus,
+.quest-subpanel textarea:focus,
+.quest-subpanel select:focus,
+.google-place-autocomplete-shell input:focus {
+  border-color: rgb(250 70 22 / 60%);
+  background-color: rgb(6 23 15 / 96%);
+  box-shadow: 0 0 0 3px rgb(250 70 22 / 10%);
+  outline: none;
+}
+
+.magic-cta {
+  border: 1px solid rgb(126 158 255 / 50%) !important;
+  border-radius: 0.85rem !important;
+  background:
+    linear-gradient(110deg, rgb(250 70 22 / 82%) 0 3px, transparent 3px),
+    linear-gradient(125deg, #123ba9 0%, #163a8b 52%, #10275b 100%) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 15%),
+    0 8px 22px rgb(0 0 0 / 27%),
+    0 0 22px rgb(0 33 165 / 15%);
+  animation: none;
+}
+
+.magic-cta:hover {
+  border-color: rgb(213 196 134 / 58%) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 18%),
+    0 10px 25px rgb(0 0 0 / 32%),
+    0 0 24px rgb(0 33 165 / 22%);
+}
+
+.quest-tag {
+  border-color: rgb(213 196 134 / 20%) !important;
+  border-radius: 0.9rem;
+  background:
+    linear-gradient(125deg, rgb(250 70 22 / 7%), transparent 48%),
+    linear-gradient(145deg, #123121, #0a2117) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%), 0 5px 14px rgb(0 0 0 / 17%);
+}
+
+.quest-tag:hover {
+  border-color: rgb(213 196 134 / 38%) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 6%), 0 8px 18px rgb(0 0 0 / 22%);
+}
+
+.rpg-dialog {
+  border-color: rgb(213 196 134 / 24%) !important;
+  border-radius: 1.1rem !important;
+  background:
+    radial-gradient(ellipse at 100% 0%, rgb(0 33 165 / 10%), transparent 42%),
+    linear-gradient(145deg, #102c1f, #081b12 74%) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 5%),
+    0 24px 70px rgb(0 0 0 / 62%) !important;
+}
+
+.rpg-dialog::backdrop {
+  background: rgb(1 8 5 / 76%);
+  backdrop-filter: blur(7px);
+}
+
+.hud-header {
+  border-color: rgb(213 196 134 / 15%) !important;
+  background:
+    linear-gradient(90deg, rgb(10 34 23 / 96%), rgb(6 20 14 / 96%)) !important;
+  box-shadow: 0 5px 24px rgb(0 0 0 / 22%), inset 0 -1px 0 rgb(255 255 255 / 3%);
+}
+
+.hud-button {
+  border-color: rgb(213 196 134 / 20%);
+  border-radius: 0.7rem;
+  background: linear-gradient(145deg, rgb(14 46 32 / 86%), rgb(7 27 18 / 86%));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%);
+}
+
+.hud-button:hover {
+  border-color: rgb(250 70 22 / 44%);
+  box-shadow: 0 5px 14px rgb(0 0 0 / 22%), 0 0 14px rgb(250 70 22 / 8%);
+}
+
+.cinematic-hero {
+  min-height: max(43rem, calc(100svh - 4rem));
+  overflow: clip;
+  background:
+    radial-gradient(ellipse at 50% 44%, rgb(24 67 45 / 42%), transparent 48%),
+    linear-gradient(180deg, #06140e 0%, #0a2217 58%, #06140e 100%);
+}
+
+.guildhall-scene {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  pointer-events: none;
+}
+
+.guildhall-scene canvas,
+.guildhall-scene-fallback {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.guildhall-scene-fallback {
+  background:
+    radial-gradient(ellipse at 50% 72%, rgb(200 189 148 / 14%), transparent 24%),
+    radial-gradient(ellipse at 18% 30%, rgb(0 33 165 / 16%), transparent 32%),
+    radial-gradient(ellipse at 82% 18%, rgb(250 70 22 / 10%), transparent 26%),
+    linear-gradient(180deg, #06140e, #0a2217 64%, #06140e);
+}
+
+.guildhall-atmosphere {
+  z-index: 1;
+  background:
+    radial-gradient(ellipse at 50% 26%, rgb(6 20 14 / 34%), transparent 42%),
+    linear-gradient(180deg, rgb(6 20 14 / 22%) 0%, transparent 40%, rgb(6 20 14 / 5%) 82%, transparent 100%);
+}
+
+.guildhall-atmosphere::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: clamp(6rem, 14vh, 10rem);
+  background: linear-gradient(180deg, transparent, #06140e);
+  content: "";
+}
+
+.guild-hero-content {
+  min-height: min(54rem, calc(100svh - 4rem));
+  padding-top: clamp(3.5rem, 8vh, 6.5rem);
+  padding-bottom: clamp(1.5rem, 4vh, 3rem);
+}
+
+.hero-title {
+  color: #f4f5e9;
+  text-shadow: 0 4px 28px rgb(0 0 0 / 62%), 0 1px 2px rgb(0 0 0 / 40%);
+}
+
+.hero-title > span {
+  color: #ffa05f;
+  text-shadow: 0 3px 24px rgb(250 70 22 / 22%), 0 2px 3px rgb(0 0 0 / 52%);
+}
+
+.realm-cta {
+  position: relative;
+  border: 1px solid rgb(213 196 134 / 42%);
+  color: #fff8e8;
+  background: linear-gradient(125deg, #153d9c, #102b66 66%, #102553);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 16%),
+    0 9px 24px rgb(0 0 0 / 35%),
+    0 0 25px rgb(0 33 165 / 22%);
+  transition: border-color 220ms ease, box-shadow 220ms ease;
+}
+
+.realm-cta:hover {
+  border-color: rgb(255 183 111 / 70%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 20%),
+    0 12px 28px rgb(0 0 0 / 38%),
+    0 0 28px rgb(0 33 165 / 30%);
+}
+
+.guild-map-caption {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: 999px;
+  padding: 0.8rem 1.5rem;
+  color: rgb(239 232 207 / 88%);
+  background:
+    radial-gradient(ellipse at 42% 50%, rgb(0 33 165 / 16%), transparent 58%),
+    radial-gradient(ellipse at 63% 50%, rgb(250 70 22 / 9%), transparent 66%);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 0.78rem;
+  font-style: italic;
+  letter-spacing: 0.05em;
+  text-shadow: 0 2px 10px rgb(0 0 0 / 62%);
+}
+
+.guild-map-caption span {
+  color: #efb369;
+  font-size: 0.7rem;
+  text-shadow: 0 0 12px rgb(250 70 22 / 35%);
+}
+
+.quest-terminal {
+  scroll-margin-top: 6rem;
+}
+
+.terminal-panel {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 4%),
+    0 22px 60px rgb(0 0 0 / 30%),
+    0 0 40px rgb(0 33 165 / 5%);
+}
+
+.sidebar-modal {
+  border-color: rgb(213 196 134 / 22%) !important;
+  background: linear-gradient(145deg, #102c1f, #081b12 78%) !important;
+}
+
+.sidebar-modal[open]::backdrop {
+  background-color: rgb(1 8 5 / 76%);
+}
+
+@media (max-width: 639px) {
+  .cinematic-hero {
+    min-height: 39rem;
+  }
+
+  .guild-hero-content {
+    min-height: 39rem;
+    padding-top: clamp(3rem, 8vh, 4.5rem);
+    padding-bottom: 1.4rem;
+  }
+
+  .hero-title {
+    max-width: 21rem;
+    font-size: clamp(2.4rem, 10vw, 3.25rem);
+    line-height: 1.08;
+  }
+
+  .guildhall-scene canvas {
+    display: none;
+  }
+}
+
+@media (max-height: 700px) and (min-width: 640px) {
+  .cinematic-hero {
+    min-height: 42rem;
+  }
+
+  .guild-hero-content {
+    min-height: 42rem;
+    padding-top: 3rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .realm-cta,
+  .magic-cta,
+  .quest-tag,
+  .hud-button {
+    transition-duration: 0.01ms;
+  }
 }

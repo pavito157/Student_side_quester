@@ -20,6 +20,8 @@ export type SidequestRequestInput = {
   username: string
   location: string
   originCoordinates?: OriginCoordinates | null
+  latitude: number | null
+  longitude: number | null
   time: TimeConstraint
   budget: BudgetConstraint
   distance: DistanceConstraint
@@ -32,6 +34,8 @@ export type SidequestRequestPayload = {
   username: string
   location: string
   originCoordinates?: OriginCoordinates | null
+  latitude: number | null
+  longitude: number | null
   time: TimeConstraint
   budget: BudgetConstraint
   distance: DistanceConstraint
@@ -43,4 +47,14 @@ export type SavedSidequestRequest = {
   id: string
   request: SidequestRequestPayload
   createdAt: string
+  isActive: boolean
+  xpValue: number
+}
+
+export type ActiveSidequest = {
+  id: string
+  request: SidequestRequestPayload
+  xpValue: number
+  createdAt: string
+  expiresAt: string
 }

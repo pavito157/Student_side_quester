@@ -9,7 +9,6 @@ import type {
   BudgetConstraint,
   DistanceConstraint,
   TimeConstraint,
-  OriginCoordinates,
 } from '../../types/sidequest'
 import type { Vibe } from '../../types/vibe'
 import BudgetButton from '../Buttons/BudgetButton'
@@ -21,7 +20,8 @@ import SidequestJsonModal from './SidequestJsonModal'
 
 export type QuestFilters = {
   where: string
-  originCoordinates?: OriginCoordinates | null
+  latitude: number | null
+  longitude: number | null
   time: string
   budget: string
   customTime: string
@@ -153,7 +153,11 @@ function QuestFilterControls({
         preferences,
         username: getUsername(user, email),
         location: filters.where === 'any' ? 'Anywhere' : filters.where || 'Not selected',
-        originCoordinates: filters.originCoordinates,
+        originCoordinates: filters.latitude !== null && filters.longitude !== null
+          ? { latitude: filters.latitude, longitude: filters.longitude }
+          : null,
+        latitude: filters.latitude,
+        longitude: filters.longitude,
         time: {
           selection: getTimeSelection(filters.time),
           customMinutes,
@@ -201,7 +205,7 @@ function QuestFilterControls({
     <div className="space-y-5">
       {activeVibe && (
         <div
-          className="flex items-start justify-between gap-3 rounded-xl border-l-2 px-4 py-3"
+          className="quest-tag flex items-start justify-between gap-3 rounded-xl border-l-2 px-4 py-3"
           style={{
             backgroundColor: colors.surfaceRaised,
             borderColor: colors.border,
@@ -244,7 +248,7 @@ function QuestFilterControls({
 
       <section
         aria-labelledby="quest-location-heading"
-        className="rounded-2xl border p-4 sm:p-5"
+        className="quest-subpanel p-4 sm:p-5"
         style={{ backgroundColor: colors.background, borderColor: colors.border }}
       >
         <div className="mb-3">
@@ -256,10 +260,15 @@ function QuestFilterControls({
           </p>
         </div>
         <WhereButton
-          autoLocate={isSignedIn === true && !activeVibe}
+          autoLocate={isSignedIn === true && !activeVibe && !filters.where}
           value={filters.where}
-          onChange={(where, originCoordinates) =>
-            setFilters((current) => ({ ...current, where, originCoordinates: originCoordinates ?? null }))
+          onChange={(where, coordinates) =>
+            setFilters((current) => ({
+              ...current,
+              where,
+              latitude: coordinates?.latitude ?? null,
+              longitude: coordinates?.longitude ?? null,
+            }))
           }
         />
       </section>

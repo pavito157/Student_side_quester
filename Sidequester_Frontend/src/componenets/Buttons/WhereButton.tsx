@@ -2,13 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import { colors } from '../../constants/colors'
 import CurrentLocationButton from './CurrentLocationButton'
 import { loadPlacesLibrary } from '../../services/googlePlaces'
-
-import type { OriginCoordinates } from '../../types/sidequest'
+import type { CurrentLocation } from '../../services/currentLocation'
 
 type WhereButtonProps = {
   autoLocate: boolean
   value: string
-  onChange: (value: string, coordinates?: OriginCoordinates) => void
+  onChange: (
+    value: string,
+    coordinates: Pick<CurrentLocation, 'latitude' | 'longitude'> | null,
+  ) => void
 }
 
 function WhereButton({ autoLocate, value, onChange }: WhereButtonProps) {
@@ -41,6 +43,7 @@ function WhereButton({ autoLocate, value, onChange }: WhereButtonProps) {
         })
         autocomplete.className = 'google-place-autocomplete'
         autocomplete.setAttribute('aria-label', 'Where')
+        autocomplete.addEventListener('input', handlePlaceInput)
         autocomplete.addEventListener('gmp-select', handlePlaceSelect)
         containerRef.current.replaceChildren(autocomplete)
         autocompleteRef.current = autocomplete
@@ -55,6 +58,11 @@ function WhereButton({ autoLocate, value, onChange }: WhereButtonProps) {
       }
     }
 
+    function handlePlaceInput() {
+      if (!isCurrent || !autocomplete) return
+      onChangeRef.current(autocomplete.value, null)
+    }
+
     async function handlePlaceSelect(event: google.maps.places.PlacePredictionSelectEvent) {
       try {
         const place = event.placePrediction.toPlace()
@@ -65,10 +73,13 @@ function WhereButton({ autoLocate, value, onChange }: WhereButtonProps) {
           place.formattedAddress ??
           event.placePrediction.text.toString()
 
-        if (!place.location) throw new Error('This place has no coordinates. Please choose another place.')
-        if (isCurrent && placeName) onChangeRef.current(placeName, {
-          latitude: place.location.lat(), longitude: place.location.lng(),
-        })
+        const location = place.location
+        if (isCurrent && placeName) {
+          onChangeRef.current(
+            placeName,
+            location ? { latitude: location.lat(), longitude: location.lng() } : null,
+          )
+        }
       } catch (error) {
         if (isCurrent) {
           setLoadError(
@@ -81,6 +92,7 @@ function WhereButton({ autoLocate, value, onChange }: WhereButtonProps) {
     void mountAutocomplete()
     return () => {
       isCurrent = false
+      autocomplete?.removeEventListener('input', handlePlaceInput)
       autocomplete?.removeEventListener('gmp-select', handlePlaceSelect)
       autocomplete?.remove()
       autocompleteRef.current = null
@@ -100,11 +112,16 @@ function WhereButton({ autoLocate, value, onChange }: WhereButtonProps) {
         aria-busy={isLoading}
       />
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:pt-1">
-        <CurrentLocationButton autoLocate={autoLocate} onLocationFound={onChange} />
+        <CurrentLocationButton
+          autoLocate={autoLocate}
+          onLocationFound={({ label, latitude, longitude }) =>
+            onChange(label, { latitude, longitude })
+          }
+        />
         <button
           type="button"
           aria-pressed={value === 'any'}
-          onClick={() => onChange('any')}
+          onClick={() => onChange('any', null)}
           className="cursor-pointer rounded-md px-2 py-1 text-xs font-medium transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
           style={{
             color: value === 'any' ? colors.primary : colors.muted,

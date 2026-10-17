@@ -32,7 +32,7 @@ function SidequestJsonModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-md"
       role="presentation"
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose()
@@ -43,16 +43,24 @@ function SidequestJsonModal({
         aria-modal="true"
         aria-labelledby="sidequest-json-title"
         aria-busy={isLoading}
-        className="max-h-[min(85vh,48rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border p-5 shadow-2xl sm:p-6"
-        style={{ backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }}
+        className="rpg-dialog max-h-[min(85vh,48rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border p-5 sm:p-6"
+        style={{
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+          color: colors.foreground,
+        }}
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: colors.secondary }}>
-              Your next adventure
+            <p
+              className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em]"
+              style={{ color: colors.secondary }}
+            >
+              <span aria-hidden="true" className="size-1.5 rounded-full bg-secondary shadow-[0_0_10px_rgb(250_70_22_/_80%)]" />
+              Request preview
             </p>
             <h2 id="sidequest-json-title" className="mt-1 text-xl font-semibold">
-              {response ? response.quest.title : 'Your sidequest'}
+              {response ? response.quest.title : 'Sidequest request'}
             </h2>
           </div>
           <button
@@ -66,7 +74,7 @@ function SidequestJsonModal({
 
         {isLoading && (
           <p role="status" className="mt-5 text-sm" style={{ color: colors.muted }}>
-            Finding a destination and creating your quest…
+            Preparing your request...
           </p>
         )}
         {response && (
@@ -106,17 +114,24 @@ function SidequestJsonModal({
             </details>
           </div>
         )}
+        {requestJson && (
+          <pre
+            aria-label="Sidequest request JSON"
+            className="mt-5 max-h-[50vh] overflow-auto rounded-xl border border-dashed p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap break-words shadow-inner sm:text-sm"
+            style={{
+              backgroundColor: 'rgb(6 20 14 / 82%)',
+              borderColor: 'rgb(213 196 134 / 30%)',
+              color: colors.foreground,
+            }}
+          >
+            {requestJson}
+          </pre>
+        )}
         {errorMessage && (
           <p role="alert" className="mt-4 text-sm" style={{ color: colors.error }}>{errorMessage}</p>
         )}
         {historyWarning && (
           <p role="status" className="mt-4 text-sm" style={{ color: colors.muted }}>{historyWarning}</p>
-        )}
-        {requestJson && (
-          <details className="mt-4">
-            <summary className="cursor-pointer text-xs" style={{ color: colors.muted }}>Request JSON</summary>
-            <pre className="mt-2 max-h-40 overflow-auto text-xs whitespace-pre-wrap break-words">{requestJson}</pre>
-          </details>
         )}
       </section>
     </div>

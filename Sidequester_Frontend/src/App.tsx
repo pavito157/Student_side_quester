@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Header from './componenets/main-ui/Header'
+import CinematicHero from './componenets/main-ui/CinematicHero'
 import LeaderboardPage from './componenets/main-ui/LeaderboardPage'
 import QuestFilterButtons, { type QuestFilters } from './componenets/main-ui/QuestFilterButtons'
 import FirebaseTextBox from './componenets/main-ui/FirebaseTextBox'
@@ -41,6 +42,7 @@ function HomePage() {
         onSettingsClick={() => openSettings()}
         onMenuClick={() => setIsVibesSidebarOpen(true)}
       />
+      <CinematicHero />
       <VibesSidebar
         isOpen={isVibesSidebarOpen}
         onClose={() => setIsVibesSidebarOpen(false)}
@@ -57,54 +59,25 @@ function HomePage() {
           })
         }}
       />
-      <main className="min-h-[calc(100vh-4rem)] bg-gradient-glow px-4 py-8 sm:px-6 sm:py-12">
+      <main className="relative bg-gradient-glow px-4 py-12 sm:px-6 sm:py-20">
         <div className="mx-auto max-w-6xl">
-          <div className="mb-8 text-center sm:mb-10">
-            <p
-              className="mb-3 text-xs font-semibold uppercase tracking-[0.22em]"
-              style={{ color: colors.secondary }}
-            >
-              A little adventure, close to home
-            </p>
-            <h1 className="text-3xl font-bold tracking-tight sm:text-5xl">
-              What sounds good today?
-            </h1>
-            <p
-              className="mx-auto mt-4 max-w-xl text-base leading-relaxed sm:text-lg"
-              style={{ color: colors.muted }}
-            >
-              Pick a place, the time you have, and what you’d like to spend. We’ll find you a
-              side quest.
-            </p>
-          </div>
-
-          <section className="mx-auto w-full max-w-5xl">
-            <div
-              className="rounded-2xl border p-5 shadow-xl sm:rounded-3xl sm:p-8"
-              style={{
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-              }}
-            >
-              <div className="mb-6">
-                <div className="mb-2 flex items-center gap-2">
-                  <span
-                    aria-hidden="true"
-                    className="size-1.5 rounded-full"
-                    style={{ backgroundColor: colors.secondary }}
-                  />
-                  <p
-                    className="text-[0.65rem] font-semibold uppercase tracking-[0.16em]"
-                    style={{ color: colors.secondary }}
-                  >
-                    Your next move
-                  </p>
-                </div>
-                <h2 className="text-lg font-semibold sm:text-xl">Make it yours</h2>
-                <p className="mt-1 text-sm" style={{ color: colors.muted }}>
-                  Choose what works for you. You can change these anytime.
+          <section id="quest-terminal" className="quest-terminal mx-auto w-full max-w-5xl scroll-mt-24">
+            <div className="terminal-heading mb-7 flex items-end justify-between gap-4">
+              <div>
+                <p
+                  className="text-[0.65rem] font-bold uppercase tracking-[0.18em]"
+                  style={{ color: colors.secondary }}
+                >
+                  Adventurer’s notice board
+                </p>
+                <h2 className="mt-1 text-2xl font-black sm:text-3xl">Pin down your quest</h2>
+                <p className="mt-2 max-w-xl text-sm" style={{ color: colors.muted }}>
+                  Set your destination and provisions. The map will chart a path from there.
                 </p>
               </div>
+              <span className="terminal-seal hidden -rotate-6 sm:inline-flex">Quest log</span>
+            </div>
+            <div className="rpg-panel terminal-panel overflow-hidden p-4 sm:p-8">
               <QuestFilterButtons
                 filters={questFilters}
                 setFilters={setQuestFilters}
@@ -114,11 +87,11 @@ function HomePage() {
             </div>
           </section>
 
-          <div className="mx-auto mt-6 grid w-full max-w-5xl grid-cols-1 items-start gap-4 sm:mt-8 lg:grid-cols-[minmax(15rem,0.8fr)_minmax(0,1.6fr)] lg:gap-6">
+          <div className="mx-auto mt-8 grid w-full max-w-5xl grid-cols-1 items-start gap-5 sm:mt-12 lg:grid-cols-[minmax(15rem,0.8fr)_minmax(0,1.6fr)] lg:gap-7">
             <div className="min-w-0">
               <GoalsSidebar />
             </div>
-            <section className="flex min-w-0 flex-col gap-4">
+            <section className="flex min-w-0 flex-col gap-5">
               <UserPreferencesSummary onEdit={() => openSettings('preferences')} />
               <FirebaseTextBox />
             </section>

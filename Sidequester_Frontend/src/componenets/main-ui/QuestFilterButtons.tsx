@@ -173,7 +173,7 @@ function QuestFilterButtons({
     <div className="space-y-5">
       {activeVibe && (
         <div
-          className="flex items-start justify-between gap-3 rounded-xl border-l-2 px-4 py-3"
+          className="quest-tag flex items-start justify-between gap-3 rounded-xl border-l-2 px-4 py-3"
           style={{
             backgroundColor: colors.surfaceRaised,
             borderColor: colors.border,
@@ -216,7 +216,7 @@ function QuestFilterButtons({
 
       <section
         aria-labelledby="quest-location-heading"
-        className="rounded-2xl border p-4 sm:p-5"
+        className="quest-subpanel p-4 sm:p-5"
         style={{ backgroundColor: colors.background, borderColor: colors.border }}
       >
         <div className="mb-3">
@@ -234,8 +234,8 @@ function QuestFilterButtons({
         />
       </section>
 
-      <section aria-label="Quest filters">
-        <h3 className="mb-3 text-sm font-semibold">Fine-tune your quest</h3>
+      <section aria-label="Quest filters" className="quest-subpanel p-4 sm:p-5">
+        <h3 className="mb-3 text-sm font-semibold">Add Constraints</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="min-w-0 space-y-2">
             <span className="block text-xs font-medium" style={{ color: colors.muted }}>
@@ -282,7 +282,7 @@ function QuestFilterButtons({
       {isLoaded && isSignedIn === false && (
         <section
           aria-labelledby="guest-preference-label"
-          className="rounded-xl border p-4"
+          className="quest-tag rounded-xl p-4"
           style={{ backgroundColor: colors.surfaceRaised, borderColor: colors.border }}
         >
           <label

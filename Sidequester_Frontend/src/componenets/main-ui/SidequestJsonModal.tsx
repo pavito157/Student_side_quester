@@ -23,7 +23,7 @@ function SidequestJsonModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-md"
       role="presentation"
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose()
@@ -33,7 +33,7 @@ function SidequestJsonModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="sidequest-json-title"
-        className="max-h-[min(85vh,48rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border p-5 shadow-2xl sm:p-6"
+        className="rpg-dialog max-h-[min(85vh,48rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border p-5 sm:p-6"
         style={{
           backgroundColor: colors.surface,
           borderColor: colors.border,
@@ -43,13 +43,14 @@ function SidequestJsonModal({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p
-              className="text-xs font-semibold uppercase tracking-[0.16em]"
+              className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em]"
               style={{ color: colors.secondary }}
             >
-              Test JSON
+              <span aria-hidden="true" className="size-1.5 rounded-full bg-secondary shadow-[0_0_10px_rgb(250_70_22_/_80%)]" />
+              Quest dispatch
             </p>
             <h2 id="sidequest-json-title" className="mt-1 text-xl font-semibold">
-              Sidequest request
+              Your quest scroll
             </h2>
           </div>
           <button
@@ -77,10 +78,10 @@ function SidequestJsonModal({
         {requestJson && (
           <pre
             aria-label="Sidequest request JSON"
-            className="mt-5 max-h-[50vh] overflow-auto rounded-xl border p-4 text-xs leading-relaxed whitespace-pre-wrap break-words sm:text-sm"
+            className="mt-5 max-h-[50vh] overflow-auto rounded-xl border border-dashed p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap break-words shadow-inner sm:text-sm"
             style={{
-              backgroundColor: colors.background,
-              borderColor: colors.border,
+              backgroundColor: 'rgb(6 20 14 / 82%)',
+              borderColor: 'rgb(213 196 134 / 30%)',
               color: colors.foreground,
             }}
           >

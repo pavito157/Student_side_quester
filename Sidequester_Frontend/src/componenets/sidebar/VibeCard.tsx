@@ -10,7 +10,7 @@ interface VibeCardProps {
 function VibeCard({ vibe, onUse, onEdit }: VibeCardProps) {
   return (
     <li
-      className="rounded-xl border border-l-2 p-4 transition-colors hover:bg-white/5"
+      className="quest-tag rounded-xl border border-l-2 p-4"
       style={{
         backgroundColor: colors.surfaceRaised,
         borderColor: colors.border,

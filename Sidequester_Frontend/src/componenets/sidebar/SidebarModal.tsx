@@ -32,11 +32,16 @@ function SidebarModal({
     if (isOpen) {
       if (!dialog.open) dialog.showModal()
     } else if (dialog.open) {
-      dialog.classList.add('is-closing')
-      closeTimer = window.setTimeout(() => {
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      if (prefersReducedMotion) {
         dialog.close()
-        dialog.classList.remove('is-closing')
-      }, 220)
+      } else {
+        dialog.classList.add('is-closing')
+        closeTimer = window.setTimeout(() => {
+          dialog.close()
+          dialog.classList.remove('is-closing')
+        }, 360)
+      }
     }
 
     return () => {
@@ -55,7 +60,7 @@ function SidebarModal({
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
-      className="sidebar-modal w-[min(94vw,38rem)] border p-0 shadow-2xl"
+      className="sidebar-modal rpg-dialog w-[min(94vw,38rem)] border p-0 shadow-2xl"
       style={{
         backgroundColor: colors.surface,
         borderColor: colors.border,

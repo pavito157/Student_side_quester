@@ -81,19 +81,54 @@ def complete_quest(
         # Firestore integer fields are signed 64-bit values.
         if any(balance + reward > 2**63 - 1 for balance in (user_xp, dorm_xp)):
             raise CompletionError(409, "The XP award exceeds the supported total.")
-        changes = {
-            "status": "completed",
-            "completedAt": firestore.SERVER_TIMESTAMP,
-            "xpAwarded": reward,
-        }
-        if nested.exists:
-            changes["isActive"] = False
-        transaction.update(assignment_ref, changes)
+        transaction.delete(assignment_ref)
+        if not nested.exists and quest.get("ownerId") == user_id:
+            transaction.delete(quest_ref)
         user_changes = {"xp": user_xp + reward}
         if user.get("activeQuestId") == quest_id:
             user_changes["activeQuestId"] = firestore.DELETE_FIELD
         transaction.update(user_ref, user_changes)
         transaction.update(dorm_ref, {"xp": dorm_xp + reward})
         return {**validation, "questId": quest_id, "status": "completed", "xpAwarded": reward}
+
+    return commit(db.transaction())
+
+
+def abandon_quest(db, user_id, quest_id):
+    """Delete the authenticated user's active assignment without awarding XP."""
+    if any(not isinstance(value, str) or not value or "/" in value
+           for value in (user_id, quest_id)):
+        raise CompletionError(400, "Invalid user or quest ID.")
+    nested_ref = db.collection(USERS).document(user_id).collection("sidequests").document(quest_id)
+    legacy_ref = db.collection(ASSIGNMENTS).document(f"{user_id}_{quest_id}")
+    quest_ref = db.collection("quests").document(quest_id)
+    user_ref = db.collection(USERS).document(user_id)
+
+    @firestore.transactional
+    def commit(transaction):
+        nested = nested_ref.get(transaction=transaction)
+        assignment_ref = nested_ref if nested.exists else legacy_ref
+        assignment_snapshot = nested if nested.exists else legacy_ref.get(transaction=transaction)
+        quest_snapshot = nested if nested.exists else quest_ref.get(transaction=transaction)
+        if not assignment_snapshot.exists or not quest_snapshot.exists:
+            raise CompletionError(404, "Active sidequest not found.")
+
+        assignment, quest = assignment_snapshot.to_dict(), quest_snapshot.to_dict()
+        if (nested.exists and quest.get("ownerId") != user_id) or quest.get("ownerId") not in (None, user_id):
+            raise CompletionError(403, "This quest is not assigned to you.")
+        if assignment.get("userId") != user_id:
+            raise CompletionError(403, "This quest is not assigned to you.")
+        if assignment.get("questId") != quest_id:
+            raise CompletionError(409, "The assignment refers to a different quest.")
+        if assignment.get("status") != "assigned" or quest.get("isActive") is not True:
+            raise CompletionError(409, "This quest is not currently active.")
+
+        user_snapshot = user_ref.get(transaction=transaction)
+        transaction.delete(assignment_ref)
+        if not nested.exists and quest.get("ownerId") == user_id:
+            transaction.delete(quest_ref)
+        if user_snapshot.exists and user_snapshot.to_dict().get("activeQuestId") == quest_id:
+            transaction.update(user_ref, {"activeQuestId": firestore.DELETE_FIELD})
+        return {"questId": quest_id, "status": "abandoned"}
 
     return commit(db.transaction())

@@ -42,12 +42,14 @@ class PersistenceEmulatorTests(unittest.TestCase):
         })
         self.db.collection("dorms").document(self.dorm_id).set({"xp": 100})
         self.addCleanup(self.cleanup_documents)
-        self.environment = patch.dict(os.environ, {"QUEST_XP_REWARD": "25", "QUEST_RADIUS_METERS": "100"})
+        self.environment = patch.dict(os.environ, {"QUEST_RADIUS_METERS": "100"})
         self.environment.start()
         self.addCleanup(patch.stopall)
         self.preferences = GenerateQuestRequest.model_validate({
             "location": "Anywhere", "time": {"selection": "60"}, "budget": {"selection": "0"},
-        }).normalize()
+        })
+        self.user_request = self.preferences
+        self.preferences = self.user_request.normalize()
         self.proposal = GeneratedQuestProposal(
             title="Test task", description="Draw three leaf shapes.", steps=["Draw three leaves."],
             locationName="AI proposed name", locationAddress="AI proposed address",
@@ -73,7 +75,8 @@ class PersistenceEmulatorTests(unittest.TestCase):
 
     def create(self, resolver=True, uid=None):
         return persistence.assign_generated_quest(self.db, uid or self.uid, self.preferences,
-                                                   self.resolver if resolver else None)
+                                                   self.resolver if resolver else None,
+                                                   user_request=self.user_request)
 
     def records(self):
         return list(persistence.sidequests(self.db, self.uid).stream())
@@ -93,7 +96,13 @@ class PersistenceEmulatorTests(unittest.TestCase):
         self.assertEqual(quest["locationName"], "Canonical UF place")
         self.assertEqual(quest["placeId"], "verified-place")
         self.assertEqual(quest["radiusMeters"], 100)
-        self.assertEqual(quest["xpReward"], 25)
+        self.assertEqual(quest["xpReward"], 10)
+        self.assertEqual(quest["title"], self.proposal.title)
+        self.assertEqual(quest["description"], self.proposal.description)
+        self.assertEqual(quest["steps"], self.proposal.steps)
+        self.assertEqual(quest["estimatedMinutes"], self.proposal.estimatedMinutes)
+        self.assertEqual(quest["estimatedCostDollars"], self.proposal.estimatedCostDollars)
+        self.assertEqual(quest["userRequest"], self.user_request.model_dump(mode="json"))
         self.assertIsNotNone(quest["createdAt"])
         self.assertNotIn("normalizedPreferences", quest)
         self.assertNotIn("locationAddress", quest)  # Do not present proposed address as verified.
@@ -184,21 +193,22 @@ class PersistenceEmulatorTests(unittest.TestCase):
         first = self.create()
         complete_quest(self.db, self.uid, first.quest.id, 29.65, -82.34, 10)
         self.assertIsNone(persistence.get_current_assignment(self.db, self.uid))
+        self.assertFalse(persistence.sidequests(self.db, self.uid).document(first.quest.id).get().exists)
         second = self.create()
         self.assertNotEqual(first.quest.id, second.quest.id)
         self.assertFalse(second.reusedExisting)
-        self.assertEqual(len(self.records()), 2)
-        self.assert_xp(35, 125)
+        self.assertEqual(len(self.records()), 1)
+        self.assert_xp(20, 110)
         with self.assertRaises(CompletionError):
             complete_quest(self.db, self.uid, first.quest.id, 29.65, -82.34, 10)
-        self.assert_xp(35, 125)
+        self.assert_xp(20, 110)
 
-    def test_configuration_changes_affect_new_quests_only(self):
-        with patch.dict(os.environ, {"QUEST_XP_REWARD": "40", "QUEST_RADIUS_METERS": "80"}):
+    def test_radius_configuration_changes_affect_new_quests_only(self):
+        with patch.dict(os.environ, {"QUEST_RADIUS_METERS": "80"}):
             first = self.create()
-        self.assertEqual(first.quest.xpReward, 40)
+        self.assertEqual(first.quest.xpReward, 10)
         self.assertEqual(first.quest.radiusMeters, 80)
-        with patch.dict(os.environ, {"QUEST_XP_REWARD": "60", "QUEST_RADIUS_METERS": "150"}):
+        with patch.dict(os.environ, {"QUEST_RADIUS_METERS": "150"}):
             reused = self.create()
         self.assertEqual(reused.quest, first.quest)
 
@@ -231,10 +241,10 @@ class PersistenceEmulatorTests(unittest.TestCase):
             self.assertEqual(caught.exception.status_code, 409)
             ref.set(saved)
         ref.delete()
-        with self.assertRaises(HTTPException) as caught:
-            self.create()
-        self.assertEqual(caught.exception.status_code, 409)
-        self.assertEqual(len(self.records()), 0)
+        replacement = self.create()
+        self.assertNotEqual(replacement.quest.id, first.quest.id)
+        self.assertEqual(len(self.records()), 1)
+        self.assert_xp()
 
     def test_missing_profile_fails_before_generation(self):
         self.db.collection("Users").document(self.uid).delete()
@@ -251,9 +261,9 @@ class PersistenceEmulatorTests(unittest.TestCase):
         self.assertIsNone(persistence.get_current_assignment(self.db, other))
         # Even a corrupt other user's pointer cannot expose the private quest:
         self.db.collection("Users").document(other).update({"activeQuestId": first.quest.id})
-        with self.assertRaises(HTTPException) as caught:
-            persistence.get_current_assignment(self.db, other)
-        self.assertEqual(caught.exception.status_code, 409)
+        self.assertIsNone(persistence.get_current_assignment(self.db, other))
+        self.assertNotIn("activeQuestId", self.db.collection("Users").document(other).get().to_dict())
+        self.assertEqual(persistence.get_current_assignment(self.db, self.uid).quest.id, first.quest.id)
 
     def test_legacy_active_assignment_migrates_once_without_xp_or_generation(self):
         first = self.create()
@@ -276,7 +286,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
         self.assertIsNone(persistence.get_current_assignment(self.db, self.uid))
         with self.assertRaises(CompletionError):
             complete_quest(self.db, self.uid, first.quest.id, 29.65, -82.34, 10)
-        self.assert_xp(35, 125)
+        self.assert_xp(20, 110)
 
     def test_old_completed_pointer_does_not_block_new_assignments(self):
         self.db.collection("Users").document(self.uid).update({"activeQuestId": "old-completed"})
@@ -287,7 +297,17 @@ class PersistenceEmulatorTests(unittest.TestCase):
         self.assertFalse(self.create().reusedExisting)
         self.assert_xp()
 
-    def test_nested_completion_race_awards_once_and_keeps_completed_record(self):
+    def test_missing_destination_pointer_is_repaired_before_new_assignment(self):
+        self.db.collection("Users").document(self.uid).update({"activeQuestId": "missing-quest"})
+
+        result = self.create()
+
+        self.assertFalse(result.reusedExisting)
+        profile = self.db.collection("Users").document(self.uid).get().to_dict()
+        self.assertEqual(profile["activeQuestId"], result.quest.id)
+        self.assertEqual(len(self.records()), 1)
+
+    def test_nested_completion_race_awards_once_and_deletes_assignment(self):
         first = self.create()
         def complete_once(_):
             try:
@@ -296,13 +316,20 @@ class PersistenceEmulatorTests(unittest.TestCase):
                 return error.status_code
         with ThreadPoolExecutor(max_workers=2) as pool:
             results = list(pool.map(complete_once, range(2)))
-        self.assertCountEqual(results, ["completed", 409])
-        saved = persistence.sidequests(self.db, self.uid).document(first.quest.id).get().to_dict()
-        self.assertEqual(saved["status"], "completed")
-        self.assertFalse(saved["isActive"])
-        self.assertEqual(saved["xpAwarded"], 25)
+        self.assertCountEqual(results, ["completed", 404])
+        self.assertFalse(persistence.sidequests(self.db, self.uid).document(first.quest.id).get().exists)
         self.assertNotIn("activeQuestId", self.db.collection("Users").document(self.uid).get().to_dict())
-        self.assert_xp(35, 125)
+        self.assert_xp(20, 110)
+
+    def test_abandon_deletes_nested_sidequest_without_awarding_xp(self):
+        first = self.create()
+        result = persistence.abandon_quest(self.db, self.uid, first.quest.id)
+
+        self.assertEqual(result, {"questId": first.quest.id, "status": "abandoned"})
+        self.assertFalse(persistence.sidequests(self.db, self.uid).document(first.quest.id).get().exists)
+        self.assertNotIn("activeQuestId", self.db.collection("Users").document(self.uid).get().to_dict())
+        self.assert_xp()
+        self.assertIsNone(persistence.get_current_assignment(self.db, self.uid))
 
     def test_nested_completion_rejects_corruption_without_mutating_state_or_xp(self):
         first = self.create()
@@ -344,14 +371,11 @@ class PersistenceEmulatorTests(unittest.TestCase):
             results = list(pool.map(complete_once, range(2)))
         success = [result for result in results if isinstance(result, dict)]
         self.assertEqual(len(success), 1)
-        self.assertIn(409, results)
-        self.assertEqual(success[0]["xpAwarded"], 25)
+        self.assertIn(404, results)
+        self.assertEqual(success[0]["xpAwarded"], 10)
         self.assertNotIn("xp_awarded", success[0])
-        self.assert_xp(35, 125)
-        saved = persistence.sidequests(self.db, self.uid).document(first.quest.id).get().to_dict()
-        self.assertEqual(saved["status"], "completed")
-        self.assertFalse(saved["isActive"])
-        self.assertEqual(saved["xpAwarded"], 25)
+        self.assert_xp(20, 110)
+        self.assertFalse(persistence.sidequests(self.db, self.uid).document(first.quest.id).get().exists)
         self.assertEqual(list(user.collection("assignedQuests").stream()), [])
 
     def test_nested_assignment_is_private_and_prepared_requests_are_not_quests(self):
@@ -401,7 +425,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
         self.assert_xp()
         complete_quest(self.db, self.uid, second.quest.id, 29.65, -82.34, 10)
         self.assertIsNone(persistence.get_current_assignment(self.db, self.uid))
-        self.assert_xp(35, 125)
+        self.assert_xp(20, 110)
 
     def test_replacement_generation_and_database_failures_leave_old_quest_active(self):
         first = self.create()
@@ -468,10 +492,24 @@ class PersistenceEmulatorTests(unittest.TestCase):
         with self.assertRaises(HTTPException) as caught:
             self.replacement(first.quest.id)
         self.assertEqual(caught.exception.status_code, 409)
-        self.assertEqual(len(self.records()), 1)
-        self.assertEqual(self.records()[0].to_dict()["status"], "completed")
+        self.assertEqual(len(self.records()), 0)
         self.assertIsNone(persistence.get_current_assignment(self.db, self.uid))
-        self.assert_xp(35, 125)
+        self.assert_xp(20, 110)
+
+    def test_abandon_during_generation_does_not_resurrect_the_old_assignment(self):
+        first = self.create()
+        self.use_new_activity()
+        replacement_proposal = self.provider.return_value
+        def generate(*args, **kwargs):
+            persistence.abandon_quest(self.db, self.uid, first.quest.id)
+            return replacement_proposal
+        self.provider.side_effect = generate
+        with self.assertRaises(HTTPException) as caught:
+            self.replacement(first.quest.id)
+        self.assertEqual(caught.exception.status_code, 409)
+        self.assertEqual(self.records(), [])
+        self.assertIsNone(persistence.get_current_assignment(self.db, self.uid))
+        self.assert_xp()
 
     def test_replacement_endpoint_returns_same_json_and_skipped_history(self):
         with self.wired_resolver_client() as (client, _lookup, _place):
@@ -483,6 +521,9 @@ class PersistenceEmulatorTests(unittest.TestCase):
             self.assertEqual(result.status_code, 201, result.text)
             self.assertEqual(result.json()["assignment"]["xpAwarded"], 0)
             self.assertNotEqual(result.json()["quest"]["id"], first["quest"]["id"])
+            saved = persistence.sidequests(self.db, self.uid).document(result.json()["quest"]["id"]).get().to_dict()
+            self.assertEqual(saved["userRequest"]["time"]["selection"], "60")
+            self.assertEqual(saved["xpReward"], 10)
             history = client.get("/me/quests?status=skipped", headers=headers)
             self.assertEqual(history.status_code, 200)
             self.assertEqual(len(history.json()["quests"]), 1)
@@ -558,8 +599,8 @@ class PersistenceEmulatorTests(unittest.TestCase):
             url = f"/quests/{saved['quest']['id']}/complete"
             location = {"latitude": 29.65, "longitude": -82.34, "accuracy": 10}
             self.assertEqual(client.post(url, headers=headers, json=location).status_code, 200)
-            self.assertEqual(client.post(url, headers=headers, json=location).status_code, 409)
-            self.assert_xp(35, 125)
+            self.assertEqual(client.post(url, headers=headers, json=location).status_code, 404)
+            self.assert_xp(20, 110)
             self.assertIsNone(client.get("/me/quest", headers=headers).json())
 
     def test_real_resolver_failure_paths_never_save_or_award_xp(self):
@@ -620,13 +661,13 @@ class PersistenceEmulatorTests(unittest.TestCase):
             self.assert_xp()
             location = {"latitude": 29.65, "longitude": -82.34, "accuracy": 10}
             self.assertEqual(client.post(url, json=location, headers=headers).status_code, 200)
-            self.assertEqual(client.post(url, json=location, headers=headers).status_code, 409)
-            self.assert_xp(35, 125)
+            self.assertEqual(client.post(url, json=location, headers=headers).status_code, 404)
+            self.assert_xp(20, 110)
             self.assertIsNone(client.get("/me/quest", headers=headers).json())
             following = client.post("/quests/assign", json=body, headers=headers)
             self.assertEqual(following.status_code, 201)
             self.assertNotEqual(following.json()["quest"]["id"], saved["quest"]["id"])
-            self.assert_xp(35, 125)
+            self.assert_xp(20, 110)  # Generating the next quest awards no XP.
 
 
 if __name__ == "__main__":

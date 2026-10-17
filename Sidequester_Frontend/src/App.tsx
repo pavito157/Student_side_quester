@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import Header from './componenets/main-ui/Header'
 import CinematicHero from './componenets/main-ui/CinematicHero'
@@ -14,6 +14,9 @@ import type { Vibe } from './types/vibe'
 import { subscribeToActiveSidequests } from './services/sidequests'
 import type { ActiveSidequest } from './types/sidequest'
 import { colors } from './constants/colors'
+import { requestAssignedQuest, requestReplacementQuest, type GenerateQuestPayload } from './services/questAssignment'
+import { navigateTo } from './services/navigation'
+import { getUserGoals, getUserPreferences } from './services/userPreferences'
 
 type ActiveSidequestsState = {
   userId: string | null
@@ -22,7 +25,16 @@ type ActiveSidequestsState = {
   error: string
 }
 
-function HomePage() {
+type QuestGenerationState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'error'; message: string }
+
+type HomePageProps = {
+  onStartQuestGeneration: (userId: string, payload: GenerateQuestPayload) => Promise<void>
+}
+
+function HomePage({ onStartQuestGeneration }: HomePageProps) {
   const { isLoaded, isSignedIn, user } = useUser()
   const userId = user?.id
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
@@ -134,6 +146,7 @@ function HomePage() {
                 setFilters={setQuestFilters}
                 activeVibe={vibeToApply}
                 onClearActiveVibe={() => setVibeToApply(null)}
+                onStartQuestGeneration={onStartQuestGeneration}
               />
             </div>
           </section>
@@ -159,10 +172,24 @@ function HomePage() {
   )
 }
 
-function App() {
+function AccountRoutes() {
   const [pathname, setPathname] = useState(() =>
     window.location.pathname.replace(/\/+$/, '') || '/',
   )
+  const [generationState, setGenerationState] = useState<QuestGenerationState>({ status: 'idle' })
+  const generationControllerRef = useRef<AbortController | null>(null)
+  const generationIdRef = useRef(0)
+  const activeRef = useRef(true)
+  const lastRequestRef = useRef<{ userId: string; questId: string; payload: GenerateQuestPayload } | null>(null)
+
+  useEffect(() => {
+    activeRef.current = true
+    return () => {
+      activeRef.current = false
+      generationControllerRef.current?.abort()
+      generationIdRef.current += 1
+    }
+  }, [])
 
   useEffect(() => {
     function updatePathname() {
@@ -173,17 +200,72 @@ function App() {
     return () => window.removeEventListener('popstate', updatePathname)
   }, [])
 
+  async function startQuestGeneration(userId: string, payload: GenerateQuestPayload, replaceQuestId?: string) {
+    if (!activeRef.current) return
+    generationControllerRef.current?.abort()
+    const controller = new AbortController()
+    const generationId = generationIdRef.current + 1
+    generationIdRef.current = generationId
+    generationControllerRef.current = controller
+    setGenerationState({ status: 'loading' })
+    navigateTo('/sidequests/generating')
+
+    try {
+      const saved = replaceQuestId
+        ? await requestReplacementQuest(userId, replaceQuestId, payload, { signal: controller.signal })
+        : await requestAssignedQuest(userId, payload, { signal: controller.signal })
+      if (controller.signal.aborted || generationIdRef.current !== generationId) return
+      lastRequestRef.current = { userId, questId: saved.quest.id, payload }
+      setGenerationState({ status: 'idle' })
+      navigateTo(`/sidequests/${encodeURIComponent(saved.quest.id)}`)
+    } catch (error) {
+      if (controller.signal.aborted || generationIdRef.current !== generationId) return
+      setGenerationState({
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Could not create your sidequest.',
+      })
+    } finally {
+      if (generationControllerRef.current === controller) generationControllerRef.current = null
+    }
+  }
+
+  async function generateAnother(userId: string, questId: string, savedRequest: Record<string, unknown> | null) {
+    const latest = lastRequestRef.current
+    let payload: GenerateQuestPayload
+    if (latest?.userId === userId && latest.questId === questId) {
+      payload = latest.payload
+    } else if (savedRequest) {
+      // This snapshot was validated as GenerateQuestRequest by FastAPI when
+      // persisted. FastAPI validates it again; client input cannot set XP/UID.
+      payload = savedRequest as GenerateQuestPayload
+    } else {
+      const [preferences, goals] = await Promise.all([getUserPreferences(userId), getUserGoals(userId)])
+      payload = { location: 'Anywhere', time: { selection: 'any' }, budget: { selection: 'any' }, preferences, goals }
+    }
+    return startQuestGeneration(userId, payload, questId)
+  }
+
   return (
     <div key={pathname} className="route-transition">
       {pathname === '/leaderboard' ? (
         <LeaderboardPage />
+      ) : pathname === '/sidequests/generating' ? (
+        <SidequestDetailPage
+          sidequestId="generating"
+          generationState={generationState}
+        />
       ) : pathname.startsWith('/sidequests/') ? (
-        <SidequestDetailPage sidequestId={decodeURIComponent(pathname.slice('/sidequests/'.length))} />
+        <SidequestDetailPage sidequestId={decodeURIComponent(pathname.slice('/sidequests/'.length))} onGenerateAnother={generateAnother} />
       ) : (
-        <HomePage />
+        <HomePage onStartQuestGeneration={startQuestGeneration} />
       )}
     </div>
   )
+}
+
+function App() {
+  const { user } = useUser()
+  return <AccountRoutes key={user?.id ?? 'guest'} />
 }
 
 export default App

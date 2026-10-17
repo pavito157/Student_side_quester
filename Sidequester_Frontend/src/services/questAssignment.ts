@@ -256,6 +256,14 @@ export async function requestQuestCompletion(userId: string, questId: string, lo
   return result.xpAwarded
 }
 
+export async function requestQuestAbandon(userId: string, questId: string): Promise<void> {
+  if (!questId || questId.includes('/')) throw new Error('Choose a valid sidequest.')
+  const result = await requestQuest(`/quests/${encodeURIComponent(questId)}/abandon`, userId, undefined, {})
+  if (!isRecord(result) || result.status !== 'abandoned' || result.questId !== questId) {
+    throw new Error('The backend returned an invalid abandon response.')
+  }
+}
+
 async function requestQuest(
   path: string, expectedUserId: string, payload: AssignQuestPayload | CompletionLocation | undefined,
   options: QuestRequestOptions, method: 'POST' | 'GET' = 'POST',

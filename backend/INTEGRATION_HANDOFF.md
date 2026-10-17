@@ -150,9 +150,14 @@ Accuracy is the device-reported meters. Default maximum is 50 meters; conservati
 proximity requires `distance + accuracy <= quest.radiusMeters`. This is separate
 from the origin-distance filter. GPS proximity is not proof of the activity and
 reported GPS can be spoofed. The server reads the stored quest/reward and atomically
-rechecks assignment state and awards user/dorm XP once. Success returns
-`valid`, `reason`, `distanceMeters`, `accuracyMeters`, `radiusMeters`, `questId`,
-`status: "completed"`, `xpAwarded`. A repeat returns 409 without another award.
+rechecks assignment state, deletes the active assignment, and awards user/dorm XP
+once. Success returns `valid`, `reason`, `distanceMeters`, `accuracyMeters`,
+`radiusMeters`, `questId`, `status: "completed"`, and `xpAwarded`. A repeat finds
+no active assignment and cannot award XP again.
+
+`POST /quests/{quest.id}/abandon` deletes the authenticated user's active
+assignment without XP. The detail page should ask for confirmation before
+abandoning and reload/leave the detail view after the server confirms deletion.
 
 ## Error contract
 
@@ -193,7 +198,7 @@ direct name/address lookups.
 | Second assign/reload | 200 same quest; reusedExisting true; no repeated provider call | Passed |
 | Concurrent assign / aborted commit | At most one active quest; no orphan records | Passed against emulator |
 | Complete while far away or inaccurate | Rejected; XP unchanged | Passed |
-| Complete nearby, then repeat/concurrent repeat | One award to user/dorm; repeat 409 | Passed against emulator |
+| Complete nearby, then repeat/concurrent repeat | One award to user/dorm; active assignment deleted; repeat 404 | Passed against emulator |
 | Legacy totalXp/profile initialization races completion | Canonical xp preserves balance/award | Passed against emulator |
 | Live Gemini/Places + bundled city boundary + emulator | 201, valid saved JSON, reuse/reload | Passed, token verification mocked |
 | Real device arrival + deployed Firestore rules | Fresh location completes once; unauthorized client writes denied | Pending live test |
@@ -416,7 +421,7 @@ UID → sidequests → response.quest.id; the content should match the response.
 Refresh and open the active quest: title/steps/destination/XP should persist.
 Complete from outside the radius to see rejection, then at the destination with
 good accuracy and a valid dorm to earn the stored reward. A repeated completion
-returns 409; user/dorm XP increase once, and the completed record remains stored.
+returns 404; user/dorm XP increase once, and the active assignment is deleted.
 
 Validation for the storage transition: full backend suite 178/178 passed with the
 local Firestore emulator. Frontend 49/49 tests passed, as did
@@ -580,3 +585,54 @@ persistence assigned a quest in 1.70s and replaced it in 1.47s. The old record
 became skipped; user and dorm XP stayed 0; the current-quest endpoint reloaded the
 replacement. Synthetic documents were cleaned up; no production Firestore records
 were changed. The restarted local API exposes the replacement endpoint.
+
+## Integration with latest main (3d7051b)
+
+This section supersedes the older preview-modal/manual-completion descriptions.
+The merged app keeps main's new full-page generation and quest detail layout,
+original-request display, map, Complete and confirmed Abandon controls. Generate
+another now appears on the **quest detail page** and uses that same full-page
+loading/error flow; the old preview modal is no longer the primary interface.
+
+Replacement keeps the latest filters submitted from the quest board. After a
+refresh it uses the server-saved `userRequest`. Older assignments without a
+request snapshot fall back to the student's saved preferences/goals with any
+location/time/budget. Return to the quest board to choose different filters.
+Both normal and replacement generation now save the validated request snapshot,
+so the detail page can display it and reuse it after refresh. The backend still
+validates every incoming request and trusts no client UID/reward/destination.
+
+Main's duration-based XP policy is preserved for **new** quests: 5 XP per started
+15-minute block, minimum 5 and maximum 50. Existing quests keep their stored reward.
+Assignment/replacement itself awards no XP. Radius remains configurable.
+
+Main's completion/abandon deletion behavior is preserved: Complete checks fresh
+GPS, atomically awards user and dorm XP, deletes the completed assignment and
+clears its pointer. Replay of a deleted quest returns 404 with no additional XP.
+Abandon deletes without XP. Generate another remains an atomic generate-first
+swap, preserving the previous quest as skipped history without XP; completing a
+skipped quest returns 409. Abandoning or completing during generation prevents a
+stale replacement from resurrecting that assignment. Missing destination pointers
+are repaired as on main, without exposing another user's records.
+
+The adapted Gainesville/destination-first prompt and the Firebase-token/shared
+credentials/single-CORS fixes are retained. Pending generation is aborted and
+account-specific state reset when the user changes, including while retrieving
+legacy preferences. All Git conflicts were resolved by combining behavior rather
+than restoring the removed preview flow.
+
+Manual check: refresh, choose filters and click Sidequest me. On the new detail
+page click Generate another; expect a loading page, then a new quest detail page.
+If generation fails, return to the quest board: the previous quest remains active.
+Check the prior document is skipped and XP unchanged. New rewards depend on the
+estimated duration. Complete with valid GPS/dorm to award both balances once and
+remove that active document, or Abandon to remove it without XP.
+
+Merged-main validation: 204/204 backend tests passed with local emulator
+transactions, including completed/deleted quest replay, duration-based rewards,
+Abandon-versus-replacement and completion-versus-replacement. 62/62 frontend tests,
+production build and lint passed. New navigation tests exercise latest/saved
+request selection, the detail-page Generate another button, error handling,
+duplicate-action prevention and account changes during generation/preferences
+loading. Test expectations preserve the rule that generating another assignment
+never awards XP. No production Firestore records were modified.

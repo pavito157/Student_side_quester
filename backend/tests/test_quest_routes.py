@@ -27,6 +27,9 @@ class RouteTests(unittest.TestCase):
         self.complete = patch.object(quest_routes, "complete_quest", return_value={
             "status": "completed", "xpAwarded": 25,
         }).start()
+        self.abandon = patch.object(quest_routes, "abandon_quest", return_value={
+            "status": "abandoned", "questId": "quest",
+        }).start()
         self.addCleanup(patch.stopall)
         self.body = {"latitude": 29.65, "longitude": -82.34, "accuracy": 10}
         self.headers = {"Authorization": "Bearer signed-id-token"}
@@ -34,6 +37,18 @@ class RouteTests(unittest.TestCase):
     def post(self, body=None, headers=None):
         return self.client.post("/quests/quest/complete", json=self.body if body is None else body,
                                 headers=self.headers if headers is None else headers)
+
+    def test_abandon_uses_authenticated_identity_and_returns_server_result(self):
+        response = self.client.post("/quests/quest/abandon", headers=self.headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"status": "abandoned", "questId": "quest"})
+        self.abandon.assert_called_once_with(self.db, "token-owner", "quest")
+
+    def test_abandon_errors_preserve_server_status_and_detail(self):
+        self.abandon.side_effect = CompletionError(409, "This quest is not currently active.")
+        response = self.client.post("/quests/quest/abandon", headers=self.headers)
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()["detail"], "This quest is not currently active.")
 
     def test_verified_token_uid_and_server_configuration_are_forwarded(self):
         with patch.dict(os.environ, {"MAX_LOCATION_ACCURACY_METERS": "35"}):

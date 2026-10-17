@@ -96,16 +96,13 @@ class CompletionEmulatorTests(unittest.TestCase):
         self.assert_totals(35, 125)
         self.assertEqual(ref.get().to_dict()["totalXp"], 10)
 
-    def test_completion_and_replay_award_once(self):
+    def test_completion_deletes_assignment_and_replay_cannot_award_again(self):
         result = self.finish()
         self.assertEqual(result["xpAwarded"], 25)
-        assignment = self.assignment_ref().get().to_dict()
-        self.assertEqual(assignment["status"], "completed")
-        self.assertEqual(assignment["xpAwarded"], 25)
-        self.assertIsNotNone(assignment["completedAt"])
+        self.assertFalse(self.assignment_ref().get().exists)
         with self.assertRaises(CompletionError) as error:
             self.finish()
-        self.assertEqual(error.exception.status_code, 409)
+        self.assertEqual(error.exception.status_code, 404)
         self.assert_totals(35, 125)
 
     def test_simultaneous_duplicate_requests_award_once(self):
@@ -120,7 +117,7 @@ class CompletionEmulatorTests(unittest.TestCase):
 
         with ThreadPoolExecutor(max_workers=2) as pool:
             outcomes = list(pool.map(lambda _: attempt(), range(2)))
-        self.assertCountEqual(outcomes, ["completed", 409])
+        self.assertCountEqual(outcomes, ["completed", 404])
         self.assert_totals(35, 125)
 
     def test_different_users_in_same_dorm_do_not_lose_xp(self):

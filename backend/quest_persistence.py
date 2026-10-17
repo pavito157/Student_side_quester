@@ -14,27 +14,27 @@ from firebase_admin import firestore
 from google.api_core.exceptions import GoogleAPICallError, RetryError
 from google.cloud.firestore_v1.base_query import FieldFilter
 from pydantic import Field, ValidationError
+from typing import Optional
 
 from .firebase_helpers import USERS
-from .quest_completion import ASSIGNMENTS
+from .quest_completion import ASSIGNMENTS, abandon_quest
 from .quest_contracts import (
-    AssignedQuest, AssignQuestResponse, ContractModel, GeneratedQuestResponse, SavedAssignment,
+    AssignedQuest, AssignQuestResponse, ContractModel, GenerateQuestRequest, GeneratedQuestResponse, SavedAssignment,
 )
 from .quest_generation import generate_preview
 from .request_timing import record_timing
+from .xp import quest_xp_reward
 
 
 class AssignmentPolicy(ContractModel):
-    xpReward: int = Field(default=25, strict=True, ge=0, le=2**53 - 1)
     radiusMeters: float = Field(default=100, strict=True, gt=0, allow_inf_nan=False)
 
 
 def get_assignment_policy():
     try:
-        return AssignmentPolicy(xpReward=int(os.environ.get("QUEST_XP_REWARD", "25")),
-                                radiusMeters=float(os.environ.get("QUEST_RADIUS_METERS", "100")))
+        return AssignmentPolicy(radiusMeters=float(os.environ.get("QUEST_RADIUS_METERS", "100")))
     except (ValueError, OverflowError):
-        raise HTTPException(503, "Invalid QUEST_XP_REWARD or QUEST_RADIUS_METERS configuration") from None
+        raise HTTPException(503, "Invalid QUEST_RADIUS_METERS configuration") from None
 
 
 def _valid_id(value):
@@ -97,13 +97,16 @@ def _nested_response(uid, snapshot):
         raise HTTPException(409, "Current assignment data is incomplete or invalid") from None
 
 
-def _sidequest_data(result):
-    return {
+def _sidequest_data(result, user_request: Optional[GenerateQuestRequest] = None):
+    data = {
         **result.quest.model_dump(exclude={"id"}),
         **result.assignment.model_dump(exclude={"id"}),
         "ownerId": result.assignment.userId, "source": "gemini",
         "createdAt": firestore.SERVER_TIMESTAMP,
     }
+    if user_request is not None:
+        data["userRequest"] = user_request.model_dump(mode="json")
+    return data
 
 
 def _read_active(db, transaction, uid, user):
@@ -132,7 +135,7 @@ def _read_active(db, transaction, uid, user):
                                and item.to_dict().get("status") == "completed"
                                for item in legacy_snapshots)
         if pointer is not None and not completed_legacy and not any(item.id == pointer for item in snapshots):
-            raise HTTPException(409, "Current assignment destination is missing")
+            transaction.update(db.collection(USERS).document(uid), {"activeQuestId": firestore.DELETE_FIELD})
         return None
     result = _stored_response(db, transaction, uid, legacy[0])
     if any(snapshot.id == result.quest.id for snapshot in snapshots):
@@ -165,7 +168,7 @@ def get_current_assignment(db, uid):
     return _run_transaction(db, read)
 
 
-def save_verified_assignment(db, uid, preview, policy, *, replace_quest_id=None):
+def save_verified_assignment(db, uid, preview, policy, user_request: Optional[GenerateQuestRequest] = None, *, replace_quest_id=None):
     """Persist server-verified content only. UID must come from the token."""
     _check_uid(uid)
     try:
@@ -181,7 +184,7 @@ def save_verified_assignment(db, uid, preview, policy, *, replace_quest_id=None)
         id=quest_id, title=proposed.title, description=proposed.description, steps=proposed.steps,
         locationName=destination.locationName, placeId=destination.placeId,
         latitude=destination.latitude, longitude=destination.longitude,
-        radiusMeters=policy.radiusMeters, xpReward=policy.xpReward, isActive=True,
+        radiusMeters=policy.radiusMeters, xpReward=quest_xp_reward(proposed.estimatedMinutes), isActive=True,
         estimatedMinutes=proposed.estimatedMinutes, estimatedCostDollars=proposed.estimatedCostDollars,
     )
     # Backend-generated UTC, stored and returned identically; never browser time.
@@ -206,14 +209,14 @@ def save_verified_assignment(db, uid, preview, policy, *, replace_quest_id=None)
             return existing
         # Reading the same user document serializes competing creators; all
         # reads precede writes. The losing callback reuses the committed winner.
-        transaction.create(sidequests(db, uid).document(quest_id), _sidequest_data(result))
+        transaction.create(sidequests(db, uid).document(quest_id), _sidequest_data(result, user_request))
         transaction.update(user_ref, {"activeQuestId": quest_id})
         return result
 
     return _run_transaction(db, commit)
 
 
-def assign_generated_quest(db, uid, preferences, resolver, timings=None):
+def assign_generated_quest(db, uid, preferences, resolver, timings=None, user_request: Optional[GenerateQuestRequest] = None):
     with record_timing(timings, "lookup"):
         existing = get_current_assignment(db, uid)
     if existing is not None:
@@ -224,10 +227,10 @@ def assign_generated_quest(db, uid, preferences, resolver, timings=None):
     # External calls must never be retried inside a Firestore transaction.
     preview = generate_preview(preferences, resolver, timings=timings)
     with record_timing(timings, "save"):
-        return save_verified_assignment(db, uid, preview, policy)
+        return save_verified_assignment(db, uid, preview, policy, user_request)
 
 
-def replace_generated_quest(db, uid, quest_id, preferences, resolver, timings=None):
+def replace_generated_quest(db, uid, quest_id, preferences, resolver, timings=None, user_request: Optional[GenerateQuestRequest] = None):
     """Generate first, then compare-and-swap only the displayed active assignment.
 
     A concurrent replacement/completion wins safely; stale requests return 409.
@@ -245,4 +248,4 @@ def replace_generated_quest(db, uid, quest_id, preferences, resolver, timings=No
     policy = get_assignment_policy()
     preview = generate_preview(preferences, resolver, timings=timings, previous_quest=existing.quest)
     with record_timing(timings, "save"):
-        return save_verified_assignment(db, uid, preview, policy, replace_quest_id=quest_id)
+        return save_verified_assignment(db, uid, preview, policy, user_request, replace_quest_id=quest_id)

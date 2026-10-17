@@ -1,12 +1,17 @@
 import { collection, doc, onSnapshot, Timestamp, type Unsubscribe } from 'firebase/firestore'
 import { db } from '../configs/FirebaseConfig'
-import { requestQuestCompletion } from './questAssignment'
+import { requestQuestAbandon, requestQuestCompletion } from './questAssignment'
 import type { ActiveSidequest } from '../types/sidequest'
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
 
 // Generated assignments are written and completed only by FastAPI. Old
 // "prepared" request previews are not generated quests and cannot earn XP.
 export function parseActiveSidequest(id: string, data: Record<string, unknown>, userId: string): ActiveSidequest | null {
   if (data.status !== 'assigned' || data.isActive !== true) return null
+  const userRequest = data.userRequest === undefined ? null : data.userRequest
   if (data.userId !== userId || data.ownerId !== userId || data.questId !== id
       || typeof data.title !== 'string' || !data.title.trim()
       || typeof data.description !== 'string' || typeof data.locationName !== 'string'
@@ -16,7 +21,8 @@ export function parseActiveSidequest(id: string, data: Record<string, unknown>, 
       || typeof data.xpReward !== 'number' || !Number.isSafeInteger(data.xpReward) || data.xpReward < 0
       || typeof data.estimatedMinutes !== 'number' || !Number.isSafeInteger(data.estimatedMinutes) || data.estimatedMinutes <= 0
       || typeof data.estimatedCostDollars !== 'number' || !Number.isFinite(data.estimatedCostDollars) || data.estimatedCostDollars < 0
-      || !(data.assignedAt instanceof Timestamp)) {
+      || !(data.assignedAt instanceof Timestamp)
+      || (userRequest !== null && !isRecord(userRequest))) {
     throw new Error(`Saved sidequest ${id} has invalid assignment details.`)
   }
   return {
@@ -24,6 +30,7 @@ export function parseActiveSidequest(id: string, data: Record<string, unknown>, 
     locationName: data.locationName, latitude: data.latitude, longitude: data.longitude,
     estimatedMinutes: data.estimatedMinutes, estimatedCostDollars: data.estimatedCostDollars,
     xpValue: data.xpReward, createdAt: data.assignedAt.toDate().toISOString(),
+    userRequest,
   }
 }
 
@@ -64,4 +71,9 @@ export async function completeSidequest(userId: string, sidequestId: string): Pr
   return requestQuestCompletion(userId, sidequestId, {
     latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy,
   })
+}
+
+export async function abandonSidequest(userId: string, sidequestId: string): Promise<void> {
+  if (!userId.trim() || !sidequestId.trim()) throw new Error('Sign in and choose a valid sidequest.')
+  return requestQuestAbandon(userId, sidequestId)
 }

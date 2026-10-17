@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import { colors } from '../../constants/colors'
-import {
-  completeSidequest,
-  subscribeToActiveSidequests,
-} from '../../services/sidequests'
+import { navigateTo } from '../../services/navigation'
+import { subscribeToActiveSidequests } from '../../services/sidequests'
 import type { ActiveSidequest as ActiveSidequestRecord } from '../../types/sidequest'
 
 type ActiveSidequestsState = {
@@ -23,9 +21,6 @@ function ActiveSidequests() {
     isLoading: true,
     error: '',
   })
-  const [completingId, setCompletingId] = useState<string | null>(null)
-  const [completionMessage, setCompletionMessage] = useState('')
-  const [completionError, setCompletionError] = useState('')
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn || !userId) return
@@ -36,56 +31,35 @@ function ActiveSidequests() {
     )
   }, [isLoaded, isSignedIn, userId])
 
-  async function handleComplete(sidequestId: string) {
-    if (!user) return
-    setCompletingId(sidequestId)
-    setCompletionMessage('')
-    setCompletionError('')
-
-    try {
-      const awardedXp = await completeSidequest(user.id, sidequestId)
-      setCompletionMessage(
-        awardedXp > 0
-          ? `Sidequest completed. +${awardedXp} XP`
-          : 'This sidequest was already completed.',
-      )
-    } catch (error) {
-      setCompletionError(
-        error instanceof Error ? error.message : 'Could not complete this sidequest.',
-      )
-    } finally {
-      setCompletingId(null)
-    }
+  if (!isLoaded) {
+    return <p role="status" className="text-sm" style={{ color: colors.muted }}>Loading account…</p>
   }
-
-  if (!isLoaded || !isSignedIn || !user) return null
-  if (state.userId !== user.id) {
-    return (
-      <section className="rpg-panel mx-auto mt-8 w-full max-w-5xl p-5 sm:p-6" aria-busy="true">
-        <p className="text-sm" style={{ color: colors.muted }}>Loading active sidequests…</p>
-      </section>
-    )
-  }
-  if (!state.isLoading && !state.error && state.sidequests.length === 0) return null
 
   return (
-    <section
-      aria-labelledby="active-sidequests-heading"
-      className="rpg-panel mx-auto mt-8 w-full max-w-5xl p-5 sm:p-6"
-    >
-      <div className="mb-4">
-        <p
-          className="text-[0.65rem] font-bold uppercase tracking-[0.18em]"
+    <section aria-labelledby="active-sidequests-heading" className="mt-6">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3
+          id="active-sidequests-heading"
+          className="text-sm font-bold uppercase tracking-wide"
           style={{ color: colors.secondary }}
         >
-          Your saved requests
-        </p>
-        <h2 id="active-sidequests-heading" className="mt-1 text-xl font-black sm:text-2xl">
           Active sidequests
-        </h2>
+        </h3>
+        {state.userId === userId && state.sidequests.length > 0 && (
+          <span className="rounded-full px-2 py-0.5 text-xs" style={{
+            color: colors.foreground,
+            backgroundColor: colors.surfaceRaised,
+          }}>
+            {state.sidequests.length}
+          </span>
+        )}
       </div>
 
-      {state.isLoading ? (
+      {!isSignedIn || !userId ? (
+        <p className="text-sm leading-relaxed" style={{ color: colors.muted }}>
+          Sign in to see your active sidequests.
+        </p>
+      ) : state.userId !== userId || state.isLoading ? (
         <p role="status" className="text-sm" style={{ color: colors.muted }}>
           Loading active sidequests…
         </p>
@@ -93,50 +67,39 @@ function ActiveSidequests() {
         <p role="alert" className="text-sm" style={{ color: colors.error }}>
           Could not load active sidequests: {state.error}
         </p>
+      ) : state.sidequests.length === 0 ? (
+        <p className="text-sm leading-relaxed" style={{ color: colors.muted }}>
+          No active sidequests yet. Saved requests will appear here for three days.
+        </p>
       ) : (
-        <ul className="space-y-3">
+        <ul className="space-y-2">
           {state.sidequests.map((sidequest) => (
-            <li
-              key={sidequest.id}
-              className="quest-subpanel flex flex-col gap-3 rounded-xl p-4 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div className="min-w-0">
-                <p className="truncate font-semibold">
-                  {sidequest.location === 'Anywhere' || sidequest.location === 'Not selected'
-                    ? 'Sidequest'
-                    : sidequest.location}
-                </p>
-                <p className="mt-1 text-sm" style={{ color: colors.muted }}>
-                  +{sidequest.xpValue} XP on completion
-                </p>
-              </div>
+            <li key={sidequest.id}>
               <button
                 type="button"
-                onClick={() => void handleComplete(sidequest.id)}
-                disabled={completingId !== null}
-                className="min-h-10 shrink-0 cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2"
-                style={{
-                  backgroundColor: colors.primary,
-                  color: colors.primaryForeground,
-                  outlineColor: colors.primary,
-                }}
+                onClick={() => navigateTo(`/sidequests/${encodeURIComponent(sidequest.id)}`)}
+                className="quest-subpanel w-full cursor-pointer rounded-xl p-3 text-left transition hover:-translate-y-0.5 hover:border-secondary/40 focus-visible:outline-2 focus-visible:outline-offset-2"
+                style={{ outlineColor: colors.secondary }}
               >
-                {completingId === sidequest.id ? 'Completing…' : 'Complete'}
+                <span className="block truncate text-sm font-semibold">
+                  {sidequest.request.location === 'Anywhere' ||
+                  sidequest.request.location === 'Not selected'
+                    ? 'Sidequest'
+                    : sidequest.request.location}
+                </span>
+                <span className="mt-1 flex justify-between gap-2 text-xs" style={{ color: colors.muted }}>
+                  <span>
+                    Expires {new Date(sidequest.expiresAt).toLocaleDateString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                    })}
+                  </span>
+                  <span className="shrink-0">+{sidequest.xpValue} XP</span>
+                </span>
               </button>
             </li>
           ))}
         </ul>
-      )}
-
-      {completionMessage && (
-        <p role="status" className="mt-4 text-sm" style={{ color: colors.success }}>
-          {completionMessage}
-        </p>
-      )}
-      {completionError && (
-        <p role="alert" className="mt-4 text-sm" style={{ color: colors.error }}>
-          {completionError}
-        </p>
       )}
     </section>
   )

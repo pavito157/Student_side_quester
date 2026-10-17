@@ -6,6 +6,7 @@ import type { Vibe } from '../../types/vibe'
 import SidebarModal from './SidebarModal'
 import VibeEditor from './VibeEditor'
 import VibeCard from './VibeCard'
+import ActiveSidequests from '../main-ui/ActiveSidequests'
 
 interface VibesSidebarProps {
   isOpen: boolean
@@ -118,37 +119,42 @@ function VibesSidebar({ isOpen, onClose, onApplyVibe }: VibesSidebarProps) {
           onSave={saveVibe}
           onDelete={removeVibe}
         />
-      ) : isLoadingVibes ? (
-        <p role="status" className="text-sm" style={{ color: colors.muted }}>
-          Loading your saved vibes...
-        </p>
-      ) : vibeListError ? (
-        <p role="alert" className="text-sm" style={{ color: colors.error }}>
-          {vibeListError}
-        </p>
-      ) : vibes.length === 0 ? (
-        <p className="text-sm" style={{ color: colors.muted }}>
-          {userId
-            ? 'Your next side quest is just around the corner. Add a vibe to save your preferences.'
-            : 'Sign in to save vibes to your account and use them on your next side quest.'}
-        </p>
       ) : (
-        <ul className="space-y-3">
-          {vibes.map((vibe) => (
-            <VibeCard
-              key={vibe.id}
-              vibe={vibe}
-              onUse={(selectedVibe) => {
-                onApplyVibe(selectedVibe)
-                closeSidebar()
-              }}
-              onEdit={(editedVibe) => {
-                setVibeToEdit(editedVibe)
-                setIsEditorOpen(true)
-              }}
-            />
-          ))}
-        </ul>
+        <>
+          {isLoadingVibes ? (
+            <p role="status" className="text-sm" style={{ color: colors.muted }}>
+              Loading your saved vibes...
+            </p>
+          ) : vibeListError ? (
+            <p role="alert" className="text-sm" style={{ color: colors.error }}>
+              {vibeListError}
+            </p>
+          ) : vibes.length === 0 ? (
+            <p className="text-sm" style={{ color: colors.muted }}>
+              {userId
+                ? 'Your next sidequest is just around the corner. Add a vibe to save your preferences.'
+                : 'Sign in to save vibes to your account and use them on your next sidequest.'}
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {vibes.map((vibe) => (
+                <VibeCard
+                  key={vibe.id}
+                  vibe={vibe}
+                  onUse={(selectedVibe) => {
+                    onApplyVibe(selectedVibe)
+                    closeSidebar()
+                  }}
+                  onEdit={(editedVibe) => {
+                    setVibeToEdit(editedVibe)
+                    setIsEditorOpen(true)
+                  }}
+                />
+              ))}
+            </ul>
+          )}
+          <ActiveSidequests />
+        </>
       )}
     </SidebarModal>
   )

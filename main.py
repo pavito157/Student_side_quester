@@ -1,9 +1,18 @@
-
-from fastapi import FastAPI
 from firebase_config import db
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from auth import get_current_user_id
+from xp_service import complete_assigned_quest
+
 
 app = FastAPI(title="Sidequester API")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:5174"],
+    allow_methods=["*"],
+    allow_headers=["Authorization", "Content-Type"],
+   )
 
 @app.get("/")
 def home():
@@ -40,13 +49,14 @@ def assign_quest():
     }
 
 
-@app.post("/quests/{id}/complete")
-def complete_quest(id: int):
-    return {
-        "message": "Complete quest endpoint is ready",
-        "quest_id": id,
-        "status": "not implemented"
-    }
+@app.post("/quests/{assigned_quest_id}/complete")
+def complete_quest(assigned_quest_id: str, user_id: str = Depends(get_current_user_id)):
+    result = complete_assigned_quest(user_id, assigned_quest_id)
+    if result["status"] == "not_found":
+        raise HTTPException(status_code=404, detail="Quest or user not found")
+    if result["status"] in ("invalid_status", "invalid_xp"):
+        raise HTTPException(status_code=409, detail=f"Cannot complete: {result['status']}")
+    return result
 
 
 @app.get("/users/{id}")

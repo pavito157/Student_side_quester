@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { colors } from '../../constants/colors'
 import type { Vibe } from '../../types/vibe'
 import BudgetButton from '../Buttons/BudgetButton'
+import DistanceButton from '../Buttons/DistanceButton'
 import TimeButton from '../Buttons/TimeButton'
 import WhereButton from '../Buttons/WhereButton'
 

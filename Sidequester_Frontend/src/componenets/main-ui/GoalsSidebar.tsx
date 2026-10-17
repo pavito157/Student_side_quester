@@ -1,6 +1,6 @@
 import { SignInButton, SignedIn, SignedOut } from '@clerk/clerk-react'
-import { colors } from '../constants/colors'
-import UserGoals from './UserGoals'
+import { colors } from '../../constants/colors'
+import UserGoals from '../UserGoals'
 
 function GoalsSidebar() {
   return (

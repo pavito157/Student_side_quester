@@ -6,11 +6,11 @@ import {
   useClerk,
   useUser,
 } from '@clerk/clerk-react'
-import { colors } from '../constants/colors'
-import { BackIcon, CloseIcon } from './icons'
+import { colors } from '../../constants/colors'
+import { BackIcon, CloseIcon } from '../icons'
 import LocationPrivacySettings from './LocationPrivacySettings'
 import PreferencesEditor from './PreferencesEditor'
-import UserGoals from './UserGoals'
+import UserGoals from '../UserGoals'
 import SettingsOptionButton from './SettingsOptionButton'
 
 export type SettingsSection = 'preferences' | 'goals' | 'location' | 'help'

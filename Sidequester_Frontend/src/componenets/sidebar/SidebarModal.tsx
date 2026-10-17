@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react'
-import { colors } from '../constants/colors'
-import { BackIcon, CloseIcon } from './icons'
+import { colors } from '../../constants/colors'
+import { BackIcon, CloseIcon } from '../icons'
 
 interface SidebarModalProps {
   isOpen: boolean

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { colors } from '../constants/colors'
-import { getUserPreferences, saveUserPreferences } from '../services/userPreferences'
+import { colors } from '../../constants/colors'
+import { getUserPreferences, saveUserPreferences } from '../../services/userPreferences'
 
 interface PreferencesEditorProps {
   userId: string

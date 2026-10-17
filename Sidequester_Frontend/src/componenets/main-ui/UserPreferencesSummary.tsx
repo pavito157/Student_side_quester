@@ -1,7 +1,7 @@
 import { SignInButton, SignedIn, SignedOut, useUser } from '@clerk/clerk-react'
-import useFirestoreDocument from '../hooks/useFirestoreDocument'
-import { colors } from '../constants/colors'
-import TextBox from './TextBox'
+import useFirestoreDocument from '../../hooks/useFirestoreDocument'
+import { colors } from '../../constants/colors'
+import TextBox from '../TextBox'
 
 interface UserPreferencesSummaryProps {
   onEdit: () => void

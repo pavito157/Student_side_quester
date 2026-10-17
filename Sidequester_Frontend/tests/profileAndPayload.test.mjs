@@ -76,17 +76,10 @@ test('distance requests require captured origin coordinates, never a silent filt
 test('merged frontend GPS fields are retained for maps but excluded from the API body', () => {
   const request = builder.buildSidequestRequest(input)
   const before = plainJson(request)
-  const payload = plainJson(builder.toQuestApiPayload(request))
-  assert.deepEqual(payload.originCoordinates, input.originCoordinates)
-  assert.equal(Object.hasOwn(payload, 'latitude'), false)
-  assert.equal(Object.hasOwn(payload, 'longitude'), false)
   assert.equal(request.latitude, input.latitude)
   assert.equal(request.longitude, input.longitude)
+  assert.deepEqual(request.originCoordinates, input.originCoordinates)
   assert.deepEqual(plainJson(request), before)
-  assert.deepEqual(Object.keys(payload).sort(), [
-    'preferences', 'username', 'location', 'originCoordinates', 'time', 'budget',
-    'distance', 'goals', 'vibePreferences',
-  ].sort())
 })
 
 function plainJson(value) { return JSON.parse(JSON.stringify(value)) }

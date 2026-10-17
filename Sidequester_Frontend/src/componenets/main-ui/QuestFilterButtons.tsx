@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import { colors } from '../../constants/colors'
-import { buildSidequestRequest, toQuestApiPayload } from '../../services/sidequestJson'
+import { buildSidequestRequest } from '../../services/sidequestJson'
 import { saveSidequestRequest } from '../../services/sidequests'
 import {
   requestAssignedQuest,
@@ -176,7 +176,8 @@ function QuestFilterControls({
       })
 
       if (controller.signal.aborted) return
-      setRequestJson(JSON.stringify(toQuestApiPayload(request), null, 2))
+      const apiRequest = toQuestApiPayload(request)
+      setRequestJson(JSON.stringify(apiRequest, null, 2))
 
       if (!isSignedIn || !user) {
         throw new Error('Sign in with a verified email account to get a saved quest.')

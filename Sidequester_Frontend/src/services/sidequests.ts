@@ -1,7 +1,6 @@
 import {
   collection,
   doc,
-  getDoc,
   onSnapshot,
   runTransaction,
   serverTimestamp,
@@ -215,30 +214,91 @@ async function deleteSidequestIfExpired(userId: string, sidequestId: string): Pr
   })
 }
 
-export async function getActiveSidequest(
+export function subscribeToActiveSidequest(
   userId: string,
   sidequestId: string,
-): Promise<ActiveSidequest | null> {
+  onChange: (sidequest: ActiveSidequest | null) => void,
+  onError: (message: string) => void,
+): Unsubscribe {
   if (!userId.trim()) throw new Error('Sign in to view this sidequest.')
   if (!sidequestId.trim()) throw new Error('Choose a valid sidequest.')
 
   const sidequestRef = doc(db, 'Users', userId, 'sidequests', sidequestId)
-  const snapshot = await getDoc(sidequestRef)
-  if (!snapshot.exists()) return null
+  let expiryTimer: number | undefined
+  let isStopped = false
+  let isDeletingExpired = false
 
-  const data = snapshot.data()
-  const isActive = data.isActive === true || (
-    data.isActive === undefined && data.status === 'prepared'
+  const unsubscribe = onSnapshot(
+    sidequestRef,
+    (snapshot) => {
+      if (expiryTimer !== undefined) window.clearTimeout(expiryTimer)
+      expiryTimer = undefined
+
+      try {
+        if (!snapshot.exists()) {
+          onChange(null)
+          return
+        }
+
+        const data = snapshot.data()
+        const isActive = data.isActive === true || (
+          data.isActive === undefined && data.status === 'prepared'
+        )
+        if (!isActive) {
+          onChange(null)
+          return
+        }
+
+        const sidequest = parseActiveSidequest(snapshot.id, data)
+        const delay = Date.parse(sidequest.expiresAt) - Date.now()
+        if (delay <= 0) {
+          onChange(null)
+          if (!isDeletingExpired) {
+            isDeletingExpired = true
+            void deleteSidequestIfExpired(userId, sidequestId)
+              .catch((error: unknown) => {
+                if (!isStopped) {
+                  onError(error instanceof Error
+                    ? error.message
+                    : 'Could not remove this expired sidequest.')
+                }
+              })
+              .finally(() => {
+                isDeletingExpired = false
+              })
+          }
+          return
+        }
+
+        onChange(sidequest)
+        expiryTimer = window.setTimeout(() => {
+          onChange(null)
+          if (isDeletingExpired) return
+          isDeletingExpired = true
+          void deleteSidequestIfExpired(userId, sidequestId)
+            .catch((error: unknown) => {
+              if (!isStopped) {
+                onError(error instanceof Error
+                  ? error.message
+                  : 'Could not remove this expired sidequest.')
+              }
+            })
+            .finally(() => {
+              isDeletingExpired = false
+            })
+        }, delay + 50)
+      } catch (error) {
+        onError(error instanceof Error ? error.message : 'Could not read this sidequest.')
+      }
+    },
+    (error: Error) => onError(error.message),
   )
-  if (!isActive) return null
 
-  const sidequest = parseActiveSidequest(snapshot.id, data)
-  if (Date.parse(sidequest.expiresAt) <= Date.now()) {
-    await deleteSidequestIfExpired(userId, sidequestId)
-    return null
+  return () => {
+    isStopped = true
+    if (expiryTimer !== undefined) window.clearTimeout(expiryTimer)
+    unsubscribe()
   }
-
-  return sidequest
 }
 
 export function subscribeToActiveSidequests(

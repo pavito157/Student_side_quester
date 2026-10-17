@@ -5,7 +5,7 @@ import Header from './Header'
 import SidequestMap from './SidequestMap'
 import { colors } from '../../constants/colors'
 import { navigateTo } from '../../services/navigation'
-import { completeSidequest, getActiveSidequest } from '../../services/sidequests'
+import { completeSidequest, subscribeToActiveSidequest } from '../../services/sidequests'
 import type {
   ActiveSidequest,
   BudgetConstraint,
@@ -92,28 +92,14 @@ function SidequestDetailPage({ sidequestId }: { sidequestId: string }) {
   useEffect(() => {
     if (!isLoaded || !isSignedIn || !userId) return
 
-    let isCurrent = true
-    void getActiveSidequest(userId, sidequestId)
-      .then((sidequest) => {
-        if (isCurrent) {
-          setStoredState(sidequest
-            ? { key: routeKey, status: 'ready', sidequest }
-            : { key: routeKey, status: 'not-found' })
-        }
-      })
-      .catch((error: unknown) => {
-        if (isCurrent) {
-          setStoredState({
-            key: routeKey,
-            status: 'error',
-            message: error instanceof Error ? error.message : 'Could not load this sidequest.',
-          })
-        }
-      })
-
-    return () => {
-      isCurrent = false
-    }
+    return subscribeToActiveSidequest(
+      userId,
+      sidequestId,
+      (sidequest) => setStoredState(sidequest
+        ? { key: routeKey, status: 'ready', sidequest }
+        : { key: routeKey, status: 'not-found' }),
+      (message) => setStoredState({ key: routeKey, status: 'error', message }),
+    )
   }, [isLoaded, isSignedIn, userId, sidequestId, routeKey])
 
   async function handleComplete() {

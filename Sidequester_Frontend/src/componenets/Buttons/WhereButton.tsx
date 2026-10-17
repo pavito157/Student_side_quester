@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { colors } from '../../constants/colors'
+import CurrentLocationButton from './CurrentLocationButton'
 import { loadPlacesLibrary } from '../../services/googlePlaces'
 
 type WhereButtonProps = {
@@ -92,18 +93,21 @@ function WhereButton({ value, onChange }: WhereButtonProps) {
         className="google-place-autocomplete-shell min-h-12 w-full rounded-lg"
         aria-busy={isLoading}
       />
-      <button
-        type="button"
-        aria-pressed={value === 'any'}
-        onClick={() => onChange('any')}
-        className="mt-2 cursor-pointer rounded-md px-2 py-1 text-xs font-medium transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
-        style={{
-          color: value === 'any' ? colors.primary : colors.muted,
-          outlineColor: colors.primary,
-        }}
-      >
-        Anywhere
-      </button>
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <CurrentLocationButton onLocationFound={onChange} />
+        <button
+          type="button"
+          aria-pressed={value === 'any'}
+          onClick={() => onChange('any')}
+          className="cursor-pointer rounded-md px-2 py-1 text-xs font-medium transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+          style={{
+            color: value === 'any' ? colors.primary : colors.muted,
+            outlineColor: colors.primary,
+          }}
+        >
+          Anywhere
+        </button>
+      </div>
       {loadError && (
         <p className="mt-2 text-xs" role="alert" style={{ color: colors.error }}>
           {loadError}

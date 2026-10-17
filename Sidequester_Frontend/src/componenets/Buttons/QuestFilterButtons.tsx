@@ -10,6 +10,8 @@ type Filters = {
   where: string
   time: string
   budget: string
+  customTime: string
+  customBudget: string
 }
 
 const sidequests = [
@@ -70,11 +72,30 @@ function QuestFilterButtons() {
     where: '',
     time: '',
     budget: '',
+    customTime: '',
+    customBudget: '',
   })
   const [suggestion, setSuggestion] = useState('')
 
   function generateSidequest() {
-    if (!selectedFilters.where || !selectedFilters.time || !selectedFilters.budget) {
+    const customTime = Number(selectedFilters.customTime)
+    if (
+      selectedFilters.time === 'custom' &&
+      (!selectedFilters.customTime || !Number.isInteger(customTime) || customTime <= 0)
+    ) {
+      setSuggestion('Custom time must be a whole number of minutes greater than zero.')
+      return
+    }
+
+    if (
+      !selectedFilters.where ||
+      !selectedFilters.time ||
+      !selectedFilters.budget ||
+      (selectedFilters.budget === 'custom' &&
+        (selectedFilters.customBudget === '' ||
+          !Number.isFinite(Number(selectedFilters.customBudget)) ||
+          Number(selectedFilters.customBudget) < 0))
+    ) {
       setSuggestion('Please select an option for Where, Time, and Budget.')
       return
     }
@@ -94,15 +115,21 @@ function QuestFilterButtons() {
       const matchesTime =
         !selectedFilters.time ||
         selectedFilters.time === 'any' ||
-        (timeLimit === 120 ? sidequest.minutes >= timeLimit : sidequest.minutes <= timeLimit)
+        (selectedFilters.time === 'custom'
+          ? sidequest.minutes <= Number(selectedFilters.customTime)
+          : timeLimit === 120
+            ? sidequest.minutes >= timeLimit
+            : sidequest.minutes <= timeLimit)
       const matchesBudget =
         !selectedFilters.budget ||
         selectedFilters.budget === 'any' ||
-        (selectedFilters.budget === '0'
-          ? sidequest.cost === 0
-          : selectedFilters.budget === '10'
-            ? sidequest.cost < 10
-            : sidequest.cost >= 10 && sidequest.cost <= 25)
+        (selectedFilters.budget === 'custom'
+          ? sidequest.cost <= Number(selectedFilters.customBudget)
+          : selectedFilters.budget === '0'
+            ? sidequest.cost === 0
+            : selectedFilters.budget === '10'
+              ? sidequest.cost < 10
+              : sidequest.cost >= 10 && sidequest.cost <= 25)
 
       return matchesWhere && matchesTime && matchesBudget
     })
@@ -129,15 +156,25 @@ function QuestFilterButtons() {
         />
         <TimeButton
           value={selectedFilters.time}
+          customValue={selectedFilters.customTime}
           onChange={(time) => {
             setSelectedFilters((currentFilters) => ({ ...currentFilters, time }))
+            setSuggestion('')
+          }}
+          onCustomChange={(customTime) => {
+            setSelectedFilters((currentFilters) => ({ ...currentFilters, customTime }))
             setSuggestion('')
           }}
         />
         <BudgetButton
           value={selectedFilters.budget}
+          customValue={selectedFilters.customBudget}
           onChange={(budget) => {
             setSelectedFilters((currentFilters) => ({ ...currentFilters, budget }))
+            setSuggestion('')
+          }}
+          onCustomChange={(customBudget) => {
+            setSelectedFilters((currentFilters) => ({ ...currentFilters, customBudget }))
             setSuggestion('')
           }}
         />

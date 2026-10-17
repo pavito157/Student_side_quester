@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   SignInButton,
   SignUpButton,
@@ -6,7 +6,7 @@ import {
   SignedOut,
   UserButton,
 } from '@clerk/clerk-react'
-import { MenuIcon, SettingsIcon } from './icons'
+import { AccountIcon, MenuIcon, SettingsIcon } from './icons'
 import { colors } from '../constants/colors'
 import SidebarModal from './SidebarModal'
 
@@ -20,6 +20,30 @@ function Header({
   onSettingsClick,
 }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isAuthMenuOpen, setIsAuthMenuOpen] = useState(false)
+  const authMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!isAuthMenuOpen) return
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!authMenuRef.current?.contains(event.target as Node)) {
+        setIsAuthMenuOpen(false)
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setIsAuthMenuOpen(false)
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isAuthMenuOpen])
 
   return (
     <>
@@ -47,34 +71,6 @@ function Header({
           </h1>
 
           <div className="flex items-center gap-1">
-            <SignedOut>
-              <div className="flex items-center gap-1">
-                <SignInButton mode="modal">
-                  <button
-                    type="button"
-                    className="rounded-lg px-2 py-2 text-sm font-medium transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 sm:px-3"
-                    style={{ color: colors.foreground, outlineColor: colors.primary }}
-                  >
-                    Sign in
-                  </button>
-                </SignInButton>
-                <SignUpButton mode="modal">
-                  <button
-                    type="button"
-                    className="rounded-lg px-2 py-2 text-sm font-semibold transition-colors sm:px-3"
-                    style={{
-                      backgroundColor: colors.primary,
-                      color: colors.primaryForeground,
-                    }}
-                  >
-                    Sign up
-                  </button>
-                </SignUpButton>
-              </div>
-            </SignedOut>
-            <SignedIn>
-              <UserButton />
-            </SignedIn>
             <button
               type="button"
               aria-label="Settings"
@@ -84,6 +80,61 @@ function Header({
             >
               <SettingsIcon />
             </button>
+            <SignedOut>
+              <div className="relative" ref={authMenuRef}>
+                <button
+                  type="button"
+                  aria-label="Sign in or sign up"
+                  aria-haspopup="true"
+                  aria-expanded={isAuthMenuOpen}
+                  aria-controls="auth-dropdown"
+                  onClick={() => setIsAuthMenuOpen((open) => !open)}
+                  className="rounded-lg p-2 transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+                  style={{ color: colors.primary, outlineColor: colors.primary }}
+                >
+                  <AccountIcon />
+                </button>
+                {isAuthMenuOpen && (
+                  <div
+                    id="auth-dropdown"
+                    aria-label="Authentication options"
+                    className="absolute right-0 top-full z-20 mt-2 w-44 rounded-xl border p-2 shadow-xl"
+                    style={{
+                      backgroundColor: colors.surfaceRaised,
+                      borderColor: colors.border,
+                    }}
+                  >
+                    <SignInButton mode="modal">
+                      <button
+                        type="button"
+                        onClick={() => setIsAuthMenuOpen(false)}
+                        className="w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+                        style={{ color: colors.foreground, outlineColor: colors.primary }}
+                      >
+                        Sign in
+                      </button>
+                    </SignInButton>
+                    <SignUpButton mode="modal">
+                      <button
+                        type="button"
+                        onClick={() => setIsAuthMenuOpen(false)}
+                        className="mt-1 w-full rounded-lg px-3 py-2.5 text-left text-sm font-semibold transition-colors hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2"
+                        style={{
+                          backgroundColor: colors.primary,
+                          color: colors.primaryForeground,
+                          outlineColor: colors.primary,
+                        }}
+                      >
+                        Sign up
+                      </button>
+                    </SignUpButton>
+                  </div>
+                )}
+              </div>
+            </SignedOut>
+            <SignedIn>
+              <UserButton />
+            </SignedIn>
           </div>
         </div>
       </header>

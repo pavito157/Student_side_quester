@@ -458,9 +458,26 @@ body::before {
   }
 }
 
+.route-transition {
+  min-height: 100vh;
+  animation: route-arrive 300ms ease-out both;
+}
+
+@keyframes route-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(root),
-  ::view-transition-new(root) {
+  ::view-transition-new(root),
+  .route-transition {
     animation-duration: 0.01ms;
   }
 }
@@ -733,6 +750,8 @@ body::before {
 }
 
 body {
+  min-height: 100vh;
+  background-color: #06140e;
   background-image:
     radial-gradient(ellipse at 50% -20%, rgb(14 46 32 / 62%) 0%, transparent 64%),
     linear-gradient(180deg, #06140e 0%, #081b12 55%, #06140e 100%);

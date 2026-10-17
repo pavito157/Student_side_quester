@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Header from './componenets/main-ui/Header'
 import CinematicHero from './componenets/main-ui/CinematicHero'
 import LeaderboardPage from './componenets/main-ui/LeaderboardPage'
@@ -113,9 +113,24 @@ function HomePage() {
 }
 
 function App() {
-  return window.location.pathname.replace(/\/+$/, '') === '/leaderboard'
-    ? <LeaderboardPage />
-    : <HomePage />
+  const [pathname, setPathname] = useState(() =>
+    window.location.pathname.replace(/\/+$/, '') || '/',
+  )
+
+  useEffect(() => {
+    function updatePathname() {
+      setPathname(window.location.pathname.replace(/\/+$/, '') || '/')
+    }
+
+    window.addEventListener('popstate', updatePathname)
+    return () => window.removeEventListener('popstate', updatePathname)
+  }, [])
+
+  return (
+    <div key={pathname} className="route-transition">
+      {pathname === '/leaderboard' ? <LeaderboardPage /> : <HomePage />}
+    </div>
+  )
 }
 
 export default App

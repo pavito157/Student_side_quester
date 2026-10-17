@@ -8,6 +8,7 @@ import {
 } from '@clerk/clerk-react'
 import { AccountIcon, LeaderboardIcon, MenuIcon, SettingsIcon } from '../icons'
 import { colors } from '../../constants/colors'
+import { navigateTo } from '../../services/navigation'
 
 interface HeaderProps {
   title?: string
@@ -66,6 +67,11 @@ function Header({
           {!onMenuClick && (
             <a
               href="/"
+              onClick={(event) => {
+                if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+                event.preventDefault()
+                navigateTo('/')
+              }}
               className="hud-button w-fit max-w-full justify-self-start rounded-xl px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
               style={{ color: colors.foreground, outlineColor: colors.primary }}
             >
@@ -95,6 +101,11 @@ function Header({
             </button>}
             <a
               href="/leaderboard"
+              onClick={(event) => {
+                if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+                event.preventDefault()
+                navigateTo('/leaderboard')
+              }}
               aria-label="Leaderboard"
               className="hud-button inline-flex size-10 items-center justify-center gap-2 p-0 text-xs font-bold uppercase tracking-wide transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 sm:size-auto sm:min-h-10 sm:px-3 sm:py-2 sm:text-sm"
               style={{

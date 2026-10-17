@@ -1,132 +1,201 @@
-import { useEffect, useRef, useState } from "react";
-import { SignInButton, SignedIn, SignedOut, useUser } from "@clerk/clerk-react";
-import { colors } from "../constants/colors";
-import PreferencesEditor from "./PreferencesEditor";
+import { useEffect, useRef, useState } from 'react'
+import {
+  SignInButton,
+  SignedIn,
+  SignedOut,
+  useClerk,
+  useUser,
+} from '@clerk/clerk-react'
+import { colors } from '../constants/colors'
+import { BackIcon, CloseIcon } from './icons'
+import LocationPrivacySettings from './LocationPrivacySettings'
+import PreferencesEditor from './PreferencesEditor'
+import SettingsOptionButton from './SettingsOptionButton'
+
+type SettingsSection = 'preferences' | 'location' | 'help'
 
 interface SettingsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen: boolean
+  onClose: () => void
 }
 
 function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const [showPreferences, setShowPreferences] = useState(false);
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const [section, setSection] = useState<SettingsSection | null>(null)
+  const { openUserProfile } = useClerk()
 
   useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
+    const dialog = dialogRef.current
+    if (!dialog) return
 
-    if (isOpen && !dialog.open) dialog.showModal();
-    if (!isOpen && dialog.open) dialog.close();
-  }, [isOpen]);
+    if (isOpen && !dialog.open) dialog.showModal()
+    if (!isOpen && dialog.open) dialog.close()
+  }, [isOpen])
+
+  function closeSettings() {
+    setSection(null)
+    onClose()
+  }
+
+  const title =
+    section === 'preferences'
+      ? 'Preferences'
+      : section === 'location'
+        ? 'Location & privacy'
+        : section === 'help'
+          ? 'Help & about'
+          : 'Settings'
 
   return (
     <dialog
       ref={dialogRef}
       aria-labelledby="settings-title"
       onCancel={(event) => {
-        event.preventDefault();
-        onClose();
+        event.preventDefault()
+        closeSettings()
       }}
       onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (event.target === event.currentTarget) closeSettings()
       }}
-      className="m-auto w-[min(92vw,32rem)] rounded-2xl border p-5 shadow-2xl backdrop:bg-black/60 sm:p-7"
+      className="m-auto max-h-[min(90dvh,48rem)] w-[min(92vw,32rem)] overflow-y-auto rounded-2xl border p-5 shadow-2xl backdrop:bg-black/60 sm:rounded-3xl sm:p-7"
       style={{
         backgroundColor: colors.surface,
         borderColor: colors.border,
         color: colors.foreground,
       }}
     >
-      <header className="mb-6 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          {showPreferences && (
+      <header className="mb-6 flex items-start justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          {section && (
             <button
               type="button"
               aria-label="Back to settings"
-              onClick={() => setShowPreferences(false)}
-              className="cursor-pointer rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-white/10"
-              style={{ color: colors.muted }}
+              onClick={() => setSection(null)}
+              className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+              style={{
+                color: colors.foreground,
+                backgroundColor: colors.surfaceRaised,
+                borderColor: colors.border,
+                outlineColor: colors.primary,
+              }}
             >
-              Back
+              <BackIcon />
             </button>
           )}
-          <h2 id="settings-title" className="text-xl font-semibold">
-            {showPreferences ? "Preferences" : "Settings"}
-          </h2>
+          <div className="min-w-0">
+            {!section && (
+              <p
+                className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.18em]"
+                style={{ color: colors.primary }}
+              >
+                Personalize
+              </p>
+            )}
+            <h2 id="settings-title" className="truncate text-xl font-semibold tracking-tight">
+              {title}
+            </h2>
+          </div>
         </div>
         <button
           type="button"
           aria-label="Close settings"
-          onClick={onClose}
-          className="cursor-pointer rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+          onClick={closeSettings}
+          className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-xl transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
           style={{ color: colors.muted, outlineColor: colors.primary }}
         >
-          Close
+          <CloseIcon />
         </button>
       </header>
 
-      {showPreferences ? (
+      {section === 'preferences' ? (
         <SignedIn>
           <UserPreferences />
         </SignedIn>
+      ) : section === 'location' ? (
+        <LocationPrivacySettings />
+      ) : section === 'help' ? (
+        <HelpAndAbout />
       ) : (
-        <SignedIn>
-          <div>
-            <p className="mb-4 text-sm" style={{ color: colors.muted }}>
-              Personalize your Sidequester experience.
-            </p>
-            <button
-              type="button"
-              onClick={() => setShowPreferences(true)}
-              className="w-full cursor-pointer rounded-xl border p-4 text-left transition-all hover:-translate-y-px hover:border-primary hover:bg-white/10 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2"
-              style={{
-                backgroundColor: colors.surfaceRaised,
-                borderColor: colors.border,
-                color: colors.foreground,
-                outlineColor: colors.primary,
-              }}
-            >
-              <span className="block font-medium">Preferences</span>
-              <span
-                className="mt-1 block text-sm"
-                style={{ color: colors.muted }}
-              >
-                Save the activities and experiences you enjoy.
-              </span>
-            </button>
-          </div>
-        </SignedIn>
-      )}
-
-      <SignedOut>
-        <div>
+        <div className="space-y-3">
           <p className="mb-4 text-sm" style={{ color: colors.muted }}>
-            Sign in to manage your personal preferences.
+            Manage your account and personalize your Sidequester experience.
           </p>
-          <SignInButton mode="modal">
-            <button
-              type="button"
-              className="cursor-pointer rounded-lg px-4 py-2.5 text-sm font-semibold"
-              style={{
-                backgroundColor: colors.primary,
-                color: colors.primaryForeground,
+          <SignedIn>
+            <SettingsOptionButton
+              title="Account & security"
+              description="Manage your profile, sign-in methods, and account security."
+              onClick={() => {
+                closeSettings()
+                openUserProfile()
               }}
-            >
-              Sign in
-            </button>
-          </SignInButton>
+            />
+            <SettingsOptionButton
+              title="Preferences"
+              description="Save the activities and experiences you enjoy."
+              onClick={() => setSection('preferences')}
+            />
+          </SignedIn>
+          <SignedOut>
+            <SignInButton mode="modal">
+              <SettingsOptionButton
+                title="Sign in to your account"
+                description="Manage your profile and save your personal preferences."
+                onClick={closeSettings}
+              />
+            </SignInButton>
+          </SignedOut>
+          <SettingsOptionButton
+            title="Location & privacy"
+            description="Check location permission and learn how location is used."
+            onClick={() => setSection('location')}
+          />
+          <SettingsOptionButton
+            title="Help & about"
+            description="Learn how to use Sidequester and find quick answers."
+            onClick={() => setSection('help')}
+          />
         </div>
-      </SignedOut>
+      )}
     </dialog>
-  );
+  )
 }
 
 function UserPreferences() {
-  const { user } = useUser();
-  if (!user) return <p style={{ color: colors.muted }}>Loading account...</p>;
+  const { user } = useUser()
+  if (!user) return <p style={{ color: colors.muted }}>Loading account...</p>
 
-  return <PreferencesEditor userId={user.id} />;
+  return <PreferencesEditor userId={user.id} />
 }
 
-export default SettingsModal;
+function HelpAndAbout() {
+  return (
+    <div className="space-y-4 text-sm leading-relaxed">
+      <section>
+        <h3 className="font-semibold">How it works</h3>
+        <p className="mt-1" style={{ color: colors.muted }}>
+          Choose a place, how much time you have, and your budget. Sidequester will suggest an
+          activity that fits. Custom time and budget options are available in their menus.
+        </p>
+      </section>
+      <section>
+        <h3 className="font-semibold">Location</h3>
+        <p className="mt-1" style={{ color: colors.muted }}>
+          Location is optional. You can choose a place manually or use the location button in
+          the Where filter. Automatic location is only used when you’re signed in and have
+          already allowed it in your browser.
+        </p>
+      </section>
+      <section
+        className="rounded-xl border p-4"
+        style={{ backgroundColor: colors.surfaceRaised, borderColor: colors.border }}
+      >
+        <h3 className="font-semibold">About Sidequester</h3>
+        <p className="mt-1" style={{ color: colors.muted }}>
+          Sidequester helps you find small, approachable adventures that fit your day.
+        </p>
+      </section>
+    </div>
+  )
+}
+
+export default SettingsModal

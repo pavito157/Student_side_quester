@@ -114,7 +114,19 @@ class GenerationTests(unittest.TestCase):
                 self.generate()
                 config = json.loads(self.requests[0].content)["generationConfig"]
                 self.assertEqual(config["thinkingConfig"]["thinkingLevel"], thinking)
-                self.assertEqual(config["maxOutputTokens"], 1536)
+                self.assertEqual(config["maxOutputTokens"], 3072)
+
+    def test_truncated_and_safety_blocked_responses_have_actionable_errors(self):
+        for finish_reason, message in [
+            ("MAX_TOKENS", "Gemini's response was cut off."),
+            ("SAFETY", "Gemini blocked this quest request."),
+        ]:
+            with self.subTest(finish_reason=finish_reason):
+                self.http(body={"candidates": [{"finishReason": finish_reason}]})
+                with self.assertRaises(HTTPException) as caught:
+                    self.generate()
+                self.assertEqual(caught.exception.status_code, 502)
+                self.assertIn(message, caught.exception.detail)
 
     def test_connection_pool_is_reused_and_closed_at_shutdown(self):
         generation.close_gemini_http_client()
@@ -252,7 +264,7 @@ class GenerationTests(unittest.TestCase):
             self.assertIn("cannot prove the activity was performed", rules)
         # Prompt improvements must not change the response contract or latency controls.
         self.assertEqual(body["generationConfig"]["candidateCount"], 1)
-        self.assertEqual(body["generationConfig"]["maxOutputTokens"], 1536)
+        self.assertEqual(body["generationConfig"]["maxOutputTokens"], 3072)
 
     def test_replacement_prompt_contains_activity_but_no_previous_identity_or_gps(self):
         from types import SimpleNamespace

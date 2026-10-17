@@ -396,13 +396,11 @@ the distance/changing preferences instead of repeatedly resubmitting automatical
 
 ## Sidequest button wiring
 
-The existing Sidequest me button now calls `requestAssignedQuest(uid, payload)`
-for signed-in students. The modal displays the returned title, description, steps,
-place, estimated minutes/cost and **`quest.xpReward` XP on completion**. It shows
-whether the assignment is new or reused, the full response JSON, and a download
-button for `sidequest-{quest.id}.json`. The downloaded object is the entire server
-response (`quest`, `assignment`, `reusedExisting`), not the outgoing preferences.
-`assignment.xpAwarded` stays 0 at assignment time. No client code awards XP.
+The Sidequest me button starts the generation flow. Signed-in students call
+`requestAssignedQuest(uid, payload)` and navigate to the saved quest detail page;
+guests call `requestGeneratedQuest(null, payload)` and see an unsaved preview.
+Only FastAPI saves assignments. `assignment.xpAwarded` stays 0 at assignment time,
+and the client does not award XP.
 
 Examples and schema remain `contracts/assignment.response.live.example.json` and
 `contracts/assignment.response.schema.json`. The response shape did not change.
@@ -412,25 +410,21 @@ clears them. Distance without captured coordinates shows an actionable error; a
 saved vibe with only a location label must be selected again to capture coordinates.
 The prior `getCurrentLocationLabel` helper remains available for other callers.
 
-Loading disables duplicate submission. Account changes/unmounts abort outstanding
-requests and clear account-specific UI state. Backend error messages display in
-the modal. FastAPI alone saves the generated assignment; the button no longer creates a
-second browser-owned prepared request. Guest clicks show a
-sign-in requirement and do not call the protected assignment endpoint. Closing
-the modal hides it and does not cancel a server-side save already in progress.
+Loading disables duplicate submission. Backend errors display on the quest page.
+The button no longer creates a second browser-owned prepared request, and guests do
+not call the protected assignment endpoint.
 
-Component tests exercise submission payloads, errors, account-switch cancellation,
-duplicate clicks, absence of duplicate client writes, reused quests, reward presentation and exact
-JSON-download contents. The browser loads the app; a real signed-in button click
-against production Firestore remains a manual check (no student login was automated).
+Component tests exercise submission payloads, guest previews, duplicate clicks,
+backend response validation and user-owned quest storage. A real signed-in button
+click against production Firestore remains a manual check (no student login was automated).
 
 Manual check: run the backend and frontend, sign in with a verified-email account,
 select a place/current location if using distance, click Sidequest me. Confirm
-Network POST `/quests/assign` returns 201 (new) or 200 (reused), inspect the modal,
-and download the JSON. Confirm its `quest.xpReward` equals the badge and its
-`assignment.xpAwarded` is 0. Click again and confirm the same active quest is reused.
-The quest list/detail page now reads the backend-owned user subcollection, and
-the detail Complete button calls FastAPI with fresh GPS.
+Network POST `/quests/assign` returns 201 (new) or 200 (reused), and the saved quest
+appears at `Users/{uid}/sidequests/{quest.id}`. Confirm the detail page shows the
+stored reward and that `assignment.xpAwarded` is 0. Click again and confirm the same
+active quest is reused. The quest list/detail page reads the backend-owned user
+subcollection, and the detail Complete button calls FastAPI with fresh GPS.
 
 ## Hackathon authentication update
 

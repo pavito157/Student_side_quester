@@ -10,10 +10,11 @@ import { colors } from '../../constants/colors'
 import { BackIcon, CloseIcon } from '../icons'
 import LocationPrivacySettings from './LocationPrivacySettings'
 import PreferencesEditor from './PreferencesEditor'
+import DormSettings from './DormSettings'
 import UserGoals from '../UserGoals'
 import SettingsOptionButton from './SettingsOptionButton'
 
-export type SettingsSection = 'preferences' | 'goals' | 'location' | 'help'
+export type SettingsSection = 'preferences' | 'goals' | 'location' | 'help' | 'dorm'
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -48,7 +49,9 @@ function SettingsModal({
           ? 'Location & privacy'
           : section === 'help'
             ? 'Help & about'
-            : 'Settings'
+            : section === 'dorm'
+              ? 'Residence'
+              : 'Settings'
 
   return (
     <dialog
@@ -119,6 +122,10 @@ function SettingsModal({
         <SignedIn>
           <UserGoals idPrefix="settings" />
         </SignedIn>
+      ) : section === 'dorm' ? (
+        <SignedIn>
+          <UserDormSettings />
+        </SignedIn>
       ) : section === 'location' ? (
         <LocationPrivacySettings />
       ) : section === 'help' ? (
@@ -146,6 +153,11 @@ function SettingsModal({
               title="Goals"
               description="Add specific outcomes you want to work toward with sidequests."
               onClick={() => onSectionChange('goals')}
+            />
+            <SettingsOptionButton
+              title="Residence"
+              description="Choose or update your UF residence for dorm XP rankings."
+              onClick={() => onSectionChange('dorm')}
             />
           </SignedIn>
           <SignedOut>
@@ -178,6 +190,13 @@ function UserPreferences() {
   if (!user) return <p style={{ color: colors.muted }}>Loading account...</p>
 
   return <PreferencesEditor userId={user.id} />
+}
+
+function UserDormSettings() {
+  const { user } = useUser()
+  if (!user) return <p style={{ color: colors.muted }}>Loading account…</p>
+
+  return <DormSettings userId={user.id} />
 }
 
 function HelpAndAbout() {

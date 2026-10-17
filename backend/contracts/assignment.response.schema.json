@@ -156,6 +156,13 @@
           "minimum": 0,
           "title": "Xpawarded",
           "type": "integer"
+        },
+        "replacementCount": {
+          "default": 0,
+          "maximum": 3,
+          "minimum": 0,
+          "title": "Replacementcount",
+          "type": "integer"
         }
       },
       "required": [

@@ -1,3 +1,47 @@
+# Current behavior: three independent active quests
+
+This section supersedes the single-active/replacement behavior in the historical
+integration notes below. Sidequest me and Generate another now **add** quests,
+up to three active quests total. They never replace an existing quest. Each card
+in Quick menu opens its own description, steps, original request, verified map,
+XP reward, GPS completion and confirmed Abandon controls. Completing/abandoning
+one removes only that quest and frees a slot. Generation/abandonment awards no XP;
+completion still awards user and dorm XP once with the existing GPS checks.
+
+- `POST /quests/assign`: HTTP 201, unchanged saved-assignment JSON.
+- `POST /quests/{quest.id}/another`: HTTP 201, same JSON, source remains active.
+- `GET /me/active-quests`: HTTP 200 array of all saved active assignments (0–3).
+- `/me/quest` remains a singular compatibility view of the most recent quest.
+- Deprecated `/quests/{quest.id}/replace` now adds non-destructively too.
+- Fourth active assignment: HTTP 429 before generation; final transactional check
+  also prevents concurrent requests exceeding three. Stale source ID: HTTP 409.
+
+`getActiveQuests` reconciles old replacement chains once on account load; the
+Firestore listener keeps the list/count current across routes. Up to two recent
+skipped ancestors of an active quest are restored (three total), with a per-user
+schema marker preventing repeat recovery. Deleted completed/abandoned quests are
+never recreated. `replacementCount` is retained only as legacy response metadata;
+remaining slots are based on the active list, never that counter.
+
+Manual test: refresh, generate until three active cards appear in Quick menu,
+select each and read its contents/steps. Refresh again. Abandon the second card;
+confirm only it disappears, XP is unchanged, and another generation is allowed.
+At three, Generate another is disabled and direct POSTs return 429. GPS completion
+of one selected quest awards its stored user/dorm reward once and leaves the
+other quests intact. After an ambiguous network error, reload the list before
+retrying a POST, since it may already have committed.
+
+Validation: 209 backend tests passed with local Firestore emulator transactions;
+70 frontend tests, production build and lint passed. Tests cover capacity races,
+individual completion/abandonment, one-time alternative recovery, all three card
+links, full contents/steps, and account changes. No production test records created.
+The local API was restarted with the new endpoints.
+
+See [TASK5_API.md](TASK5_API.md) for the current contract. Earlier measurements
+and behavior below describe the implementation at the time they were recorded.
+
+---
+
 # Quest integration: frontend handoff and test report
 
 Status on October 17, 2026: **Destination-first generation works through FastAPI.

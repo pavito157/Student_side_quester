@@ -64,4 +64,5 @@ export type ActiveSidequest = {
   xpValue: number
   createdAt: string
   userRequest?: Record<string, unknown> | null
+  replacementCount?: number
 }

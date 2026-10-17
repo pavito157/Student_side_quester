@@ -2,10 +2,12 @@
 
 The saved-assignment API, frontend helpers, examples and integration boundary are
 in [TASK5_API.md](TASK5_API.md). `POST /quests/assign` saves a verified assignment
-or reuses the active one; `GET /me/quest` reloads it. New saves require the pending
-teammate destination resolver. `/quests/generate` remains an unsaved Gemini preview,
+and permits up to three independent active quests per user.
+`GET /me/active-quests` returns all of them; each can be viewed, GPS-completed, or
+abandoned independently. `/quests/{quest_id}/another` adds without replacing.
+New saves use the connected Gainesville destination resolver. `/quests/generate` remains an unsaved Gemini preview,
 and the original fixed test moved to `/quests/preview`. GET/completion routes are
-now mounted. No frontend components were changed.
+now mounted. The frontend button, quick menu and detail pages are connected.
 
 See [AUTH_SETUP.md](AUTH_SETUP.md) for Clerk-to-Firebase sign-in and
 [TASK4_GEMINI.md](TASK4_GEMINI.md) for backend-only Gemini configuration. The

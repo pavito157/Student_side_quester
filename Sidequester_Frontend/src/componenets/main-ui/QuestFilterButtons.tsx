@@ -3,6 +3,7 @@ import { useUser } from '@clerk/clerk-react'
 import { colors } from '../../constants/colors'
 import { buildSidequestRequest, toQuestApiPayload } from '../../services/sidequestJson'
 import {
+  MAX_ACTIVE_QUESTS,
   type GenerateQuestPayload,
 } from '../../services/questAssignment'
 import { getUserGoals, getUserPreferences } from '../../services/userPreferences'
@@ -31,6 +32,7 @@ export type QuestFilters = {
 }
 
 interface QuestFilterButtonsProps {
+  activeQuestCount?: number
   filters: QuestFilters
   setFilters: Dispatch<SetStateAction<QuestFilters>>
   activeVibe: Vibe | null
@@ -104,6 +106,7 @@ function QuestFilterControls({
   activeVibe,
   onClearActiveVibe,
   onStartQuestGeneration,
+  activeQuestCount = 0,
 }: QuestFilterButtonsProps) {
   const { isLoaded, isSignedIn, user } = useUser()
   const [isLoadingPreview, setIsLoadingPreview] = useState(false)
@@ -112,7 +115,7 @@ function QuestFilterControls({
   const [guestPreference, setGuestPreference] = useState('')
 
   async function showSidequestRequest() {
-    if (inFlightRef.current) return
+    if (inFlightRef.current || activeQuestCount >= MAX_ACTIVE_QUESTS) return
     inFlightRef.current = true
     setIsLoadingPreview(true)
     setPreviewError('')
@@ -324,7 +327,12 @@ function QuestFilterControls({
         </section>
       )}
 
-      <SidequestMeButton onClick={() => void showSidequestRequest()} isLoading={isLoadingPreview} />
+      <SidequestMeButton onClick={() => void showSidequestRequest()} isLoading={isLoadingPreview} disabled={activeQuestCount >= MAX_ACTIVE_QUESTS} />
+      {activeQuestCount >= MAX_ACTIVE_QUESTS && (
+        <p className="text-sm" style={{ color: colors.muted }}>
+          You have three active quests. Open Quick menu to view them, or complete or abandon one to free a slot.
+        </p>
+      )}
       {previewError && (
         <p role="alert" className="text-sm" style={{ color: colors.error }}>
           {previewError}

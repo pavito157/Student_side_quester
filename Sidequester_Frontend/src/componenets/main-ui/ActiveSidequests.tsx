@@ -1,3 +1,4 @@
+import { MAX_ACTIVE_QUESTS } from '../../services/questAssignment'
 import { colors } from '../../constants/colors'
 import { navigateTo } from '../../services/navigation'
 import type { ActiveSidequest as ActiveSidequestRecord } from '../../types/sidequest'
@@ -31,7 +32,7 @@ function ActiveSidequests({
             color: colors.foreground,
             backgroundColor: colors.surfaceRaised,
           }}>
-            {sidequests.length}
+            {sidequests.length}/{MAX_ACTIVE_QUESTS}
           </span>
         )}
       </div>

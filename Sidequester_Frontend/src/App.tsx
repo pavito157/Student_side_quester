@@ -14,7 +14,7 @@ import type { Vibe } from './types/vibe'
 import { subscribeToActiveSidequests } from './services/sidequests'
 import type { ActiveSidequest } from './types/sidequest'
 import { colors } from './constants/colors'
-import { requestAssignedQuest, requestReplacementQuest, type GenerateQuestPayload } from './services/questAssignment'
+import { getActiveQuests, requestAssignedQuest, requestAdditionalQuest, type GenerateQuestPayload } from './services/questAssignment'
 import { navigateTo } from './services/navigation'
 import { getUserGoals, getUserPreferences } from './services/userPreferences'
 
@@ -31,22 +31,17 @@ type QuestGenerationState =
   | { status: 'error'; message: string }
 
 type HomePageProps = {
+  activeSidequestsState: ActiveSidequestsState
   onStartQuestGeneration: (userId: string, payload: GenerateQuestPayload) => Promise<void>
 }
 
-function HomePage({ onStartQuestGeneration }: HomePageProps) {
-  const { isLoaded, isSignedIn, user } = useUser()
+function HomePage({ onStartQuestGeneration, activeSidequestsState }: HomePageProps) {
+  const { user } = useUser()
   const userId = user?.id
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isVibesSidebarOpen, setIsVibesSidebarOpen] = useState(false)
   const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null)
   const [vibeToApply, setVibeToApply] = useState<Vibe | null>(null)
-  const [activeSidequestsState, setActiveSidequestsState] = useState<ActiveSidequestsState>({
-    userId: null,
-    sidequests: [],
-    isLoading: true,
-    error: '',
-  })
   const [questFilters, setQuestFilters] = useState<QuestFilters>({
     where: '',
     latitude: null,
@@ -58,26 +53,6 @@ function HomePage({ onStartQuestGeneration }: HomePageProps) {
     distance: 'any',
     customDistance: '',
   })
-
-  useEffect(() => {
-    if (!isLoaded || !isSignedIn || !userId) return
-
-    return subscribeToActiveSidequests(
-      userId,
-      (sidequests) => setActiveSidequestsState({
-        userId,
-        sidequests,
-        isLoading: false,
-        error: '',
-      }),
-      (error) => setActiveSidequestsState({
-        userId,
-        sidequests: [],
-        isLoading: false,
-        error,
-      }),
-    )
-  }, [isLoaded, isSignedIn, userId])
 
   const currentActiveSidequests = activeSidequestsState.userId === userId
     ? activeSidequestsState
@@ -142,6 +117,7 @@ function HomePage({ onStartQuestGeneration }: HomePageProps) {
             </div>
             <div className="rpg-panel terminal-panel overflow-hidden p-4 sm:p-8">
               <QuestFilterButtons
+                activeQuestCount={currentActiveSidequests.sidequests.length}
                 filters={questFilters}
                 setFilters={setQuestFilters}
                 activeVibe={vibeToApply}
@@ -173,6 +149,46 @@ function HomePage({ onStartQuestGeneration }: HomePageProps) {
 }
 
 function AccountRoutes() {
+  const { isLoaded, isSignedIn, user } = useUser()
+  const userId = user?.id
+  const [activeSidequestsState, setActiveSidequestsState] = useState<ActiveSidequestsState>({
+    userId: null, sidequests: [], isLoading: true, error: '',
+  })
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || !userId) return
+
+    return subscribeToActiveSidequests(
+      userId,
+      (sidequests) => setActiveSidequestsState({
+        userId,
+        sidequests,
+        isLoading: false,
+        error: '',
+      }),
+      (error) => setActiveSidequestsState({
+        userId,
+        sidequests: [],
+        isLoading: false,
+        error,
+      }),
+    )
+  }, [isLoaded, isSignedIn, userId])
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || !userId) return
+    const controller = new AbortController()
+    // Reconcile legacy replacements once. The live Firestore list then keeps
+    // every route, quest count and quick menu in sync.
+    void getActiveQuests(userId, { signal: controller.signal }).catch((error) => {
+      if (!controller.signal.aborted) setActiveSidequestsState((previous) => ({
+        ...previous, userId, isLoading: false,
+        error: error instanceof Error ? error.message : 'Could not load active quests.',
+      }))
+    })
+    return () => controller.abort()
+  }, [isLoaded, isSignedIn, userId])
+  const activeQuestCount = activeSidequestsState.userId === userId
+    ? activeSidequestsState.sidequests.length : 0
   const [pathname, setPathname] = useState(() =>
     window.location.pathname.replace(/\/+$/, '') || '/',
   )
@@ -212,7 +228,7 @@ function AccountRoutes() {
 
     try {
       const saved = replaceQuestId
-        ? await requestReplacementQuest(userId, replaceQuestId, payload, { signal: controller.signal })
+        ? await requestAdditionalQuest(userId, replaceQuestId, payload, { signal: controller.signal })
         : await requestAssignedQuest(userId, payload, { signal: controller.signal })
       if (controller.signal.aborted || generationIdRef.current !== generationId) return
       lastRequestRef.current = { userId, questId: saved.quest.id, payload }
@@ -255,9 +271,9 @@ function AccountRoutes() {
           generationState={generationState}
         />
       ) : pathname.startsWith('/sidequests/') ? (
-        <SidequestDetailPage sidequestId={decodeURIComponent(pathname.slice('/sidequests/'.length))} onGenerateAnother={generateAnother} />
+        <SidequestDetailPage activeQuestCount={activeQuestCount} sidequestId={decodeURIComponent(pathname.slice('/sidequests/'.length))} onGenerateAnother={generateAnother} />
       ) : (
-        <HomePage onStartQuestGeneration={startQuestGeneration} />
+        <HomePage activeSidequestsState={activeSidequestsState} onStartQuestGeneration={startQuestGeneration} />
       )}
     </div>
   )

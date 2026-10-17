@@ -11,7 +11,7 @@ async function fixture(file = 'App.tsx', path = '/') {
   const f = { user: { id: 'alice' }, calls: [], navigations: [],
     assign: async () => saved('quest-1'), replace: async () => saved('quest-2'),
     preferences: async () => 'Nature', goals: async () => ['Explore'],
-    detailReplace: async () => {},
+    detailReplace: async () => {}, activeQuestCount: 1, activeQuests: [],
     sidequest: { id: 'quest-1', title: 'Existing quest', description: 'Existing activity', steps: ['Try it'],
       locationName: 'Park', latitude: 29.65, longitude: -82.34, xpValue: 10,
       estimatedMinutes: 30, estimatedCostDollars: 0, createdAt: '2026-10-17T12:00:00Z', userRequest: payload },
@@ -52,15 +52,17 @@ async function fixture(file = 'App.tsx', path = '/') {
     if (name === '@clerk/clerk-react') return synthetic({ useUser: () => ({ isLoaded: true, isSignedIn: Boolean(f.user), user: f.user }) })
     if (name.endsWith('/colors')) return synthetic({ colors: {} })
     if (name.endsWith('/questAssignment')) return synthetic({
+      MAX_ACTIVE_QUESTS: 3,
+      getActiveQuests: async () => { f.reconciled = true; return [] },
       requestAssignedQuest: async (...args) => { f.calls.push(['assign', ...args]); return f.assign(...args) },
-      requestReplacementQuest: async (...args) => { f.calls.push(['replace', ...args]); return f.replace(...args) },
+      requestAdditionalQuest: async (...args) => { f.calls.push(['replace', ...args]); return f.replace(...args) },
     })
     if (name.endsWith('/userPreferences')) return synthetic({ getUserPreferences: (...args) => f.preferences(...args), getUserGoals: (...args) => f.goals(...args) })
     if (name.endsWith('/sidequests')) return synthetic({
-      subscribeToActiveSidequests() { return () => {} },
+      subscribeToActiveSidequests(_uid, callback) { f.activeCallback = callback; callback(f.activeQuests); return () => {} },
       subscribeToActiveSidequest(_uid, _id, callback) { callback(f.sidequest); return () => {} },
       completeSidequest: async () => { f.calls.push(['complete']); return 10 },
-      abandonSidequest: async () => { f.calls.push(['abandon']) },
+      abandonSidequest: async (...args) => { f.calls.push(['abandon', ...args]) },
     })
     if (name.endsWith('/navigation')) return synthetic({ navigateTo(path) {
       f.navigations.push(path); browser.location.pathname = path; for (const fn of [...listeners]) fn()
@@ -81,7 +83,9 @@ async function fixture(file = 'App.tsx', path = '/') {
       cursor = 0; f.tree = root.type(root.props)
     } else {
       cursor = 0
-      f.tree = mod.namespace.default({ sidequestId: 'quest-1', onGenerateAnother: (...args) => {
+      f.tree = file.endsWith('ActiveSidequests.tsx')
+        ? mod.namespace.default({ sidequests: f.activeQuests, isLoading: false, error: '', isSignedIn: true })
+        : mod.namespace.default({ sidequestId: f.sidequest.id, activeQuestCount: f.activeQuestCount, onGenerateAnother: (...args) => {
         f.calls.push(['detailReplace', ...args]); return f.detailReplace(...args)
       } })
     }
@@ -161,4 +165,52 @@ test('account switch while loading legacy preferences cannot start a stale gener
   resolve('Private old-account preferences'); await pending
   assert.equal(f.calls.length, 0)
   assert.equal(f.navigations.includes('/sidequests/generating'), false)
+})
+
+
+test('detail shows active slots and blocks generation when three quests are active', async () => {
+  const f = await fixture('componenets/main-ui/SidequestDetailPage.tsx')
+  f.activeQuestCount = 3
+  f.render()
+  assert.equal(f.button('Generate another').disabled, true)
+  assert.match(JSON.stringify(f.tree), /three active quests/)
+  f.button('Generate another').onClick(); await f.settle()
+  assert.equal(f.calls.length, 0)
+  assert.equal(f.button('Complete sidequest').disabled, false)
+})
+
+
+test('all three quick-menu cards open their own quest detail route', async () => {
+  const f = await fixture('componenets/main-ui/ActiveSidequests.tsx')
+  f.activeQuests = [1, 2, 3].map((i) => ({ ...f.sidequest, id: `quest-${i}`, title: `Mission ${i}` }))
+  f.render()
+  for (let i = 1; i <= 3; i++) {
+    f.button(`Mission ${i}`).onClick()
+    assert.equal(f.navigations.at(-1), `/sidequests/quest-${i}`)
+  }
+})
+
+test('selected quest displays its contents and steps and abandons only that quest', async () => {
+  const f = await fixture('componenets/main-ui/SidequestDetailPage.tsx')
+  f.sidequest = { ...f.sidequest, id: 'quest-2', title: 'Second quest',
+    description: 'Second quest contents.', steps: ['Find a bench.', 'Sketch three leaves.'] }
+  f.render(); f.render()
+  assert.match(JSON.stringify(f.tree), /Second quest contents/)
+  assert.match(JSON.stringify(f.tree), /Find a bench/)
+  assert.match(JSON.stringify(f.tree), /Sketch three leaves/)
+  f.button('Abandon sidequest').onClick(); f.render()
+  f.button('Yes, abandon').onClick(); await f.settle()
+  assert.deepEqual(f.calls.find(([name]) => name === 'abandon'), ['abandon', 'alice', 'quest-2'])
+})
+
+test('root reconciles old alternatives once and keeps the list and detail count current', async () => {
+  const f = await fixture()
+  assert.equal(f.reconciled, true)
+  f.activeCallback([1, 2, 3].map((i) => ({ ...f.sidequest, id: `quest-${i}` })))
+  f.render()
+  assert.equal(f.props('HomePage').activeSidequestsState.sidequests.length, 3)
+  await f.props('HomePage').onStartQuestGeneration('alice', payload); f.render()
+  assert.equal(f.props('SidequestDetailPage').activeQuestCount, 3)
+  f.activeCallback([f.sidequest]); f.render()
+  assert.equal(f.props('SidequestDetailPage').activeQuestCount, 1)
 })

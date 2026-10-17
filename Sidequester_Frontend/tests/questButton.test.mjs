@@ -10,7 +10,7 @@ const plain = (value) => JSON.parse(JSON.stringify(value))
 async function fixture() {
   const f = {
     auth: { isLoaded: true, isSignedIn: true, user: { id: 'example-user', fullName: 'Test Student', primaryEmailAddress: { emailAddress: 'student@ufl.edu' } } },
-    calls: [],
+    calls: [], activeQuestCount: 0,
     request: async () => {},
     filters: {
       where: 'Selected origin',
@@ -65,6 +65,7 @@ async function fixture() {
       if (name === 'react/jsx-runtime') return synthetic({ jsx, jsxs: jsx })
       if (name === '@clerk/clerk-react') return synthetic({ useUser: () => f.auth })
       if (name.endsWith('/colors')) return synthetic({ colors: {} })
+      if (name.endsWith('/questAssignment')) return synthetic({ MAX_ACTIVE_QUESTS: 3 })
       if (name.endsWith('/sidequestJson')) return load('services/sidequestJson.ts')
       if (name.endsWith('/userPreferences')) return synthetic({ getUserPreferences: async () => 'Nature', getUserGoals: async () => ['Explore'] })
       const component = () => null
@@ -78,6 +79,7 @@ async function fixture() {
   f.unmount = () => { for (const slot of slots) slot?.cleanup?.(); slots = [] }
   f.render = () => {
     const wrapped = module.namespace.default({
+      activeQuestCount: f.activeQuestCount,
       filters: f.filters, setFilters: (update) => { f.filters = update(f.filters) },
       activeVibe: null, onClearActiveVibe: () => {},
       onStartQuestGeneration: async (...args) => {
@@ -174,4 +176,17 @@ test('choosing Anywhere clears old coordinates before submission', async () => {
   f.render(); f.click(); await f.settle()
   assert.equal(f.calls[0][1].location, 'Anywhere')
   assert.equal(f.calls[0][1].originCoordinates, undefined)
+})
+
+
+test('full active list disables the board button; freeing a slot permits another quest', async () => {
+  const f = await fixture()
+  f.activeQuestCount = 3; f.render()
+  assert.equal(f.props('SidequestMeButton').disabled, true)
+  f.click(); await f.settle()
+  assert.equal(f.calls.length, 0)
+  f.activeQuestCount = 2; f.render()
+  assert.equal(f.props('SidequestMeButton').disabled, false)
+  f.click(); await f.settle()
+  assert.equal(f.calls.length, 1)
 })

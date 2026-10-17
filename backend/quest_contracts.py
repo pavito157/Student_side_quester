@@ -213,6 +213,10 @@ class AssignedQuest(ContractModel):
         return self
 
 
+MAX_ACTIVE_QUESTS = 3
+MAX_QUEST_REPLACEMENTS = 3  # Legacy response metadata; no longer a generation quota.
+
+
 class SavedAssignment(ContractModel):
     id: str = Field(min_length=1, max_length=257, pattern=r"^[^/]+$")
     userId: DocumentId
@@ -221,6 +225,7 @@ class SavedAssignment(ContractModel):
     assignedAt: AwareDatetime
     completedAt: None = None
     xpAwarded: int = Field(default=0, strict=True, ge=0, le=0)
+    replacementCount: int = Field(default=0, strict=True, ge=0, le=MAX_QUEST_REPLACEMENTS)
 
     @model_validator(mode="after")
     def matching_document_id(self):

@@ -337,12 +337,12 @@ test('replacement helper posts the latest filters for the displayed quest with F
   const result = await f.api.requestReplacementQuest(savedExample.assignment.userId, 'old-quest', payload)
   assert.equal(result.quest.id, savedExample.quest.id)
   const [, url, options] = f.calls[1]
-  assert.equal(url, 'http://localhost:8000/quests/old-quest/replace')
+  assert.equal(url, 'http://localhost:8000/quests/old-quest/another')
   assert.equal(options.headers.Authorization, 'Bearer firebase-id-token')
   assert.deepEqual(JSON.parse(options.body), payload)
   for (const response of [savedExample, { ...savedExample, reusedExisting: true }]) {
     f.state.fetch = async () => ({ ok: true, status: 201, json: async () => structuredClone(response) })
-    await assert.rejects(f.api.requestReplacementQuest(savedExample.assignment.userId, savedExample.quest.id, payload), /invalid replacement/)
+    await assert.rejects(f.api.requestReplacementQuest(savedExample.assignment.userId, savedExample.quest.id, payload), /invalid additional/)
   }
 })
 
@@ -366,4 +366,28 @@ test('abandon sends an authenticated request and validates the deleted sidequest
 
   f.state.fetch = async () => ({ ok: true, status: 200, json: async () => ({ questId: 'other', status: 'abandoned' }) })
   await assert.rejects(f.api.requestQuestAbandon('user_student', 'quest-1'), /invalid abandon response/)
+})
+
+
+test('active list is authenticated and validates ownership, unique IDs and three total quests', async () => {
+  const f = await fixture()
+  const rows = [1, 2, 3].map((i) => ({ ...structuredClone(savedExample),
+    quest: { ...savedExample.quest, id: `quest-${i}` },
+    assignment: { ...savedExample.assignment, id: `${savedExample.assignment.userId}_quest-${i}`, questId: `quest-${i}` },
+  }))
+  let response = rows
+  f.state.fetch = async (url, options) => {
+    f.calls.push(['fetch', url, options])
+    return { ok: true, status: 200, json: async () => response }
+  }
+  assert.equal((await f.api.getActiveQuests(savedExample.assignment.userId)).length, 3)
+  assert.equal(f.calls[1][1], 'http://localhost:8000/me/active-quests')
+  assert.equal(f.calls[1][2].method, 'GET')
+  assert.equal(f.calls[1][2].headers.Authorization, 'Bearer firebase-id-token')
+  for (const bad of [[rows[0], rows[0]], [...rows, rows[0]], [{ ...rows[0], assignment: { ...rows[0].assignment, userId: 'other' } }], null]) {
+    response = bad
+    await assert.rejects(f.api.getActiveQuests(savedExample.assignment.userId), /invalid active quest list/)
+  }
+  response = []
+  assert.equal((await f.api.getActiveQuests(savedExample.assignment.userId)).length, 0)
 })

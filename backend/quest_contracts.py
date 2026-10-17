@@ -224,6 +224,19 @@ class AssignedQuest(ContractModel):
     def active_quest(self):
         if not self.isActive:
             raise ValueError("An assigned quest must be active")
+        if self.destinations:
+            first = self.destinations[0]
+            if (first.locationName != self.locationName or first.placeId != self.placeId
+                    or first.latitude != self.latitude or first.longitude != self.longitude):
+                raise ValueError("The primary destination must match the first route stop")
+            if (len({(stop.latitude, stop.longitude) for stop in self.destinations}) != len(self.destinations)
+                    or len({stop.placeId for stop in self.destinations if stop.placeId}) !=
+                    len([stop for stop in self.destinations if stop.placeId])):
+                raise ValueError("Route stops must be unique")
+        if self.completedStops != list(range(len(self.completedStops))):
+            raise ValueError("Completed stops must be sequential")
+        if self.destinations and any(index >= len(self.destinations) for index in self.completedStops):
+            raise ValueError("Completed stop index is outside the route")
         return self
 
 
@@ -362,6 +375,14 @@ class GeneratedQuestResponse(ContractModel):
             self.destinations = [self.destination]
         if self.destinations and (self.destination is None or self.destinations[0] != self.destination):
             raise ValueError("The first verified stop must match the primary destination")
+        if self.destinationVerified:
+            expected_stops = 2 <= len(self.destinations) <= 3 if self.normalizedPreferences.multiQuest else len(self.destinations) == 1
+            if not expected_stops:
+                raise ValueError("Verified destination count must match the requested quest type")
+            if (len({(stop.latitude, stop.longitude) for stop in self.destinations}) != len(self.destinations)
+                    or len({stop.placeId for stop in self.destinations if stop.placeId}) !=
+                    len([stop for stop in self.destinations if stop.placeId])):
+                raise ValueError("Verified route stops must be unique")
         if self.filtersApplied != self.destinationVerified:
             raise ValueError("All filters require a verified Gainesville destination")
         expected = ("not_requested" if self.normalizedPreferences.maxDistanceMiles is None

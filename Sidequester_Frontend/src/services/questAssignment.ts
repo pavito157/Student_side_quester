@@ -206,14 +206,19 @@ export async function requestGeneratedQuest(
       throw new Error('The backend returned an invalid quest destination.')
     }
     const destinations = Array.isArray(result.destinations) ? result.destinations : [d]
+    const primary = isRecord(destinations[0]) ? destinations[0] : null
     if (!Array.isArray(destinations) || destinations.length < 1 || destinations.length > 3
-        || !isRecord(destinations[0]) || destinations[0].locationName !== d.locationName
+        || !primary || primary.locationName !== d.locationName || primary.placeId !== d.placeId
+        || primary.latitude !== d.latitude || primary.longitude !== d.longitude
         || !destinations.every((stop) => isRecord(stop)
           && typeof stop.locationName === 'string' && stop.locationName.trim().length > 0
           && typeof stop.latitude === 'number' && Number.isFinite(stop.latitude) && Math.abs(stop.latitude) <= 90
           && typeof stop.longitude === 'number' && Number.isFinite(stop.longitude) && Math.abs(stop.longitude) <= 180
           && stop.scope === 'gainesville_city'
           && (stop.placeId === null || (typeof stop.placeId === 'string' && stop.placeId.trim().length > 0)))
+        || new Set(destinations.map((stop) => isRecord(stop) ? `${stop.latitude},${stop.longitude}` : '')).size !== destinations.length
+        || new Set(destinations.flatMap((stop) => isRecord(stop) && typeof stop.placeId === 'string' ? [stop.placeId] : [])).size
+          !== destinations.filter((stop) => isRecord(stop) && typeof stop.placeId === 'string').length
         || (payload.multiQuest === true ? destinations.length < 2 : destinations.length !== 1)) {
       throw new Error('The backend returned an invalid verified destination list.')
     }

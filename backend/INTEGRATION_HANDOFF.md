@@ -9,21 +9,10 @@ plus production Firestore is still a manual acceptance test. Button wiring and t
 
 ## Current test evidence
 
-- Final complete run: 171 backend tests passed against the loopback demo emulator.
-- 28 separate resolver tests and 31 frontend service tests passed.
-- Frontend build and lint passed.
-- Automated tests cover actual default resolver wiring, provider HTTP parsing,
-  city/distance filtering, activity-only Gemini schema, response models, real
-  emulator persistence, completion and concurrent XP awards. Provider responses
-  and token verification are mocked in the regression suite.
-- Live smoke tests additionally exercise actual Gemini and Google Places, but
-  keep token verification mocked and database writes local; records are cleaned up.
-- Prior runs exposed intermittent exhausted transaction retries in concurrent
-  emulator tests. Isolated and final full-suite reruns passed; monitor contention
-  during load testing. No production transaction behavior is claimed from this.
-- Three latency samples exclude browser token acquisition and production Firestore;
-  they are observations, not a five-second guarantee. Opening hours, public access,
-  venue fees and activity duration are not independently verified.
+- Backend quest suite: 145 passed, 39 emulator-dependent tests skipped; XP suite: 7 passed.
+- Frontend node suite: 52 passed; frontend production build and lint passed.
+- Build output retains the existing large-chunk warning. No live provider or
+  production Firestore behavior is claimed from these automated tests.
 
 Captured response fixture: `contracts/assignment.response.tested.example.json`.
 This is an actual local endpoint response with IDs/time sanitized. Its destination
@@ -84,7 +73,8 @@ Example JSON body (coordinates illustrative; send actual selected/device values)
   "budget": {"selection": "0", "customDollars": null},
   "distance": {"maxDistance": 2, "unit": "miles"},
   "goals": ["Explore campus"],
-  "vibePreferences": null
+  "vibePreferences": null,
+  "multiQuest": false
 }
 ```
 
@@ -127,6 +117,22 @@ it is newly generated from their latest preferences. `GET /me/quest` returns HTT
 200 and JSON null when no assignment is active. The helper validates the returned
 account, IDs, timestamps, coordinates, radius and reward.
 
+`POST /quests/generate` is public and produces an unsaved preview for guests or
+signed-in users; guest results are held only in frontend memory and are lost on
+refresh/navigation. Keep the non-persistence warning visible. Since generation
+uses paid providers, production deployments should enforce edge rate limits and
+provider quotas.
+
+The request's optional `multiQuest` flag defaults to false. When true, include
+`originCoordinates`; the generated preview contains two or three distinct,
+resolver-verified destinations in nearest-first order, with one generated step
+per stop. Saved multi-stop assignments persist ordered `destinations`,
+`completedStops` (zero-based indexes), and `xpAwardedSoFar`. The map shows the
+origin and every stop and draws a walking route to the first stop. Completion
+requires the next `stopIndex` and a fresh GPS reading; each stop awards its XP
+share, and only the final stop removes the assignment. Abandoning does not refund
+XP already credited for completed stops.
+
 UI tasks: wire button; show loading/disable duplicate clicks; render quest; reload
 on return; show actionable errors; cancel requests on account changes; refresh XP
 and current quest after successful completion. Refreshing XP must be read-only.
@@ -154,6 +160,9 @@ rechecks assignment state, deletes the active assignment, and awards user/dorm X
 once. Success returns `valid`, `reason`, `distanceMeters`, `accuracyMeters`,
 `radiusMeters`, `questId`, `status: "completed"`, and `xpAwarded`. A repeat finds
 no active assignment and cannot award XP again.
+For multi-stop quests, include `stopIndex` in the body. A successful partial
+completion returns the increment awarded in `xpAwarded`, cumulative
+`xpAwardedSoFar`, and updated `completedStops`; stops must be completed in order.
 
 `POST /quests/{quest.id}/abandon` deletes the authenticated user's active
 assignment without XP. The detail page should ask for confirmation before

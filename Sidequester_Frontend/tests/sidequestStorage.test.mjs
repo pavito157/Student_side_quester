@@ -94,6 +94,7 @@ test('stored assignments reject a different account and invalid rewards', async 
   assert.throws(() => f.api.parseActiveSidequest('quest-1', { ...record(), xpReward: -1 }, 'alice'), /invalid assignment/)
   assert.throws(() => f.api.parseActiveSidequest('quest-1', { ...record(), userRequest: 'invalid' }, 'alice'), /invalid assignment/)
   assert.throws(() => f.api.parseActiveSidequest('quest-1', { ...record(), placeId: 123 }, 'alice'), /invalid assignment/)
+  assert.throws(() => f.api.parseActiveSidequest('quest-1', { ...record(), destinations: {} }, 'alice'), /invalid assignment/)
   const legacy = { ...record() }
   delete legacy.placeId
   assert.equal(f.api.parseActiveSidequest('quest-1', legacy, 'alice').placeId, null)
@@ -103,15 +104,24 @@ test('active multi-stop assignments retain ordered verified pins and progress', 
   const f = await fixture()
   const data = {
     ...record(),
+    locationName: 'First park',
+    latitude: 29.65,
+    longitude: -82.34,
+    placeId: 'first',
     destinations: [
       { locationName: 'First park', latitude: 29.65, longitude: -82.34, placeId: 'first' },
       { locationName: 'Second park', latitude: 29.66, longitude: -82.33, placeId: 'second' },
     ],
     completedStops: [0],
+    userRequest: { ...record().userRequest, multiQuest: true },
   }
   const parsed = f.api.parseActiveSidequest('quest-1', data, 'alice')
   assert.deepEqual(plain(parsed.destinations.map((stop) => stop.locationName)), ['First park', 'Second park'])
   assert.deepEqual(plain(parsed.completedStops), [0])
+  assert.throws(() => f.api.parseActiveSidequest('quest-1', {
+    ...data,
+    destinations: [],
+  }, 'alice'), /invalid route/)
 })
 
 test('completion requests a fresh precise GPS reading and delegates XP to FastAPI', async () => {

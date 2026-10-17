@@ -15,7 +15,9 @@
     "isActive": true,
     "estimatedMinutes": 150,
     "estimatedCostDollars": 15,
-    "placeId": null
+    "placeId": null,
+    "destinations": [],
+    "completedStops": []
   },
   "assignment": {
     "id": "example-user_example-quest",

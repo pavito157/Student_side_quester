@@ -10,12 +10,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 type ActiveDestination = NonNullable<ActiveSidequest['destinations']>[number]
 
 function parseDestinations(value: unknown, fallback: ActiveDestination): ActiveDestination[] | null {
-  const candidates = Array.isArray(value) && value.length > 0 ? value : [fallback]
+  const candidates = value === undefined || (Array.isArray(value) && value.length === 0)
+    ? [fallback]
+    : Array.isArray(value) ? value : null
+  if (!candidates) return null
   if (candidates.length > 3) return null
   const parsed: ActiveDestination[] = []
   for (const candidate of candidates) {
     if (!isRecord(candidate)
-      || typeof candidate.locationName !== 'string'
+      || typeof candidate.locationName !== 'string' || !candidate.locationName.trim()
       || typeof candidate.latitude !== 'number' || !Number.isFinite(candidate.latitude)
       || Math.abs(candidate.latitude) > 90
       || typeof candidate.longitude !== 'number' || !Number.isFinite(candidate.longitude)
@@ -37,7 +40,7 @@ function parseCompletedStops(value: unknown, totalStops: number): number[] | nul
   if (!Array.isArray(value) || value.length > totalStops) return null
   if (!value.every((index) => typeof index === 'number' && Number.isSafeInteger(index)
     && index >= 0 && index < totalStops)) return null
-  return new Set(value).size === value.length ? value : null
+  return value.every((index, position) => index === position) ? value : null
 }
 
 // Generated assignments are written and completed only by FastAPI. Old
@@ -62,12 +65,22 @@ export function parseActiveSidequest(id: string, data: Record<string, unknown>, 
       || typeof data.longitude !== 'number' || !Number.isFinite(data.longitude) || Math.abs(data.longitude) > 180
       || (data.placeId !== undefined && data.placeId !== null && typeof data.placeId !== 'string')
       || !destinations || !completedStops
+      || destinations[0].locationName !== data.locationName
+      || destinations[0].placeId !== (typeof data.placeId === 'string' ? data.placeId : null)
+      || destinations[0].latitude !== data.latitude || destinations[0].longitude !== data.longitude
+      || new Set(destinations.map((stop) => `${stop.latitude},${stop.longitude}`)).size !== destinations.length
+      || new Set(destinations.flatMap((stop) => stop.placeId ? [stop.placeId] : [])).size
+        !== destinations.filter((stop) => stop.placeId).length
       || typeof data.xpReward !== 'number' || !Number.isSafeInteger(data.xpReward) || data.xpReward < 0
       || typeof data.estimatedMinutes !== 'number' || !Number.isSafeInteger(data.estimatedMinutes) || data.estimatedMinutes <= 0
       || typeof data.estimatedCostDollars !== 'number' || !Number.isFinite(data.estimatedCostDollars) || data.estimatedCostDollars < 0
       || !(data.assignedAt instanceof Timestamp)
       || (userRequest !== null && !isRecord(userRequest))) {
     throw new Error(`Saved sidequest ${id} has invalid assignment details.`)
+  }
+  if (isRecord(userRequest) && typeof userRequest.multiQuest === 'boolean'
+    && (userRequest.multiQuest ? destinations.length < 2 : destinations.length !== 1)) {
+    throw new Error(`Saved sidequest ${id} has invalid route details.`)
   }
   return {
     id, title: data.title, description: data.description, steps: data.steps,

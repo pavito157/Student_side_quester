@@ -193,10 +193,11 @@ class PersistenceEmulatorTests(unittest.TestCase):
         first = self.create()
         complete_quest(self.db, self.uid, first.quest.id, 29.65, -82.34, 10)
         self.assertIsNone(persistence.get_current_assignment(self.db, self.uid))
+        self.assertFalse(persistence.sidequests(self.db, self.uid).document(first.quest.id).get().exists)
         second = self.create()
         self.assertNotEqual(first.quest.id, second.quest.id)
         self.assertFalse(second.reusedExisting)
-        self.assertEqual(len(self.records()), 2)
+        self.assertEqual(len(self.records()), 1)
         self.assert_xp(20, 110)
         with self.assertRaises(CompletionError):
             complete_quest(self.db, self.uid, first.quest.id, 29.65, -82.34, 10)
@@ -306,7 +307,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
         self.assertEqual(profile["activeQuestId"], result.quest.id)
         self.assertEqual(len(self.records()), 1)
 
-    def test_nested_completion_race_awards_once_and_keeps_completed_record(self):
+    def test_nested_completion_race_awards_once_and_deletes_assignment(self):
         first = self.create()
         def complete_once(_):
             try:
@@ -315,13 +316,20 @@ class PersistenceEmulatorTests(unittest.TestCase):
                 return error.status_code
         with ThreadPoolExecutor(max_workers=2) as pool:
             results = list(pool.map(complete_once, range(2)))
-        self.assertCountEqual(results, ["completed", 409])
-        saved = persistence.sidequests(self.db, self.uid).document(first.quest.id).get().to_dict()
-        self.assertEqual(saved["status"], "completed")
-        self.assertFalse(saved["isActive"])
-        self.assertEqual(saved["xpAwarded"], 10)
+        self.assertCountEqual(results, ["completed", 404])
+        self.assertFalse(persistence.sidequests(self.db, self.uid).document(first.quest.id).get().exists)
         self.assertNotIn("activeQuestId", self.db.collection("Users").document(self.uid).get().to_dict())
         self.assert_xp(20, 110)
+
+    def test_abandon_deletes_nested_sidequest_without_awarding_xp(self):
+        first = self.create()
+        result = persistence.abandon_quest(self.db, self.uid, first.quest.id)
+
+        self.assertEqual(result, {"questId": first.quest.id, "status": "abandoned"})
+        self.assertFalse(persistence.sidequests(self.db, self.uid).document(first.quest.id).get().exists)
+        self.assertNotIn("activeQuestId", self.db.collection("Users").document(self.uid).get().to_dict())
+        self.assert_xp()
+        self.assertIsNone(persistence.get_current_assignment(self.db, self.uid))
 
     def test_nested_completion_rejects_corruption_without_mutating_state_or_xp(self):
         first = self.create()

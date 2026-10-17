@@ -223,6 +223,7 @@ class PersistenceRouteTests(unittest.TestCase):
             self.assertTrue(post["responses"][code]["content"]["application/json"]["schema"]["$ref"].endswith("AssignQuestResponse"))
         self.assertIn("/quests/preview", schema["paths"])
         self.assertIn("/quests/{quest_id}/complete", schema["paths"])
+        self.assertIn("/quests/{quest_id}/abandon", schema["paths"])
 
 
 if __name__ == "__main__":

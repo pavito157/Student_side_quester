@@ -34,6 +34,7 @@ class BackendMergeTests(unittest.TestCase):
         self.assertEqual([key for key, count in endpoints.items() if count > 1], [])
         self.assertIn(("POST", "/quests/assign"), endpoints)
         self.assertIn(("POST", "/quests/{}/complete"), endpoints)
+        self.assertIn(("POST", "/quests/{}/abandon"), endpoints)
 
     def test_placeholders_require_auth_and_return_explicit_not_implemented(self):
         for method, path in [("POST", "/users"), ("GET", "/users/user_student"), ("GET", "/leaderboard")]:

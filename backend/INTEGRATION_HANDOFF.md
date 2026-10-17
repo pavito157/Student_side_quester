@@ -150,9 +150,14 @@ Accuracy is the device-reported meters. Default maximum is 50 meters; conservati
 proximity requires `distance + accuracy <= quest.radiusMeters`. This is separate
 from the origin-distance filter. GPS proximity is not proof of the activity and
 reported GPS can be spoofed. The server reads the stored quest/reward and atomically
-rechecks assignment state and awards user/dorm XP once. Success returns
-`valid`, `reason`, `distanceMeters`, `accuracyMeters`, `radiusMeters`, `questId`,
-`status: "completed"`, `xpAwarded`. A repeat returns 409 without another award.
+rechecks assignment state, deletes the active assignment, and awards user/dorm XP
+once. Success returns `valid`, `reason`, `distanceMeters`, `accuracyMeters`,
+`radiusMeters`, `questId`, `status: "completed"`, and `xpAwarded`. A repeat finds
+no active assignment and cannot award XP again.
+
+`POST /quests/{quest.id}/abandon` deletes the authenticated user's active
+assignment without XP. The detail page should ask for confirmation before
+abandoning and reload/leave the detail view after the server confirms deletion.
 
 ## Error contract
 
@@ -193,7 +198,7 @@ direct name/address lookups.
 | Second assign/reload | 200 same quest; reusedExisting true; no repeated provider call | Passed |
 | Concurrent assign / aborted commit | At most one active quest; no orphan records | Passed against emulator |
 | Complete while far away or inaccurate | Rejected; XP unchanged | Passed |
-| Complete nearby, then repeat/concurrent repeat | One award to user/dorm; repeat 409 | Passed against emulator |
+| Complete nearby, then repeat/concurrent repeat | One award to user/dorm; active assignment deleted; repeat 404 | Passed against emulator |
 | Legacy totalXp/profile initialization races completion | Canonical xp preserves balance/award | Passed against emulator |
 | Live Gemini/Places + bundled city boundary + emulator | 201, valid saved JSON, reuse/reload | Passed, token verification mocked |
 | Real device arrival + deployed Firestore rules | Fresh location completes once; unauthorized client writes denied | Pending live test |
@@ -416,7 +421,7 @@ UID → sidequests → response.quest.id; the content should match the response.
 Refresh and open the active quest: title/steps/destination/XP should persist.
 Complete from outside the radius to see rejection, then at the destination with
 good accuracy and a valid dorm to earn the stored reward. A repeated completion
-returns 409; user/dorm XP increase once, and the completed record remains stored.
+returns 404; user/dorm XP increase once, and the active assignment is deleted.
 
 Validation for the storage transition: full backend suite 178/178 passed with the
 local Firestore emulator. Frontend 49/49 tests passed, as did

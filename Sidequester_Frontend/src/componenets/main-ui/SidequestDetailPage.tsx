@@ -5,7 +5,7 @@ import Header from './Header'
 import SidequestMap from './SidequestMap'
 import { colors } from '../../constants/colors'
 import { navigateTo } from '../../services/navigation'
-import { completeSidequest, subscribeToActiveSidequest } from '../../services/sidequests'
+import { abandonSidequest, completeSidequest, subscribeToActiveSidequest } from '../../services/sidequests'
 import type { ActiveSidequest } from '../../types/sidequest'
 
 type SidequestState =
@@ -53,8 +53,11 @@ function SidequestDetailPage({
     ? storedState
     : { key: routeKey, status: 'loading' }
   const [isCompleting, setIsCompleting] = useState(false)
+  const [isAbandoning, setIsAbandoning] = useState(false)
+  const [showAbandonConfirmation, setShowAbandonConfirmation] = useState(false)
   const [completionMessage, setCompletionMessage] = useState('')
   const [completionError, setCompletionError] = useState('')
+  const [abandonError, setAbandonError] = useState('')
 
   useEffect(() => {
     if (sidequestId === 'generating') return
@@ -85,6 +88,23 @@ function SidequestDetailPage({
       )
     } finally {
       setIsCompleting(false)
+    }
+  }
+
+  async function handleAbandon() {
+    if (!userId || state.status !== 'ready') return
+    setIsAbandoning(true)
+    setAbandonError('')
+    setCompletionMessage('')
+    try {
+      await abandonSidequest(userId, sidequestId)
+      setCompletionMessage('Sidequest abandoned and removed from your active quests.')
+      setStoredState({ key: routeKey, status: 'not-found' })
+    } catch (error) {
+      setAbandonError(error instanceof Error ? error.message : 'Could not abandon this sidequest.')
+    } finally {
+      setIsAbandoning(false)
+      setShowAbandonConfirmation(false)
     }
   }
 
@@ -397,7 +417,7 @@ function SidequestDetailPage({
                     <button
                       type="button"
                       onClick={() => void handleComplete()}
-                      disabled={isCompleting}
+                      disabled={isCompleting || isAbandoning}
                       className="min-h-12 cursor-pointer rounded-xl px-4 py-2.5 text-sm font-black transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2"
                       style={{
                         backgroundColor: colors.primary,
@@ -407,10 +427,63 @@ function SidequestDetailPage({
                     >
                       {isCompleting ? 'Completing…' : 'Complete sidequest'}
                     </button>
+                    {!showAbandonConfirmation ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAbandonError('')
+                          setShowAbandonConfirmation(true)
+                        }}
+                        disabled={isCompleting || isAbandoning}
+                        className="min-h-11 cursor-pointer rounded-xl border px-4 py-2 text-sm font-semibold transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2"
+                        style={{
+                          borderColor: colors.errorBorder,
+                          color: colors.error,
+                          outlineColor: colors.error,
+                        }}
+                      >
+                        Abandon sidequest
+                      </button>
+                    ) : (
+                      <div
+                        className="rounded-xl border p-3"
+                        style={{ backgroundColor: colors.errorBackground, borderColor: colors.errorBorder }}
+                      >
+                        <p className="text-sm font-semibold">Abandon this sidequest?</p>
+                        <p className="mt-1 text-xs leading-relaxed" style={{ color: colors.muted }}>
+                          It will be removed from your active quests and no XP will be awarded.
+                        </p>
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowAbandonConfirmation(false)}
+                            disabled={isAbandoning}
+                            className="min-h-10 cursor-pointer rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-60"
+                            style={{ borderColor: colors.border, color: colors.foreground }}
+                          >
+                            Keep quest
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleAbandon()}
+                            disabled={isAbandoning}
+                            className="min-h-10 cursor-pointer rounded-lg px-3 py-2 text-xs font-bold disabled:cursor-wait disabled:opacity-60"
+                            style={{ backgroundColor: colors.error, color: colors.primaryForeground }}
+                          >
+                            {isAbandoning ? 'Abandoning…' : 'Yes, abandon'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   {completionError && (
                     <p role="alert" className="mt-3 text-sm" style={{ color: colors.error }}>
                       {completionError}
+                    </p>
+                  )}
+                  {abandonError && (
+                    <p role="alert" className="mt-3 text-sm" style={{ color: colors.error }}>
+                      {abandonError}
                     </p>
                   )}
                 </aside>

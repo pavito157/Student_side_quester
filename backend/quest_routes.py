@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from google.cloud.firestore_v1.base_query import FieldFilter
 from pydantic import BaseModel, ConfigDict, Field
 
-from .quest_completion import ASSIGNMENTS, CompletionError, complete_quest
+from .quest_completion import ASSIGNMENTS, CompletionError, abandon_quest, complete_quest
 from .quest_validation import valid_coordinates, valid_number
 from .firebase_helpers import current_uid, get_db
 from .quest_persistence import sidequests
@@ -102,5 +102,15 @@ def complete(
             db, uid, quest_id, location.latitude, location.longitude,
             location.accuracy, max_accuracy,
         )
+    except CompletionError as error:
+        raise HTTPException(error.status_code, error.detail) from error
+
+
+@router.post("/quests/{quest_id}/abandon")
+def abandon(
+    quest_id: str, uid: str = Depends(current_uid), db=Depends(get_db),
+):
+    try:
+        return abandon_quest(db, uid, quest_id)
     except CompletionError as error:
         raise HTTPException(error.status_code, error.detail) from error

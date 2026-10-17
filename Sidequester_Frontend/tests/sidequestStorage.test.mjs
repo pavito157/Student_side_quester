@@ -29,7 +29,7 @@ const record = () => ({
   },
 })
 async function fixture() {
-  const state = { refs: [], callbacks: [], completions: [], gpsOptions: null, denied: false }
+  const state = { refs: [], callbacks: [], completions: [], abandonments: [], gpsOptions: null, denied: false }
   const context = vm.createContext({ navigator: { geolocation: {
     getCurrentPosition(ok, fail, options) {
       state.gpsOptions = options
@@ -46,7 +46,10 @@ async function fixture() {
       onSnapshot: (ref, callback) => { state.callbacks.push(callback); return () => {} }, Timestamp,
     }
     else if (name.endsWith('FirebaseConfig')) exports = { db: {} }
-    else exports = { requestQuestCompletion: async (...args) => { state.completions.push(args); return 40 } }
+    else exports = {
+      requestQuestCompletion: async (...args) => { state.completions.push(args); return 40 },
+      requestQuestAbandon: async (...args) => { state.abandonments.push(args) },
+    }
     return new vm.SyntheticModule(Object.keys(exports), function () {
       for (const [key, value] of Object.entries(exports)) this.setExport(key, value)
     }, { context })
@@ -96,4 +99,11 @@ test('denied GPS access cannot mark a quest complete or award XP', async () => {
   f.state.denied = true
   await assert.rejects(f.api.completeSidequest('alice', 'quest-1'), /Enable precise location/)
   assert.equal(f.state.completions.length, 0)
+})
+
+test('abandon requests backend deletion for the signed-in user and sidequest', async () => {
+  const f = await fixture()
+  await f.api.abandonSidequest('alice', 'quest-1')
+  assert.deepEqual(plain(f.state.abandonments), [['alice', 'quest-1']])
+  await assert.rejects(f.api.abandonSidequest('', 'quest-1'), /Sign in/)
 })

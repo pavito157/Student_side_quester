@@ -326,3 +326,19 @@ test('completion surfaces proximity failures and refuses inconsistent successful
   f.state.fetch = async () => ({ ok: true, status: 200, json: async () => ({ questId: 'another-quest', status: 'completed', xpAwarded: 999 }) })
   await assert.rejects(f.api.requestQuestCompletion('user_student', 'quest-1', {}), /invalid completion response/)
 })
+
+test('abandon sends an authenticated request and validates the deleted sidequest response', async () => {
+  const f = await fixture()
+  f.state.fetch = async (url, options) => {
+    f.calls.push(['fetch', url, options])
+    return { ok: true, status: 200, json: async () => ({ questId: 'quest-1', status: 'abandoned' }) }
+  }
+  await f.api.requestQuestAbandon('user_student', 'quest-1')
+  const [, url, request] = f.calls[1]
+  assert.equal(url, 'http://localhost:8000/quests/quest-1/abandon')
+  assert.ok(request.headers.Authorization)
+  assert.equal(request.body, undefined)
+
+  f.state.fetch = async () => ({ ok: true, status: 200, json: async () => ({ questId: 'other', status: 'abandoned' }) })
+  await assert.rejects(f.api.requestQuestAbandon('user_student', 'quest-1'), /invalid abandon response/)
+})

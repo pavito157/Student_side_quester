@@ -1,6 +1,6 @@
 import { collection, doc, onSnapshot, Timestamp, type Unsubscribe } from 'firebase/firestore'
 import { db } from '../configs/FirebaseConfig'
-import { requestQuestCompletion } from './questAssignment'
+import { requestQuestAbandon, requestQuestCompletion } from './questAssignment'
 import type { ActiveSidequest } from '../types/sidequest'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -71,4 +71,9 @@ export async function completeSidequest(userId: string, sidequestId: string): Pr
   return requestQuestCompletion(userId, sidequestId, {
     latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy,
   })
+}
+
+export async function abandonSidequest(userId: string, sidequestId: string): Promise<void> {
+  if (!userId.trim() || !sidequestId.trim()) throw new Error('Sign in and choose a valid sidequest.')
+  return requestQuestAbandon(userId, sidequestId)
 }

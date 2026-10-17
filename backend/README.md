@@ -136,13 +136,16 @@ profile. User and dorm records must already exist with nonnegative integer
 `xp`; the reward must be a nonnegative integer. No client-provided reward,
 destination, radius, identity, or dorm participates in completion.
 
-After all reads and checks, one commit updates assignment `status` to `completed`,
-sets `completedAt` with `SERVER_TIMESTAMP`, sets `xpAwarded` to the stored reward,
-and adds that reward to both XP totals. Other fields are preserved. Firestore
-retries conflicted transactions, including all checks; a duplicate request then
-sees a completed assignment and receives 409 without another award. A successful
-commit followed by a lost HTTP response also makes the retry return 409; clients
-can refresh `/me/quests` to see the completed record.
+After all reads and checks, one commit deletes the active assignment, removes the
+user's `activeQuestId` when it points to that quest, and adds the stored reward to
+both XP totals. The delete and XP updates are atomic. Firestore retries conflicted
+transactions, including all checks; a duplicate request finds no assignment and
+cannot award XP again. A successful commit followed by a lost HTTP response also
+leaves no active assignment; clients can refresh `/me/quests`.
+
+`POST /quests/{quest_id}/abandon` deletes the authenticated user's active
+assignment and clears its pointer without awarding XP. Both completion and
+abandonment remove new user-subcollection documents from `Users/{uid}/sidequests`.
 
 Success returns `valid`, `reason`, `distanceMeters`, `accuracyMeters`,
 `radiusMeters`, `questId`, `status`, and `xpAwarded`. Rejected location checks

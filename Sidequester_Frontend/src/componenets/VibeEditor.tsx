@@ -7,15 +7,19 @@ import WhereButton from './Buttons/WhereButton'
 export type Vibe = {
   id: string
   name: string
-  description: string
+  preferences: string
   where: string
   time: string
   budget: string
+  customTime?: string
+  customBudget?: string
+  createdAt?: string
+  updatedAt?: string
 }
 
 interface VibeEditorProps {
-  onSave: (vibe: Omit<Vibe, 'id'>) => void
-  onDelete: (id: string) => void
+  onSave: (vibe: Omit<Vibe, 'id' | 'createdAt' | 'updatedAt'>) => void | Promise<void>
+  onDelete: (id: string) => void | Promise<void>
   vibeToEdit?: Vibe | null
 }
 
@@ -25,36 +29,80 @@ function VibeEditor({
   vibeToEdit,
 }: VibeEditorProps) {
   const [name, setName] = useState(vibeToEdit?.name ?? '')
-  const [description, setDescription] = useState(vibeToEdit?.description ?? '')
+  const [preferences, setPreferences] = useState(vibeToEdit?.preferences ?? '')
   const [where, setWhere] = useState(vibeToEdit?.where ?? '')
-  const [time, setTime] = useState(vibeToEdit?.time ?? '')
-  const [budget, setBudget] = useState(vibeToEdit?.budget ?? '')
+  const [time, setTime] = useState(vibeToEdit?.time ?? 'any')
+  const [customTime, setCustomTime] = useState(vibeToEdit?.customTime ?? '')
+  const [budget, setBudget] = useState(vibeToEdit?.budget ?? 'any')
+  const [customBudget, setCustomBudget] = useState(vibeToEdit?.customBudget ?? '')
+  const [isSaving, setIsSaving] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    onSave({ name: name.trim(), description: description.trim(), where, time, budget })
+    setIsSaving(true)
+    setErrorMessage('')
+    try {
+      await onSave({
+        name: name.trim(),
+        preferences: preferences.trim(),
+        where,
+        time,
+        customTime,
+        budget,
+        customBudget,
+      })
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not save this vibe.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!vibeToEdit || !window.confirm(`Delete "${vibeToEdit.name}"? This cannot be undone.`)) {
       return
     }
 
-    onDelete(vibeToEdit.id)
+    setIsSaving(true)
+    setErrorMessage('')
+    try {
+      await onDelete(vibeToEdit.id)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not delete this vibe.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
-    <form id="vibe-editor-form" onSubmit={handleSubmit} className="space-y-5">
+    <form id="vibe-editor-form" onSubmit={(event) => void handleSubmit(event)} className="space-y-6">
+      <div
+        className="rounded-xl border-l-2 px-4 py-3 text-sm leading-relaxed"
+        style={{
+          backgroundColor: colors.surfaceRaised,
+          borderColor: colors.border,
+          borderLeftColor: colors.secondary,
+          color: colors.muted,
+        }}
+      >
+        Save a reusable vibe with preferences that fit it, like wanting relaxed, low-cost
+        activities or chances to learn something new. Add any filters you want to remember, too.
+      </div>
+
       <label className="block">
-        <span className="mb-2 block text-sm font-medium">Name your vibe</span>
+        <span className="mb-2 block text-sm font-semibold" style={{ color: colors.secondary }}>
+          Vibe name
+        </span>
         <input
-          autoFocus
+          autoFocus={!vibeToEdit}
           required
           maxLength={40}
+          aria-label="Vibe name"
           value={name}
           onChange={(event) => setName(event.target.value)}
-          placeholder="e.g. Study break"
-          className="min-h-12 w-full rounded-lg border px-4 py-3 text-base focus-visible:outline-2 focus-visible:outline-offset-2"
+          placeholder="e.g. Study break, Explore campus"
+          className="min-h-12 w-full rounded-xl border px-4 py-3 text-base focus-visible:outline-2 focus-visible:outline-offset-2"
           style={{
             backgroundColor: colors.surfaceRaised,
             borderColor: colors.border,
@@ -65,15 +113,18 @@ function VibeEditor({
       </label>
 
       <label className="block">
-        <span className="mb-2 block text-sm font-medium">Describe the vibe</span>
+        <span className="mb-2 block text-sm font-semibold" style={{ color: colors.secondary }}>
+          Preferences
+        </span>
         <textarea
           required
           maxLength={240}
-          rows={3}
-          value={description}
-          onChange={(event) => setDescription(event.target.value)}
-          placeholder="What kind of sidequest are you in the mood for?"
-          className="w-full resize-y rounded-lg border px-4 py-3 text-base focus-visible:outline-2 focus-visible:outline-offset-2"
+          rows={4}
+          aria-label="Vibe preferences"
+          value={preferences}
+          onChange={(event) => setPreferences(event.target.value)}
+          placeholder="e.g. I like relaxed, low-cost activities where I can learn something new."
+          className="w-full resize-y rounded-xl border px-4 py-3 text-base focus-visible:outline-2 focus-visible:outline-offset-2"
           style={{
             backgroundColor: colors.surfaceRaised,
             borderColor: colors.border,
@@ -83,12 +134,47 @@ function VibeEditor({
         />
       </label>
 
-      <fieldset className="space-y-2">
-        <legend className="mb-2 text-sm font-medium">Vibe settings</legend>
-        <WhereButton value={where} onChange={setWhere} />
-        <TimeButton value={time} onChange={setTime} />
-        <BudgetButton value={budget} onChange={setBudget} />
+      <fieldset className="min-w-0 space-y-4">
+        <legend className="mb-3 text-sm font-semibold" style={{ color: colors.secondary }}>
+          Optional quest filters
+        </legend>
+        <div className="space-y-2">
+          <span className="block text-xs font-medium" style={{ color: colors.muted }}>
+            Where
+          </span>
+          <WhereButton autoLocate={false} value={where} onChange={setWhere} />
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <span className="block text-xs font-medium" style={{ color: colors.muted }}>
+              Time
+            </span>
+            <TimeButton
+              value={time}
+              customValue={customTime}
+              onChange={setTime}
+              onCustomChange={setCustomTime}
+            />
+          </div>
+          <div className="space-y-2">
+            <span className="block text-xs font-medium" style={{ color: colors.muted }}>
+              Budget
+            </span>
+            <BudgetButton
+              value={budget}
+              customValue={customBudget}
+              onChange={setBudget}
+              onCustomChange={setCustomBudget}
+            />
+          </div>
+        </div>
       </fieldset>
+
+      {errorMessage && (
+        <p role="alert" className="text-sm" style={{ color: colors.error }}>
+          {errorMessage}
+        </p>
+      )}
 
       <div
         className={`sticky bottom-0 -mx-5 -mb-5 border-t p-5 ${
@@ -100,7 +186,8 @@ function VibeEditor({
           <button
             type="button"
             onClick={handleDelete}
-            className="min-h-12 cursor-pointer rounded-lg px-4 py-3 font-semibold transition hover:brightness-110 active:brightness-90 focus-visible:outline-2 focus-visible:outline-offset-2"
+            disabled={isSaving}
+            className="min-h-12 cursor-pointer rounded-xl px-4 py-3 font-semibold transition-all hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0 active:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2"
             style={{
               backgroundColor: colors.error,
               color: colors.background,
@@ -113,14 +200,15 @@ function VibeEditor({
         <button
           type="submit"
           form="vibe-editor-form"
-          className="min-h-12 w-full cursor-pointer rounded-lg px-4 py-3 font-semibold transition hover:brightness-110 active:brightness-90 focus-visible:outline-2 focus-visible:outline-offset-2"
+          disabled={isSaving}
+          className="min-h-12 w-full cursor-pointer rounded-xl px-4 py-3 font-semibold transition-all hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0 active:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2"
           style={{
             backgroundColor: colors.primary,
             color: colors.primaryForeground,
             outlineColor: colors.primary,
           }}
         >
-          {vibeToEdit ? 'Save changes' : 'Save vibe'}
+          {isSaving ? 'Saving...' : vibeToEdit ? 'Save changes' : 'Save vibe'}
         </button>
       </div>
     </form>

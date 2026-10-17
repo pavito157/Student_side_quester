@@ -5,29 +5,76 @@ import {
   SignedIn,
   SignedOut,
   UserButton,
+  useUser,
 } from '@clerk/clerk-react'
 import { AccountIcon, MenuIcon, SettingsIcon } from './icons'
 import { colors } from '../constants/colors'
 import SidebarModal from './SidebarModal'
-import SettingsModal from './SettingsModal'
 import VibeEditor, { type Vibe } from './VibeEditor'
+import { deleteUserVibe, getUserVibes, saveUserVibe } from '../services/vibes'
 
 interface HeaderProps {
   title?: string
   onSettingsClick?: () => void
+  onApplyVibe: (vibe: Vibe) => void
+}
+
+type VibeListState = {
+  userId: string | null
+  vibes: Vibe[]
+  error: string
+  isLoading: boolean
 }
 
 function Header({
   title = 'Sidequester',
   onSettingsClick,
+  onApplyVibe,
 }: HeaderProps) {
+  const { isLoaded, user } = useUser()
+  const userId = user?.id
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isAddVibeOpen, setIsAddVibeOpen] = useState(false)
   const [vibeToEdit, setVibeToEdit] = useState<Vibe | null>(null)
-  const [vibes, setVibes] = useState<Vibe[]>([])
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [vibeList, setVibeList] = useState<VibeListState>({
+    userId: null,
+    vibes: [],
+    error: '',
+    isLoading: false,
+  })
   const [isAuthMenuOpen, setIsAuthMenuOpen] = useState(false)
   const authMenuRef = useRef<HTMLDivElement>(null)
+  const hasLoadedCurrentUser = vibeList.userId === userId
+  const vibes = userId && hasLoadedCurrentUser ? vibeList.vibes : []
+  const vibeListError = userId && hasLoadedCurrentUser ? vibeList.error : ''
+  const isLoadingVibes =
+    !isLoaded || Boolean(userId && (!hasLoadedCurrentUser || vibeList.isLoading))
+
+  useEffect(() => {
+    let isCurrent = true
+
+    if (!isLoaded || !userId) return
+    void getUserVibes(userId)
+      .then((savedVibes) => {
+        if (isCurrent) {
+          setVibeList({ userId, vibes: savedVibes, error: '', isLoading: false })
+        }
+      })
+      .catch((error: unknown) => {
+        if (isCurrent) {
+          setVibeList({
+            userId,
+            vibes: [],
+            error: error instanceof Error ? error.message : 'Could not load your saved vibes.',
+            isLoading: false,
+          })
+        }
+      })
+
+    return () => {
+      isCurrent = false
+    }
+  }, [isLoaded, userId])
 
   useEffect(() => {
     if (!isAuthMenuOpen) return
@@ -179,60 +226,109 @@ function Header({
           <VibeEditor
             key={vibeToEdit?.id ?? 'new-vibe'}
             vibeToEdit={vibeToEdit}
-            onSave={(vibe) => {
-              if (vibeToEdit) {
-                setVibes((savedVibes) =>
-                  savedVibes.map((savedVibe) =>
-                    savedVibe.id === vibeToEdit.id ? { ...vibe, id: vibeToEdit.id } : savedVibe,
-                  ),
-                )
-              } else {
-                setVibes((savedVibes) => [...savedVibes, { ...vibe, id: crypto.randomUUID() }])
-              }
+            onSave={async (vibe) => {
+              if (!userId) throw new Error('Sign in to save vibes to your account.')
+              const savedVibe = await saveUserVibe(userId, vibe, vibeToEdit?.id)
+              setVibeList((current) => {
+                if (current.userId !== userId) return current
+                return {
+                  ...current,
+                  error: '',
+                  vibes: vibeToEdit
+                    ? current.vibes.map((currentVibe) =>
+                        currentVibe.id === savedVibe.id ? savedVibe : currentVibe,
+                      )
+                    : [savedVibe, ...current.vibes],
+                }
+              })
               setIsAddVibeOpen(false)
               setVibeToEdit(null)
             }}
-            onDelete={(id) => {
-              setVibes((savedVibes) => savedVibes.filter((vibe) => vibe.id !== id))
+            onDelete={async (id) => {
+              if (!userId) throw new Error('Sign in to delete saved vibes.')
+              await deleteUserVibe(userId, id)
+              setVibeList((current) => {
+                if (current.userId !== userId) return current
+                return { ...current, vibes: current.vibes.filter((vibe) => vibe.id !== id) }
+              })
               setIsAddVibeOpen(false)
               setVibeToEdit(null)
             }}
           />
+        ) : !isLoaded || isLoadingVibes ? (
+          <p role="status" className="text-sm" style={{ color: colors.muted }}>
+            Loading your saved vibes...
+          </p>
+        ) : vibeListError ? (
+          <p role="alert" className="text-sm" style={{ color: colors.error }}>
+            {vibeListError}
+          </p>
         ) : vibes.length === 0 ? (
           <p className="text-sm" style={{ color: colors.muted }}>
-            Your next side quest is just around the corner. Add a vibe to save your preferences.
+            {userId
+              ? 'Your next side quest is just around the corner. Add a vibe to save your preferences.'
+              : 'Sign in to save vibes to your account and use them on your next side quest.'}
           </p>
         ) : (
           <ul className="space-y-3">
             {vibes.map((vibe) => (
               <li
                 key={vibe.id}
-                className="rounded-xl border p-4"
-                style={{ backgroundColor: colors.surfaceRaised, borderColor: colors.border }}
+                className="rounded-xl border border-l-2 p-4 transition-colors hover:bg-white/5"
+                style={{
+                  backgroundColor: colors.surfaceRaised,
+                  borderColor: colors.border,
+                  borderLeftColor: colors.secondary,
+                }}
               >
-                <h3 className="truncate font-semibold">{vibe.name}</h3>
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="truncate font-semibold">{vibe.name}</h3>
+                  <span
+                    className="shrink-0 rounded-full px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide"
+                    style={{ backgroundColor: colors.background, color: colors.secondary }}
+                  >
+                    Vibe
+                  </span>
+                </div>
                 <p
                   className="mt-1 line-clamp-2 text-sm"
                   style={{ color: colors.muted }}
-                  title={vibe.description}
+                  title={vibe.preferences}
                 >
-                  {vibe.description}
+                  {vibe.preferences}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setVibeToEdit(vibe)
-                    setIsAddVibeOpen(true)
-                  }}
-                  className="mt-3 min-h-10 cursor-pointer rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
-                  style={{
-                    borderColor: colors.border,
-                    color: colors.primary,
-                    outlineColor: colors.primary,
-                  }}
-                >
-                  Edit vibe
-                </button>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onApplyVibe(vibe)
+                      setIsMenuOpen(false)
+                    }}
+                    className="min-h-10 cursor-pointer rounded-lg px-3 py-2 text-sm font-semibold transition-all hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2"
+                    style={{
+                      backgroundColor: colors.primary,
+                      color: colors.primaryForeground,
+                      outlineColor: colors.primary,
+                    }}
+                  >
+                    Use vibe
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVibeToEdit(vibe)
+                      setIsAddVibeOpen(true)
+                    }}
+                    className="min-h-10 cursor-pointer rounded-lg border px-3 py-2 text-sm font-semibold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+                    style={{
+                      borderColor: colors.secondary,
+                      color: colors.secondary,
+                      outlineColor: colors.secondary,
+                    }}
+                  >
+                    Edit vibe
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

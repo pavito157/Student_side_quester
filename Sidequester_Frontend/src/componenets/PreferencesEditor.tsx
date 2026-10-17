@@ -56,7 +56,11 @@ function PreferencesEditor({ userId }: PreferencesEditorProps) {
 
   return (
     <div>
-      <label htmlFor="user-preferences" className="mb-2 block text-sm font-medium">
+      <label
+        htmlFor="user-preferences"
+        className="mb-2 block text-sm font-semibold"
+        style={{ color: colors.secondary }}
+      >
         Your general preferences
       </label>
       <p className="mb-3 text-sm leading-relaxed" style={{ color: colors.muted }}>
@@ -91,7 +95,7 @@ function PreferencesEditor({ userId }: PreferencesEditorProps) {
           type="button"
           onClick={() => void handleSave()}
           disabled={isLoading || isSaving}
-          className="cursor-pointer rounded-lg px-4 py-2.5 text-sm font-semibold transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+          className="cursor-pointer rounded-lg px-4 py-2.5 text-sm font-semibold transition-all hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50"
           style={{ backgroundColor: colors.primary, color: colors.primaryForeground }}
         >
           {isLoading ? 'Loading...' : isSaving ? 'Saving...' : 'Save preferences'}

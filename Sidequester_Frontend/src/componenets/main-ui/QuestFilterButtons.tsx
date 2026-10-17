@@ -2,12 +2,12 @@ import { useState, type Dispatch, type SetStateAction } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import { colors } from '../../constants/colors'
 import { getUserGoals, getUserPreferences } from '../../services/userPreferences'
-import type { Vibe } from '../VibeEditor'
-import BudgetButton from './BudgetButton'
+import type { Vibe } from '../../types/vibe'
+import BudgetButton from '../Buttons/BudgetButton'
 import DistanceButton from './DistanceButton'
-import SidequestMeButton from './SidequestMeButton'
-import TimeButton from './TimeButton'
-import WhereButton from './WhereButton'
+import SidequestMeButton from '../Buttons/SidequestMeButton'
+import TimeButton from '../Buttons/TimeButton'
+import WhereButton from '../Buttons/WhereButton'
 
 export type QuestFilters = {
   where: string

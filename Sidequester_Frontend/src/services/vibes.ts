@@ -9,9 +9,7 @@ import {
   Timestamp,
 } from 'firebase/firestore'
 import { db } from '../configs/FirebaseConfig'
-import type { Vibe } from '../componenets/VibeEditor'
-
-type VibeInput = Omit<Vibe, 'id' | 'createdAt' | 'updatedAt'>
+import type { Vibe, VibeInput } from '../types/vibe'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)

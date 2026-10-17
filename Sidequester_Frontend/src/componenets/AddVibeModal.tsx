@@ -1,10 +1,11 @@
-import VibeEditor, { type Vibe } from './VibeEditor'
+import VibeEditor from './sidebar/VibeEditor'
+import type { Vibe } from '../types/vibe'
 
 interface AddVibeModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (vibe: Omit<Vibe, 'id'>) => void
-  onDelete: (id: string) => void
+  onSave: (vibe: Omit<Vibe, 'id' | 'createdAt' | 'updatedAt'>) => void | Promise<void>
+  onDelete: (id: string) => void | Promise<void>
   vibeToEdit?: Vibe | null
 }
 
@@ -21,12 +22,12 @@ function AddVibeModal({
     <VibeEditor
       key={vibeToEdit?.id ?? 'new-vibe'}
       vibeToEdit={vibeToEdit}
-      onSave={(vibe) => {
-        onSave(vibe)
+      onSave={async (vibe) => {
+        await onSave(vibe)
         onClose()
       }}
-      onDelete={(id) => {
-        onDelete(id)
+      onDelete={async (id) => {
+        await onDelete(id)
         onClose()
       }}
     />

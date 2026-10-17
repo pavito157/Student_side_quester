@@ -7,7 +7,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from backend.quest_contracts import AssignQuestRequest, AssignQuestResponse, NormalizedQuestPreferences
+from backend.quest_contracts import AssignQuestRequest, AssignQuestResponse, GenerateQuestRequest, NormalizedQuestPreferences
 
 
 CONTRACTS = Path(__file__).resolve().parents[1] / "contracts"
@@ -148,6 +148,36 @@ class FrontendPayloadTests(unittest.TestCase):
             normalized = AssignQuestRequest.model_validate(self.body).normalize()
             self.assertEqual(normalized.maxDistanceMiles, distance)
             self.assertEqual(normalized.time.minMinutes, 120)
+
+    def test_frontend_distance_object_and_null_vibe_normalize_like_legacy_payload(self):
+        frontend = {**self.body, "distance": {"maxDistance": 1, "unit": "miles"}, "vibePreferences": None}
+        parsed = AssignQuestRequest.model_validate(frontend).normalize()
+        legacy = AssignQuestRequest.model_validate({**frontend, "distance": 1, "vibePreferences": ""}).normalize()
+        self.assertEqual(parsed, legacy)
+        self.assertEqual(parsed.maxDistanceMiles, 1)
+        self.assertIsNone(parsed.vibe)
+
+    def test_distance_objects_keep_strict_units_numbers_and_positive_bounds(self):
+        for distance in [{"maxDistance": 1, "unit": "km"}, {"maxDistance": 1},
+                         {"maxDistance": 0, "unit": "miles"}, {"maxDistance": True, "unit": "miles"},
+                         {"maxDistance": "1", "unit": "miles"},
+                         {"maxDistance": 1, "unit": "miles", "extra": 1}]:
+            with self.subTest(distance=distance), self.assertRaises(ValidationError):
+                AssignQuestRequest.model_validate({**self.body, "distance": distance})
+
+    def test_distance_object_still_requires_numeric_origin_for_generation(self):
+        frontend = {**self.body, "distance": {"maxDistance": 1, "unit": "miles"}, "vibePreferences": None}
+        with self.assertRaisesRegex(ValidationError, "originCoordinates"):
+            GenerateQuestRequest.model_validate(frontend)
+        generated = GenerateQuestRequest.model_validate({**frontend, "originCoordinates": {
+            "latitude": 29.65, "longitude": -82.34,
+        }}).normalize()
+        self.assertEqual(generated.maxDistanceMiles, 1)
+        self.assertEqual(generated.location.coordinates.latitude, 29.65)
+
+    def test_frontend_not_selected_label_means_anywhere(self):
+        self.assertEqual(AssignQuestRequest.model_validate({**self.body, "location": "Not selected"})
+                         .normalize().location.mode, "anywhere")
 
     def test_distance_needs_a_search_origin(self):
         for label in ["", "any", "Anywhere", "  anywhere  "]:

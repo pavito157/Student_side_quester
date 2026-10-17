@@ -4,6 +4,7 @@ from firebase_admin import firestore
 
 from .quest_validation import validate_completion
 from .firebase_helpers import USERS
+from .xp import read_xp
 
 ASSIGNMENTS = "userQuests"
 
@@ -67,20 +68,21 @@ def complete_quest(
         if not dorm_snapshot.exists:
             raise CompletionError(409, "Your dorm no longer exists.")
         dorm = dorm_snapshot.to_dict()
-        if any(type(record.get("totalXp")) is not int or record["totalXp"] < 0
-               for record in (user, dorm)):
-            raise CompletionError(409, "User and dorm XP totals must be nonnegative integers.")
+        try:
+            user_xp, dorm_xp = read_xp(user), read_xp(dorm)
+        except ValueError:
+            raise CompletionError(409, "User and dorm XP totals must be nonnegative integers.") from None
 
         # Firestore integer fields are signed 64-bit values.
-        if any(record["totalXp"] + reward > 2**63 - 1 for record in (user, dorm)):
+        if any(balance + reward > 2**63 - 1 for balance in (user_xp, dorm_xp)):
             raise CompletionError(409, "The XP award exceeds the supported total.")
         transaction.update(assignment_ref, {
             "status": "completed",
             "completedAt": firestore.SERVER_TIMESTAMP,
             "xpAwarded": reward,
         })
-        transaction.update(user_ref, {"totalXp": user["totalXp"] + reward})
-        transaction.update(dorm_ref, {"totalXp": dorm["totalXp"] + reward})
+        transaction.update(user_ref, {"xp": user_xp + reward})
+        transaction.update(dorm_ref, {"xp": dorm_xp + reward})
         return {**validation, "questId": quest_id, "status": "completed", "xpAwarded": reward}
 
     return commit(db.transaction())

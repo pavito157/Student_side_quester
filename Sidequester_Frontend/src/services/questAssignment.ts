@@ -18,9 +18,9 @@ export type AssignQuestPayload = {
   budget: BudgetFilter
   preferences?: string
   username?: string
-  distance?: number | null // Maximum straight-line miles; null means no limit.
+  distance?: number | { maxDistance: number; unit: 'miles' } | null
   goals?: string[]
-  vibePreferences?: string
+  vibePreferences?: string | null
 }
 
 export type QuestPreviewResponse = {

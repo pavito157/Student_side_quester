@@ -89,6 +89,27 @@
       ],
       "title": "Coordinates",
       "type": "object"
+    },
+    "DistanceFilter": {
+      "additionalProperties": false,
+      "properties": {
+        "maxDistance": {
+          "exclusiveMinimum": 0,
+          "title": "Maxdistance",
+          "type": "number"
+        },
+        "unit": {
+          "const": "miles",
+          "title": "Unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "maxDistance",
+        "unit"
+      ],
+      "title": "DistanceFilter",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -124,11 +145,14 @@
           "type": "number"
         },
         {
+          "$ref": "#/$defs/DistanceFilter"
+        },
+        {
           "type": "null"
         }
       ],
       "default": null,
-      "description": "Maximum straight-line distance in miles from location; null means no limit.",
+      "description": "Maximum straight-line miles: number or {maxDistance, unit: miles}; null means no limit.",
       "title": "Distance"
     },
     "goals": {
@@ -142,10 +166,17 @@
       "type": "array"
     },
     "vibePreferences": {
+      "anyOf": [
+        {
+          "maxLength": 4000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
       "default": "",
-      "maxLength": 4000,
-      "title": "Vibepreferences",
-      "type": "string"
+      "title": "Vibepreferences"
     },
     "originCoordinates": {
       "anyOf": [

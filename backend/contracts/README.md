@@ -28,6 +28,13 @@ python -m backend.quest_contracts
 python -m unittest backend.tests.test_quest_contracts -v
 ```
 
+## Current frontend compatibility
+
+Distance accepts a positive miles number or `{ "maxDistance": 2, "unit": "miles" }`.
+`vibePreferences` accepts text or null. Generation/assignment requests with a
+distance limit must also include numeric `originCoordinates` from the selected
+place/device. The backend does not geocode a starting address automatically.
+
 ## Public request: frontend format
 
 See `assignment.request.example.json` and `assignment.request.schema.json`.
@@ -42,7 +49,7 @@ bounds or tagged location objects.
 | `location` | Address/place label; blank, `any`, or `Anywhere` means within the app's UF scope |
 | `time` | `{selection, customMinutes}` for activity duration in minutes, excluding travel |
 | `budget` | `{selection, customDollars}` for activity cost in USD |
-| `distance` | Positive JSON number: maximum straight-line distance in miles from the location; null/omitted means no distance limit |
+| `distance` | Positive miles number or `{maxDistance, unit: "miles"}`; null/omitted means no distance limit |
 | `goals` | Default empty array; at most 20 nonblank strings, 500 characters each |
 | `vibePreferences` | Selected vibe's preference text, default empty, at most 4,000 characters |
 
@@ -119,8 +126,8 @@ Goals remain a list. Explicit controls win over any older saved vibe filters.
 describe backend-only constraints: a tagged search location, inclusive activity
 `minMinutes`/`maxMinutes`, budget bounds (including an exclusive maximum for
 Under $10), and `maxDistanceMiles`. Internal models also retain optional numeric
-origin coordinates for later integration; the public frontend request does not
-currently send them. This internal shape is not an alternate endpoint payload.
+origin coordinates; generation/assignment requests require them with a distance
+limit. Frontend teammates must retain these from the selected place/device. This internal shape is not an alternate endpoint payload.
 
 The schemas describe structural constraints. Pydantic additionally validates
 relationships such as required custom values, distance needing a location,

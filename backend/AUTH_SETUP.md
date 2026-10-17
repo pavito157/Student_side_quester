@@ -63,7 +63,7 @@ assignments require the pending destination resolver.
    Firebase UID returns 409 and requires explicit account linking; the bridge
    never guesses or merges identities by email.
 5. A Firestore transaction fills **only absent** `displayName`, `createdAt`, and
-   `totalXp` fields on `Users/{uid}`. Preferences, goals, vibes, XP, and dorm
+   `xp` fields on `Users/{uid}`. Preferences, goals, vibes, XP, and dorm
    selection are preserved. A dorm is not fabricated. Completion still needs a
    valid dorm selected later.
 6. The backend returns `{uid, firebaseCustomToken}` with `Cache-Control: no-store`.

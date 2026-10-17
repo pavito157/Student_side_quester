@@ -274,3 +274,13 @@ test('assignment resolver/configuration failures do not masquerade as saved ques
     return true
   })
 })
+
+test('posts the merged frontend distance object and nullable vibe unchanged', async () => {
+  const f = await fixture()
+  const body = {
+    ...payload, distance: { maxDistance: 2, unit: 'miles' }, vibePreferences: null,
+    originCoordinates: { latitude: 29.64, longitude: -82.35 },
+  }
+  await f.api.requestTestQuest('user_student', body)
+  assert.deepEqual(JSON.parse(f.calls[1][2].body), body)
+})

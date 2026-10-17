@@ -5,7 +5,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../configs/FirebaseConfig'
-import { getNextRequestCount, getUserXp, stageUserRequestMetadata } from './userProfile'
+import { getNextRequestCount, stageUserRequestMetadata } from './userProfile'
 import type { SidequestRequestPayload } from '../types/sidequest'
 
 type SavedSidequestMetadata = {
@@ -35,7 +35,6 @@ export async function saveSidequestRequest(
       email,
       username: request.username,
       requestCount: nextRequestCount,
-      xp: getUserXp(currentUserData),
     })
     
     transaction.set(sidequestRef, {

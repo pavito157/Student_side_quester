@@ -15,6 +15,7 @@ from google.auth.exceptions import GoogleAuthError
 from pydantic import BaseModel, ConfigDict
 
 from .firebase_helpers import USERS, bearer, current_uid, get_db, get_firebase_app, is_uf_email
+from .xp import read_xp
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -121,7 +122,11 @@ def ensure_profile(db, identity):
     def initialize(transaction):
         snapshot = reference.get(transaction=transaction)
         existing = snapshot.to_dict() if snapshot.exists else {}
-        defaults = {"displayName": identity["displayName"], "totalXp": 0,
+        try:
+            starting_xp = read_xp(existing, default=0)
+        except ValueError:
+            raise HTTPException(409, "Your saved XP balance needs repair") from None
+        defaults = {"displayName": identity["displayName"], "xp": starting_xp,
                     "createdAt": firestore.SERVER_TIMESTAMP}
         missing = {key: value for key, value in defaults.items() if key not in existing}
         if missing:

@@ -140,6 +140,14 @@ class BudgetFilter(ContractModel):
         return BudgetConstraints(maxDollars=self.customDollars if self.selection == "custom" else 0)
 
 
+Miles = Annotated[float, Field(strict=True, gt=0, allow_inf_nan=False)]
+
+
+class DistanceFilter(ContractModel):
+    maxDistance: Miles
+    unit: Literal["miles"]
+
+
 class AssignQuestRequest(ContractModel):
     """Public request matching the frontend team's JSON; identity is token-only."""
 
@@ -149,17 +157,21 @@ class AssignQuestRequest(ContractModel):
     location: str = Field(max_length=300)
     time: ActivityTimeFilter
     budget: BudgetFilter
-    distance: Optional[float] = Field(default=None, strict=True, gt=0, allow_inf_nan=False,
-                                     description="Maximum straight-line distance in miles from location; null means no limit.")
+    distance: Optional[Union[Miles, DistanceFilter]] = Field(
+        default=None, description="Maximum straight-line miles: number or {maxDistance, unit: miles}; null means no limit.",
+    )
     goals: List[GoalText] = Field(default_factory=list, max_length=20)
-    vibePreferences: str = Field(default="", max_length=4000)
+    vibePreferences: Optional[str] = Field(default="", max_length=4000)
+
+    def distance_miles(self):
+        return self.distance.maxDistance if isinstance(self.distance, DistanceFilter) else self.distance
 
     def normalized_location(self):
         # Accept the address-label link formatting from the emailed example.
         # Never follow user-supplied URLs or infer trustworthy coordinates here.
         link = re.fullmatch(r"\[([^\]\r\n]+)\]\(https?://[^\s]+\)", self.location)
         label = (link.group(1) if link else self.location).strip()
-        if label.lower() in ("", "any", "anywhere"):
+        if label.lower() in ("", "any", "anywhere", "not selected"):
             return AnywhereLocation(mode="anywhere")
         return PlaceLocation(mode="place", label=label)
 
@@ -172,7 +184,7 @@ class AssignQuestRequest(ContractModel):
     def normalize(self) -> NormalizedQuestPreferences:
         return NormalizedQuestPreferences(
             location=self.normalized_location(), time=self.time.normalize(),
-            budget=self.budget.normalize(), maxDistanceMiles=self.distance,
+            budget=self.budget.normalize(), maxDistanceMiles=self.distance_miles(),
             preferences=self.preferences, goals=self.goals,
             vibe=SelectedVibe(preferences=self.vibePreferences) if self.vibePreferences else None,
         )

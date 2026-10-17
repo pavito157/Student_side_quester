@@ -102,7 +102,7 @@ class BridgeRouteTests(unittest.TestCase):
         self.mint.assert_not_called()
 
     def test_client_cannot_supply_identity_or_profile(self):
-        for field in ["uid", "userId", "email", "email_verified", "totalXp", "dormId"]:
+        for field in ["uid", "userId", "email", "email_verified", "xp", "totalXp", "dormId"]:
             self.assertEqual(self.post(body={field: "forged"}).status_code, 422)
         self.mint.assert_not_called()
 

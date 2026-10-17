@@ -33,9 +33,9 @@ class PersistenceEmulatorTests(unittest.TestCase):
         self.uids = [self.uid]
         self.db.collection("Users").document(self.uid).set({
             "displayName": "Original", "preferences": "Quiet", "goals": ["Relax"],
-            "dormId": self.dorm_id, "totalXp": 10,
+            "dormId": self.dorm_id, "xp": 10,
         })
-        self.db.collection("dorms").document(self.dorm_id).set({"totalXp": 100})
+        self.db.collection("dorms").document(self.dorm_id).set({"xp": 100})
         self.addCleanup(self.cleanup_documents)
         self.environment = patch.dict(os.environ, {"QUEST_XP_REWARD": "25", "QUEST_RADIUS_METERS": "100"})
         self.environment.start()
@@ -74,8 +74,8 @@ class PersistenceEmulatorTests(unittest.TestCase):
         return list(self.db.collection(collection).where(filter=FieldFilter(field, "==", self.uid)).stream())
 
     def assert_xp(self, user=10, dorm=100):
-        self.assertEqual(self.db.collection("Users").document(self.uid).get().to_dict()["totalXp"], user)
-        self.assertEqual(self.db.collection("dorms").document(self.dorm_id).get().to_dict()["totalXp"], dorm)
+        self.assertEqual(self.db.collection("Users").document(self.uid).get().to_dict()["xp"], user)
+        self.assertEqual(self.db.collection("dorms").document(self.dorm_id).get().to_dict()["xp"], dorm)
 
     def test_saved_documents_match_response_and_preserve_profile(self):
         result = self.create()
@@ -244,7 +244,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
         first = self.create()
         other = self.uid + "-other"
         self.uids.append(other)
-        self.db.collection("Users").document(other).set({"totalXp": 0})
+        self.db.collection("Users").document(other).set({"xp": 0})
         self.assertIsNone(persistence.get_current_assignment(self.db, other))
         # Even a corrupt other user's pointer cannot expose the private quest:
         self.db.collection("Users").document(other).update({"activeQuestId": first.quest.id})

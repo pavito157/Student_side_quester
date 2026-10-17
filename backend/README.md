@@ -124,13 +124,13 @@ The service reads these records **inside the transaction**:
 | --- | --- |
 | `userQuests/{uid}_{questId}` | `userId`, `questId`, `status` |
 | `quests/{questId}` | `isActive`, `latitude`, `longitude`, `radiusMeters`, `xpReward` |
-| `Users/{uid}` | `dormId`, `totalXp` |
-| `dorms/{dormId}` | `totalXp` |
+| `Users/{uid}` | `dormId`, `xp` |
+| `dorms/{dormId}` | `xp` |
 
 The assignment must belong to the caller, refer to this quest, and have status
 `assigned`. The quest must still be active. The user's dorm comes from the stored
 profile. User and dorm records must already exist with nonnegative integer
-`totalXp`; the reward must be a nonnegative integer. No client-provided reward,
+`xp`; the reward must be a nonnegative integer. No client-provided reward,
 destination, radius, identity, or dorm participates in completion.
 
 After all reads and checks, one commit updates assignment `status` to `completed`,

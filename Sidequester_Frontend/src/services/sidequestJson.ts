@@ -45,9 +45,9 @@ function validateBudget(budget: BudgetConstraint): void {
 function validateDistance(distance: DistanceConstraint): void {
   if (
     distance !== null &&
-    (!Number.isFinite(distance.maxDistance) || distance.maxDistance < 0)
+    (distance.unit !== 'miles' || !Number.isFinite(distance.maxDistance) || distance.maxDistance <= 0)
   ) {
-    throw new Error('Maximum distance must be a non-negative number of miles.')
+    throw new Error('Maximum distance must be a positive number of miles.')
   }
 }
 

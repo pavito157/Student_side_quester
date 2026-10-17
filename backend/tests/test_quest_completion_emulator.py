@@ -28,7 +28,7 @@ class CompletionEmulatorTests(unittest.TestCase):
         self.quest = {"isActive": True, "latitude": 29.65, "longitude": -82.34,
                       "radiusMeters": 100, "xpReward": 25}
         self.seed("quests", self.quest_id, self.quest)
-        self.seed("dorms", self.dorm_id, {"name": "Test dorm", "totalXp": 100})
+        self.seed("dorms", self.dorm_id, {"name": "Test dorm", "xp": 100})
         self.seed_user(self.uid)
 
     def cleanup_documents(self):
@@ -42,7 +42,7 @@ class CompletionEmulatorTests(unittest.TestCase):
         return ref
 
     def seed_user(self, uid):
-        self.seed("Users", uid, {"dormId": self.dorm_id, "totalXp": 10})
+        self.seed("Users", uid, {"dormId": self.dorm_id, "xp": 10})
         self.seed(ASSIGNMENTS, f"{uid}_{self.quest_id}", {
             "userId": uid, "questId": self.quest_id, "status": "assigned", "xpAwarded": 0,
         })
@@ -57,8 +57,8 @@ class CompletionEmulatorTests(unittest.TestCase):
         return complete_quest(**arguments)
 
     def assert_totals(self, user_xp=10, dorm_xp=100):
-        self.assertEqual(self.db.collection("Users").document(self.uid).get().to_dict()["totalXp"], user_xp)
-        self.assertEqual(self.db.collection("dorms").document(self.dorm_id).get().to_dict()["totalXp"], dorm_xp)
+        self.assertEqual(self.db.collection("Users").document(self.uid).get().to_dict()["xp"], user_xp)
+        self.assertEqual(self.db.collection("dorms").document(self.dorm_id).get().to_dict()["xp"], dorm_xp)
 
     def assert_unchanged(self):
         assignment = self.assignment_ref().get().to_dict()
@@ -66,6 +66,35 @@ class CompletionEmulatorTests(unittest.TestCase):
         self.assertEqual(assignment["xpAwarded"], 0)
         self.assertNotIn("completedAt", assignment)
         self.assert_totals()
+
+    def test_legacy_balances_are_preserved_and_awarded_to_canonical_xp(self):
+        user = self.db.collection("Users").document(self.uid)
+        dorm = self.db.collection("dorms").document(self.dorm_id)
+        user.set({"dormId": self.dorm_id, "totalXp": 10})
+        dorm.set({"totalXp": 100})
+        self.finish()
+        self.assert_totals(35, 125)
+        self.assertEqual(user.get().to_dict()["totalXp"], 10)
+        self.assertEqual(dorm.get().to_dict()["totalXp"], 100)
+        with self.assertRaises(CompletionError):
+            self.finish()
+        self.assert_totals(35, 125)
+
+    def test_canonical_zero_wins_over_legacy_balances(self):
+        self.db.collection("Users").document(self.uid).update({"xp": 0, "totalXp": 900})
+        self.db.collection("dorms").document(self.dorm_id).update({"xp": 0, "totalXp": 900})
+        self.finish()
+        self.assert_totals(25, 25)
+
+    def test_profile_setup_backfills_legacy_xp_without_resetting_it(self):
+        ref = self.db.collection("Users").document(self.uid)
+        ref.set({"dormId": self.dorm_id, "totalXp": 10})
+        ensure_profile(self.db, {"uid": self.uid, "displayName": "Student"})
+        self.assert_totals()
+        self.finish()
+        ensure_profile(self.db, {"uid": self.uid, "displayName": "Student"})
+        self.assert_totals(35, 125)
+        self.assertEqual(ref.get().to_dict()["totalXp"], 10)
 
     def test_completion_and_replay_award_once(self):
         result = self.finish()
@@ -107,7 +136,7 @@ class CompletionEmulatorTests(unittest.TestCase):
             results = list(pool.map(attempt, [self.uid, other_uid]))
         self.assertTrue(all(result["status"] == "completed" for result in results))
         self.assert_totals(35, 150)
-        self.assertEqual(self.db.collection("Users").document(other_uid).get().to_dict()["totalXp"], 35)
+        self.assertEqual(self.db.collection("Users").document(other_uid).get().to_dict()["xp"], 35)
 
     def test_rejected_location_does_not_write(self):
         for changes in [{"latitude": 0}, {"accuracy": 51}, {"longitude": float("nan")}]:
@@ -155,11 +184,11 @@ class CompletionEmulatorTests(unittest.TestCase):
                 self.finish()
             self.assert_unchanged()
         self.db.collection("quests").document(self.quest_id).update({"xpReward": 25})
-        self.db.collection("dorms").document(self.dorm_id).update({"totalXp": "invalid"})
+        self.db.collection("dorms").document(self.dorm_id).update({"xp": "invalid"})
         with self.assertRaises(CompletionError):
             self.finish()
         self.assertEqual(self.assignment_ref().get().to_dict()["status"], "assigned")
-        self.assertEqual(self.db.collection("Users").document(self.uid).get().to_dict()["totalXp"], 10)
+        self.assertEqual(self.db.collection("Users").document(self.uid).get().to_dict()["xp"], 10)
 
     def test_zero_xp_reward_still_marks_completion(self):
         self.db.collection("quests").document(self.quest_id).update({"xpReward": 0})
@@ -184,10 +213,15 @@ class CompletionEmulatorTests(unittest.TestCase):
         self.refs.append(ref)
         ensure_profile(self.db, {"uid": uid, "displayName": "Student"})
         profile = ref.get().to_dict()
-        self.assertEqual(profile["totalXp"], 0)
+        self.assertEqual(profile["xp"], 0)
         self.assertEqual(profile["displayName"], "Student")
         self.assertNotIn("dormId", profile)
         self.assertFalse(self.db.collection("users").document(uid).get().exists)
+
+    def test_legacy_profile_setup_racing_completion_preserves_award(self):
+        self.db.collection("Users").document(self.uid).set({"dormId": self.dorm_id, "totalXp": 10})
+        self.db.collection("dorms").document(self.dorm_id).set({"totalXp": 100})
+        self.test_profile_setup_racing_completion_does_not_reset_xp()
 
     def test_profile_setup_racing_completion_does_not_reset_xp(self):
         barrier = threading.Barrier(2)

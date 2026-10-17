@@ -198,3 +198,21 @@ owner. Preserve the existing own-user preferences/goals/vibes permissions. Admin
 SDK transactions bypass client rules, so emulator transaction tests do not prove
 those deployed access rules are correct. Coordinate this with Backend 1 rather
 than replacing their rules blindly.
+
+## Merged frontend compatibility
+
+The request accepts `distance: {"maxDistance": 2, "unit": "miles"}` or the
+legacy numeric miles value, and nullable `vibePreferences`. Distance must be
+positive. Include `originCoordinates: {"latitude": ..., "longitude": ...}`
+from the selected place/device when requesting a distance limit. An address
+string alone does not enable the distance check. Frontend teammates own button
+wiring and retaining these coordinates; no UI components were changed here.
+
+`xp` is authoritative on `Users` and `dorms`. For older records lacking `xp`,
+backend transactions read `totalXp` and write the resulting balance to `xp`.
+Profile setup backfills `xp` without resetting existing balances. Legacy fields
+are retained, but ignored when `xp` exists. Client request-history writes no
+longer write balances; frontend balance reads support legacy records too.
+
+New saved assignments still require the teammate destination resolver. Completion
+also requires a chosen dorm and a seeded dorm document with an integer XP balance.

@@ -1,30 +1,33 @@
-import { colors } from '../constants/colors'
+import { colors } from '../../constants/colors'
 
-type TimeButtonProps = {
+type WhereButtonProps = {
   value: string
   onChange: (value: string) => void
 }
 
 const options = [
-  { value: 'any', label: 'Any time' },
-  { value: '30', label: '30 minutes or less' },
-  { value: '60', label: '1 hour or less' },
-  { value: '120', label: '2+ hours' },
+  { value: 'reitz-union', label: 'Reitz Union' },
+  { value: 'Marston', label: 'Marston Library' },
+  { value: 'Libwest', label: 'Library West' },
+  { value: 'Flavet', label: 'Flavet Field' },
+  { value: 'Wauburg', label: 'Lake Wauburg' },
+  { value: 'SouthWest', label: 'SouthWest Recreation Center' },
+  { value: 'studentrec', label: 'Student Recreation Center' },
 ]
 
-function TimeButton({ value, onChange }: TimeButtonProps) {
+function WhereButton({ value, onChange }: WhereButtonProps) {
   return (
     <label className="block">
-      <span className="sr-only">Time</span>
+      <span className="sr-only">Where</span>
       <select
-        aria-label="Time"
+        aria-label="Where"
         className="min-h-12 w-full cursor-pointer touch-manipulation rounded-lg px-5 py-3 text-base font-semibold transition hover:brightness-110 active:brightness-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-        style={{ backgroundColor: colors.secondary, color: colors.secondaryForeground }}
+        style={{ backgroundColor: colors.primary, color: colors.primaryForeground }}
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >
         <option value="" disabled hidden>
-          Time
+          Where
         </option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -36,4 +39,4 @@ function TimeButton({ value, onChange }: TimeButtonProps) {
   )
 }
 
-export default TimeButton
+export default WhereButton

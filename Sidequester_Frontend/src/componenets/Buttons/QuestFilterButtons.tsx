@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { colors } from '../constants/colors'
+import { colors } from '../../constants/colors'
 import BudgetButton from './BudgetButton'
 import SidequestMeButton from './SidequestMeButton'
 import TimeButton from './TimeButton'

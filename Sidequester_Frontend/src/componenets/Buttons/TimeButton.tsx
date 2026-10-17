@@ -1,30 +1,30 @@
-import { colors } from '../constants/colors'
+import { colors } from '../../constants/colors'
 
-type BudgetButtonProps = {
+type TimeButtonProps = {
   value: string
   onChange: (value: string) => void
 }
 
 const options = [
-  { value: 'any', label: 'Any budget' },
-  { value: '0', label: 'Free' },
-  { value: '10', label: 'Under $10' },
-  { value: '10-25', label: '$10–$25' },
+  { value: 'any', label: 'Any time' },
+  { value: '30', label: '30 minutes or less' },
+  { value: '60', label: '1 hour or less' },
+  { value: '120', label: '2+ hours' },
 ]
 
-function BudgetButton({ value, onChange }: BudgetButtonProps) {
+function TimeButton({ value, onChange }: TimeButtonProps) {
   return (
     <label className="block">
-      <span className="sr-only">Budget</span>
+      <span className="sr-only">Time</span>
       <select
-        aria-label="Budget"
+        aria-label="Time"
         className="min-h-12 w-full cursor-pointer touch-manipulation rounded-lg px-5 py-3 text-base font-semibold transition hover:brightness-110 active:brightness-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-        style={{ backgroundColor: colors.accent, color: colors.accentForeground }}
+        style={{ backgroundColor: colors.secondary, color: colors.secondaryForeground }}
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >
         <option value="" disabled hidden>
-          Budget
+          Time
         </option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -36,4 +36,4 @@ function BudgetButton({ value, onChange }: BudgetButtonProps) {
   )
 }
 
-export default BudgetButton
+export default TimeButton

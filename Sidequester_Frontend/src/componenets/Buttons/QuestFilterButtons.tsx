@@ -129,7 +129,8 @@ function QuestFilterButtons() {
       {suggestion && (
         <p
           aria-live="polite"
-          className="rounded-lg border p-4 font-medium"
+          role="status"
+          className="rounded-lg border p-4 text-sm font-medium leading-relaxed"
           style={{
             backgroundColor: colors.surfaceRaised,
             borderColor: colors.border,

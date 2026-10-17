@@ -18,8 +18,13 @@ function TimeButton({ value, onChange }: TimeButtonProps) {
       <span className="sr-only">Time</span>
       <select
         aria-label="Time"
-        className="min-h-12 w-full cursor-pointer touch-manipulation rounded-lg px-5 py-3 text-base font-semibold transition hover:brightness-110 active:brightness-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-        style={{ backgroundColor: colors.secondary, color: colors.secondaryForeground }}
+        className="min-h-12 w-full cursor-pointer touch-manipulation rounded-lg border px-4 py-3 text-sm font-medium transition-colors hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-offset-2"
+        style={{
+          backgroundColor: colors.surfaceRaised,
+          borderColor: colors.border,
+          color: value ? colors.foreground : colors.muted,
+          outlineColor: colors.primary,
+        }}
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >

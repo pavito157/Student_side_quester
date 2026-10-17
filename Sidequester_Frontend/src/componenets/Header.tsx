@@ -59,7 +59,7 @@ function Header({
             aria-label="Open menu"
             aria-haspopup="dialog"
             onClick={() => setIsMenuOpen(true)}
-            className="cursor-pointer rounded-lg p-2 transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-lg p-0 transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
             style={{ color: colors.foreground, outlineColor: colors.primary }}
           >
             <MenuIcon />
@@ -82,7 +82,7 @@ function Header({
                 setIsSettingsOpen(true)
                 onSettingsClick?.()
               }}
-              className="cursor-pointer rounded-lg p-2 transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-lg p-0 transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
               style={{ color: colors.secondary, outlineColor: colors.secondary }}
             >
               <SettingsIcon />
@@ -140,8 +140,14 @@ function Header({
               </div>
             </SignedOut>
             <SignedIn>
-              <div className="[&_button]:cursor-pointer flex-center align-center justify-center">
-                <UserButton />
+              <div className="inline-flex size-10 shrink-0 items-center justify-center">
+                <UserButton
+                  appearance={{
+                    elements: {
+                      avatarBox: 'size-8',
+                    },
+                  }}
+                />
               </div>
             </SignedIn>
           </div>

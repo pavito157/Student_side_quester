@@ -45,6 +45,49 @@
   --gradient-glow: radial-gradient(ellipse at center, #3b82f633 0%, #071b1600 72%);
 }
 
+.sidebar-modal {
+  position: fixed;
+  inset: 0 auto 0 0;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  border-radius: 0 1rem 1rem 0;
+  animation: sidebar-enter 220ms ease-out both;
+}
+
+.sidebar-modal::backdrop {
+  background-color: rgb(0 0 0 / 0%);
+  transition: background-color 220ms ease-out;
+}
+
+.sidebar-modal[open]::backdrop {
+  background-color: rgb(0 0 0 / 60%);
+}
+
+.sidebar-modal.is-closing {
+  animation: sidebar-exit 220ms ease-in both;
+}
+
+@keyframes sidebar-enter {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes sidebar-exit {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-100%);
+  }
+}
+
 body {
   background-color: var(--color-background);
   color: var(--color-foreground);

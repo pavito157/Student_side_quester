@@ -1,5 +1,5 @@
 import React from 'react';
-
+import {colors} from '../constants/colors';
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   onClick: () => void;
   disabled?: boolean;
@@ -13,7 +13,11 @@ const Button: React.FC<ButtonProps> = ({
   ...rest
 }) => {
   return (
-    <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+    <button className="py-2 px-4 rounded"
+      style={{
+        backgroundColor: colors.secondary,
+        borderColor: colors.border,
+      }}
       onClick={onClick}
       disabled={disabled}
       {...rest}

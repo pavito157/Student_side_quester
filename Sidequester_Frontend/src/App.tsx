@@ -20,6 +20,7 @@ function App() {
     budget: '',
     customTime: '',
     customBudget: '',
+    distance: 'any',
   })
 
   function openSettings(section: SettingsSection | null = null) {
@@ -49,6 +50,7 @@ function App() {
             budget: vibe.budget || 'any',
             customTime: vibe.customTime ?? '',
             customBudget: vibe.customBudget ?? '',
+            distance: vibe.distance || 'any',
           })
         }}
       />

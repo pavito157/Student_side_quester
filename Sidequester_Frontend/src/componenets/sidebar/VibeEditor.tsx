@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { colors } from '../../constants/colors'
 import type { Vibe } from '../../types/vibe'
 import BudgetButton from '../Buttons/BudgetButton'
+import DistanceButton from '../Buttons/DistanceButton'
 import TimeButton from '../Buttons/TimeButton'
 import WhereButton from '../Buttons/WhereButton'
 
@@ -24,6 +25,7 @@ function VibeEditor({
   const [time, setTime] = useState(vibeToEdit?.time ?? 'any')
   const [customTime, setCustomTime] = useState(vibeToEdit?.customTime ?? '')
   const [budget, setBudget] = useState(vibeToEdit?.budget ?? 'any')
+  const [distance, setDistance] = useState(vibeToEdit?.distance ?? 'any')
   const [customBudget, setCustomBudget] = useState(vibeToEdit?.customBudget ?? '')
   const [isSaving, setIsSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -40,6 +42,7 @@ function VibeEditor({
         time,
         customTime,
         budget,
+        distance,
         customBudget,
       })
     } catch (error) {
@@ -134,7 +137,7 @@ function VibeEditor({
           </span>
           <WhereButton autoLocate={false} value={where} onChange={setWhere} />
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="space-y-2">
             <span className="block text-xs font-medium" style={{ color: colors.muted }}>
               Time
@@ -145,6 +148,12 @@ function VibeEditor({
               onChange={setTime}
               onCustomChange={setCustomTime}
             />
+          </div>
+          <div className="space-y-2">
+            <span className="block text-xs font-medium" style={{ color: colors.muted }}>
+              Distance from current location
+            </span>
+            <DistanceButton value={distance} onChange={setDistance} />
           </div>
           <div className="space-y-2">
             <span className="block text-xs font-medium" style={{ color: colors.muted }}>

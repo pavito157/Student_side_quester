@@ -7,6 +7,7 @@ import { getUserGoals, getUserPreferences } from '../../services/userPreferences
 import type { BudgetConstraint, TimeConstraint } from '../../types/sidequest'
 import type { Vibe } from '../../types/vibe'
 import BudgetButton from '../Buttons/BudgetButton'
+import DistanceButton from '../Buttons/DistanceButton'
 import SidequestMeButton from '../Buttons/SidequestMeButton'
 import TimeButton from '../Buttons/TimeButton'
 import WhereButton from '../Buttons/WhereButton'
@@ -18,6 +19,18 @@ export type QuestFilters = {
   budget: string
   customTime: string
   customBudget: string
+  distance: string
+}
+
+type QuestInputPreview = {
+  location: string
+  preferences: string
+  vibeName: string
+  vibePreferences: string
+  goals: string[]
+  time: string
+  budget: string
+  distance: string
 }
 
 interface QuestFilterButtonsProps {
@@ -123,6 +136,13 @@ function QuestFilterButtons({
         distance: null,
         goals,
         vibePreferences: activeVibe?.preferences ?? null,
+        time: describeTime(selectedFilters),
+        budget: describeBudget(selectedFilters),
+        distance: selectedFilters.distance === 'any'
+          ? 'Any distance from current location'
+          : selectedFilters.distance
+            ? `Within ${selectedFilters.distance} ${selectedFilters.distance === '1' ? 'mile' : 'miles'} of current location`
+            : 'Not selected',
       })
       const serializedRequest = serializeSidequestRequest(request)
       setRequestJson(serializedRequest)
@@ -144,7 +164,7 @@ function QuestFilterButtons({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-5">
       {activeVibe && (
         <div
           className="flex items-start justify-between gap-3 rounded-xl border-l-2 px-4 py-3"
@@ -187,7 +207,19 @@ function QuestFilterButtons({
           </button>
         </div>
       )}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <section
+        aria-labelledby="quest-location-heading"
+        className="rounded-2xl border p-4 sm:p-5"
+        style={{ backgroundColor: colors.background, borderColor: colors.border }}
+      >
+        <div className="mb-3">
+          <h3 id="quest-location-heading" className="text-sm font-semibold">
+            Choose a location
+          </h3>
+          <p className="mt-1 text-xs" style={{ color: colors.muted }}>
+            Search for a place or use your current location.
+          </p>
+        </div>
         <WhereButton
           autoLocate={isSignedIn === true && !activeVibe}
           value={selectedFilters.where}
@@ -220,6 +252,156 @@ function QuestFilterButtons({
         requestCount={requestCount}
         onClose={() => setIsPreviewOpen(false)}
       />
+      </section>
+      <section aria-label="Quest filters">
+        <h3 className="mb-3 text-sm font-semibold">Fine-tune your quest</h3>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="min-w-0 space-y-2">
+            <span className="block text-xs font-medium" style={{ color: colors.muted }}>
+              Time
+            </span>
+            <TimeButton
+              value={selectedFilters.time}
+              customValue={selectedFilters.customTime}
+              onChange={(time) => setSelectedFilters((current) => ({ ...current, time }))}
+              onCustomChange={(customTime) =>
+                setSelectedFilters((current) => ({ ...current, customTime }))
+              }
+            />
+          </div>
+          <div className="min-w-0 space-y-2">
+            <span className="block text-xs font-medium" style={{ color: colors.muted }}>
+              Budget
+            </span>
+            <BudgetButton
+              value={selectedFilters.budget}
+              customValue={selectedFilters.customBudget}
+              onChange={(budget) => setSelectedFilters((current) => ({ ...current, budget }))}
+              onCustomChange={(customBudget) =>
+                setSelectedFilters((current) => ({ ...current, customBudget }))
+              }
+            />
+          </div>
+          <div className="min-w-0 space-y-2">
+            <span className="block text-xs font-medium" style={{ color: colors.muted }}>
+              Distance
+            </span>
+            <DistanceButton
+              value={selectedFilters.distance}
+              onChange={(distance) => setSelectedFilters((current) => ({ ...current, distance }))}
+            />
+          </div>
+        </div>
+      </section>
+      <SidequestMeButton onClick={() => void showInputPreview()} />
+
+      {isPreviewOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setIsPreviewOpen(false)
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="quest-input-preview-title"
+            className="max-h-[min(85vh,48rem)] w-full max-w-xl overflow-y-auto rounded-2xl border p-5 shadow-2xl sm:p-6"
+            style={{
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              color: colors.foreground,
+            }}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p
+                  className="text-xs font-semibold uppercase tracking-[0.16em]"
+                  style={{ color: colors.secondary }}
+                >
+                  Test preview
+                </p>
+                <h2 id="quest-input-preview-title" className="mt-1 text-xl font-semibold">
+                  Sidequest inputs
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPreviewOpen(false)}
+                className="min-h-10 cursor-pointer rounded-lg border px-3 py-2 text-sm font-semibold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+                style={{
+                  borderColor: colors.border,
+                  color: colors.secondary,
+                  outlineColor: colors.secondary,
+                }}
+              >
+                Close
+              </button>
+            </div>
+
+            <p className="mt-3 text-sm leading-relaxed" style={{ color: colors.muted }}>
+              This shows the current information for testing. No AI request is sent yet.
+            </p>
+            {isLoadingPreview ? (
+              <p role="status" className="mt-5 text-sm" style={{ color: colors.muted }}>
+                Loading your saved preferences and goals...
+              </p>
+            ) : previewError ? (
+              <p role="alert" className="mt-5 text-sm" style={{ color: colors.error }}>
+                {previewError}
+              </p>
+            ) : preview ? (
+              <dl className="mt-5 space-y-3">
+                <PreviewItem label="Location" value={preview.location} />
+                <PreviewItem label="Time" value={preview.time} />
+                <PreviewItem label="Budget" value={preview.budget} />
+                <PreviewItem label="Distance" value={preview.distance} />
+                {preview.vibeName && <PreviewItem label="Selected vibe" value={preview.vibeName} />}
+                <PreviewItem
+                  label="Vibe preferences"
+                  value={preview.vibePreferences || 'None selected'}
+                />
+                <PreviewItem
+                  label="General preferences"
+                  value={preview.preferences || 'None saved'}
+                />
+                <div
+                  className="rounded-xl border p-4"
+                  style={{ backgroundColor: colors.surfaceRaised, borderColor: colors.border }}
+                >
+                  <dt className="text-xs font-semibold uppercase tracking-wide" style={{ color: colors.secondary }}>
+                    Goals
+                  </dt>
+                  {preview.goals.length > 0 ? (
+                    <ul className="mt-2 list-inside list-disc space-y-1 text-sm">
+                      {preview.goals.map((goal, index) => <li key={`${goal}-${index}`}>{goal}</li>)}
+                    </ul>
+                  ) : (
+                    <dd className="mt-2 text-sm" style={{ color: colors.muted }}>None saved</dd>
+                  )}
+                </div>
+              </dl>
+            ) : null}
+          </section>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PreviewItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div
+      className="rounded-xl border p-4"
+      style={{ backgroundColor: colors.surfaceRaised, borderColor: colors.border }}
+    >
+      <dt className="text-xs font-semibold uppercase tracking-wide" style={{ color: colors.secondary }}>
+        {label}
+      </dt>
+      <dd className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed">
+        {value}
+      </dd>
     </div>
   )
 }

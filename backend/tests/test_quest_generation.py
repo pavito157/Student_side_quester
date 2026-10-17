@@ -256,13 +256,21 @@ class GenerationTests(unittest.TestCase):
                 GenerateQuestRequest.model_validate({**self.body, **change})
 
     def test_route_uses_verified_uf_token_and_does_not_write_assignment(self):
+        app.dependency_overrides[generation.get_destination_resolver] = (
+            lambda: MagicMock(return_value=self.destination)
+        )
+        self.addCleanup(
+            lambda: app.dependency_overrides.pop(
+                generation.get_destination_resolver, None
+            )
+        )
         with TestClient(app) as client, \
                 patch.object(firebase_helpers, "get_firebase_app"), \
                 patch.object(firebase_helpers.auth, "verify_id_token", return_value={
                     "uid": "user_student", "email": "student@ufl.edu", "email_verified": True,
                 }) as verify, \
                 patch.object(firebase_helpers, "get_db", side_effect=AssertionError("No database access")) as db, \
-                patch.object(generation, "call_gemini", return_value=GeneratedQuestProposal(**self.proposal)):
+                patch.object(generation, "call_gemini", return_value=GeneratedQuestProposal(**self.proposal)): 
             self.assertEqual(client.post("/quests/generate", json=self.body).status_code, 401)
             db.assert_not_called()
             response = client.post("/quests/generate", json=self.body,
@@ -280,7 +288,7 @@ class GenerationTests(unittest.TestCase):
             verify.return_value["email"] = "student@gmail.com"
             self.assertEqual(client.post("/quests/generate", json=self.body,
                                         headers={"Authorization": "Bearer test-token"}).status_code, 403)
-
+        
 
 if __name__ == "__main__":
     unittest.main()

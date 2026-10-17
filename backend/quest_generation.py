@@ -39,12 +39,8 @@ class DestinationResolver(Protocol):
 
 
 def get_destination_resolver() -> Optional[DestinationResolver]:
-    """Integration hook for Backend 1; no fake place resolver or coordinates.
-
-    Return the teammate's callable here once available. Tests override this
-    dependency with a resolver double, never an alternative auth dependency.
-    """
-    return None
+    from .destination_resolver import resolve_destination
+    return resolve_destination
 
 
 @lru_cache(maxsize=1)

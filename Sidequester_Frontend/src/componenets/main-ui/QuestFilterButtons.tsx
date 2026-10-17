@@ -24,6 +24,7 @@ interface QuestFilterButtonsProps {
   filters: QuestFilters
   setFilters: Dispatch<SetStateAction<QuestFilters>>
   activeVibe: Vibe | null
+  onClearActiveVibe: () => void
 }
 
 function getUsername(
@@ -71,6 +72,7 @@ function QuestFilterButtons({
   filters: selectedFilters,
   setFilters: setSelectedFilters,
   activeVibe,
+  onClearActiveVibe,
 }: QuestFilterButtonsProps) {
   const { isLoaded, isSignedIn, user } = useUser()
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
@@ -145,22 +147,44 @@ function QuestFilterButtons({
     <div className="space-y-3">
       {activeVibe && (
         <div
-          className="rounded-xl border-l-2 px-4 py-3"
+          className="flex items-start justify-between gap-3 rounded-xl border-l-2 px-4 py-3"
           style={{
             backgroundColor: colors.surfaceRaised,
             borderColor: colors.border,
             borderLeftColor: colors.secondary,
           }}
         >
-          <p
-            className="text-xs font-semibold uppercase tracking-wide"
-            style={{ color: colors.secondary }}
+          <div className="min-w-0">
+            <p
+              className="text-xs font-semibold uppercase tracking-wide"
+              style={{ color: colors.secondary }}
+            >
+              Using vibe: {activeVibe.name}
+            </p>
+            <p className="mt-1 text-sm leading-relaxed" style={{ color: colors.foreground }}>
+              {activeVibe.preferences}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClearActiveVibe}
+            className="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+            style={{
+              borderColor: colors.errorBorder,
+              color: colors.error,
+              outlineColor: colors.error,
+            }}
           >
-            Using vibe: {activeVibe.name}
-          </p>
-          <p className="mt-1 text-sm leading-relaxed" style={{ color: colors.foreground }}>
-            {activeVibe.preferences}
-          </p>
+            <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="size-3.5">
+              <path
+                d="m5 5 10 10M15 5 5 15"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+            </svg>
+            Remove vibe
+          </button>
         </div>
       )}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

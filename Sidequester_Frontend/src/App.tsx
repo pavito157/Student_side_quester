@@ -104,6 +104,7 @@ function App() {
                 filters={questFilters}
                 setFilters={setQuestFilters}
                 activeVibe={vibeToApply}
+                onClearActiveVibe={() => setVibeToApply(null)}
               />
             </div>
           </section>

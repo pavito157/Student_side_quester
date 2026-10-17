@@ -1,0 +1,45 @@
+{
+  "mode": "test",
+  "saved": false,
+  "filtersApplied": false,
+  "message": "Fixed integration preview. Inputs were validated, but the quest is not personalized or filtered. Nothing was saved and no XP was awarded.",
+  "quest": {
+    "title": "Take an outdoor observation break",
+    "description": "A fixed test quest to verify the frontend-to-FastAPI connection.",
+    "steps": [
+      "Find a publicly accessible outdoor campus spot.",
+      "Notice three interesting things around you.",
+      "Write a short note about what you observed."
+    ],
+    "locationName": "UF campus (illustrative; no destination selected)",
+    "estimatedMinutes": 20,
+    "estimatedCostDollars": 0.0
+  },
+  "normalizedPreferences": {
+    "location": {
+      "mode": "place",
+      "label": "101 Museum Rd, Gainesville, FL 32603, USA",
+      "placeId": null,
+      "coordinates": null
+    },
+    "time": {
+      "minMinutes": 120,
+      "maxMinutes": null
+    },
+    "budget": {
+      "minDollars": 10.0,
+      "maxDollars": 25.0,
+      "maxExclusive": false
+    },
+    "preferences": "I enjoy programming and want to learn more programming in my sidequests while also going out into nature to enjoy the outside world more since i love the greenery.",
+    "goals": [
+      "Learn Computer Science"
+    ],
+    "vibe": {
+      "id": null,
+      "name": null,
+      "preferences": "I want to play some games and have fun recreationaly"
+    },
+    "maxDistanceMiles": null
+  }
+}

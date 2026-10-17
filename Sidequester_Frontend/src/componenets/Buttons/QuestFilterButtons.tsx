@@ -4,6 +4,7 @@ import { colors } from '../../constants/colors'
 import { getUserGoals, getUserPreferences } from '../../services/userPreferences'
 import type { Vibe } from '../VibeEditor'
 import BudgetButton from './BudgetButton'
+import DistanceButton from './DistanceButton'
 import SidequestMeButton from './SidequestMeButton'
 import TimeButton from './TimeButton'
 import WhereButton from './WhereButton'
@@ -14,6 +15,7 @@ export type QuestFilters = {
   budget: string
   customTime: string
   customBudget: string
+  distance: string
 }
 
 type QuestInputPreview = {
@@ -24,6 +26,7 @@ type QuestInputPreview = {
   goals: string[]
   time: string
   budget: string
+  distance: string
 }
 
 interface QuestFilterButtonsProps {
@@ -88,6 +91,11 @@ function QuestFilterButtons({
         goals,
         time: describeTime(selectedFilters),
         budget: describeBudget(selectedFilters),
+        distance: selectedFilters.distance === 'any'
+          ? 'Any distance from current location'
+          : selectedFilters.distance
+            ? `Within ${selectedFilters.distance} ${selectedFilters.distance === '1' ? 'mile' : 'miles'} of current location`
+            : 'Not selected',
       })
     } catch (error) {
       setPreviewError(
@@ -117,7 +125,7 @@ function QuestFilterButtons({
           </p>
         </div>
       )}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <WhereButton
           autoLocate={isSignedIn === true && !activeVibe}
           value={selectedFilters.where}
@@ -138,6 +146,10 @@ function QuestFilterButtons({
           onCustomChange={(customBudget) =>
             setSelectedFilters((current) => ({ ...current, customBudget }))
           }
+        />
+        <DistanceButton
+          value={selectedFilters.distance}
+          onChange={(distance) => setSelectedFilters((current) => ({ ...current, distance }))}
         />
       </div>
       <SidequestMeButton onClick={() => void showInputPreview()} />
@@ -203,6 +215,7 @@ function QuestFilterButtons({
                 <PreviewItem label="Location" value={preview.location} />
                 <PreviewItem label="Time" value={preview.time} />
                 <PreviewItem label="Budget" value={preview.budget} />
+                <PreviewItem label="Distance" value={preview.distance} />
                 {preview.vibeName && <PreviewItem label="Selected vibe" value={preview.vibeName} />}
                 <PreviewItem
                   label="Vibe preferences"

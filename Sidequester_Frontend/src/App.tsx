@@ -1,5 +1,6 @@
 import Header from './componenets/Header'
 import QuestFilterButtons from './componenets/Buttons/QuestFilterButtons'
+import FirebaseTextBox from './componenets/FirebaseTextBox'
 import { colors } from './constants/colors'
 
 function App() {
@@ -38,6 +39,7 @@ function App() {
             </div>
             <QuestFilterButtons />
           </div>
+          <FirebaseTextBox />
         </section>
       </main>
     </>

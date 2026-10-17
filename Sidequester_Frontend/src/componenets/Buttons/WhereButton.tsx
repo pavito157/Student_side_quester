@@ -88,13 +88,13 @@ function WhereButton({ autoLocate, value, onChange }: WhereButtonProps) {
   }, [value])
 
   return (
-    <div className="min-w-0">
+    <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start">
       <div
         ref={containerRef}
-        className="google-place-autocomplete-shell min-h-12 w-full rounded-lg"
+        className="google-place-autocomplete-shell min-h-12 w-full min-w-0 flex-1 rounded-lg"
         aria-busy={isLoading}
       />
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:pt-1">
         <CurrentLocationButton autoLocate={autoLocate} onLocationFound={onChange} />
         <button
           type="button"

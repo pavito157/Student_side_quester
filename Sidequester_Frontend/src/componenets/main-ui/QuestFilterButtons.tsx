@@ -107,7 +107,7 @@ function QuestFilterButtons({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-5">
       {activeVibe && (
         <div
           className="rounded-xl border-l-2 px-4 py-3"
@@ -125,33 +125,65 @@ function QuestFilterButtons({
           </p>
         </div>
       )}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section
+        aria-labelledby="quest-location-heading"
+        className="rounded-2xl border p-4 sm:p-5"
+        style={{ backgroundColor: colors.background, borderColor: colors.border }}
+      >
+        <div className="mb-3">
+          <h3 id="quest-location-heading" className="text-sm font-semibold">
+            Choose a location
+          </h3>
+          <p className="mt-1 text-xs" style={{ color: colors.muted }}>
+            Search for a place or use your current location.
+          </p>
+        </div>
         <WhereButton
           autoLocate={isSignedIn === true && !activeVibe}
           value={selectedFilters.where}
           onChange={(where) => setSelectedFilters((current) => ({ ...current, where }))}
         />
-        <TimeButton
-          value={selectedFilters.time}
-          customValue={selectedFilters.customTime}
-          onChange={(time) => setSelectedFilters((current) => ({ ...current, time }))}
-          onCustomChange={(customTime) =>
-            setSelectedFilters((current) => ({ ...current, customTime }))
-          }
-        />
-        <BudgetButton
-          value={selectedFilters.budget}
-          customValue={selectedFilters.customBudget}
-          onChange={(budget) => setSelectedFilters((current) => ({ ...current, budget }))}
-          onCustomChange={(customBudget) =>
-            setSelectedFilters((current) => ({ ...current, customBudget }))
-          }
-        />
-        <DistanceButton
-          value={selectedFilters.distance}
-          onChange={(distance) => setSelectedFilters((current) => ({ ...current, distance }))}
-        />
-      </div>
+      </section>
+      <section aria-label="Quest filters">
+        <h3 className="mb-3 text-sm font-semibold">Fine-tune your quest</h3>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="min-w-0 space-y-2">
+            <span className="block text-xs font-medium" style={{ color: colors.muted }}>
+              Time
+            </span>
+            <TimeButton
+              value={selectedFilters.time}
+              customValue={selectedFilters.customTime}
+              onChange={(time) => setSelectedFilters((current) => ({ ...current, time }))}
+              onCustomChange={(customTime) =>
+                setSelectedFilters((current) => ({ ...current, customTime }))
+              }
+            />
+          </div>
+          <div className="min-w-0 space-y-2">
+            <span className="block text-xs font-medium" style={{ color: colors.muted }}>
+              Budget
+            </span>
+            <BudgetButton
+              value={selectedFilters.budget}
+              customValue={selectedFilters.customBudget}
+              onChange={(budget) => setSelectedFilters((current) => ({ ...current, budget }))}
+              onCustomChange={(customBudget) =>
+                setSelectedFilters((current) => ({ ...current, customBudget }))
+              }
+            />
+          </div>
+          <div className="min-w-0 space-y-2">
+            <span className="block text-xs font-medium" style={{ color: colors.muted }}>
+              Distance
+            </span>
+            <DistanceButton
+              value={selectedFilters.distance}
+              onChange={(distance) => setSelectedFilters((current) => ({ ...current, distance }))}
+            />
+          </div>
+        </div>
+      </section>
       <SidequestMeButton onClick={() => void showInputPreview()} />
 
       {isPreviewOpen && (

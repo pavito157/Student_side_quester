@@ -3,10 +3,12 @@ import { colors } from '../../constants/colors'
 import CurrentLocationButton from './CurrentLocationButton'
 import { loadPlacesLibrary } from '../../services/googlePlaces'
 
+import type { OriginCoordinates } from '../../types/sidequest'
+
 type WhereButtonProps = {
   autoLocate: boolean
   value: string
-  onChange: (value: string) => void
+  onChange: (value: string, coordinates?: OriginCoordinates) => void
 }
 
 function WhereButton({ autoLocate, value, onChange }: WhereButtonProps) {
@@ -56,14 +58,17 @@ function WhereButton({ autoLocate, value, onChange }: WhereButtonProps) {
     async function handlePlaceSelect(event: google.maps.places.PlacePredictionSelectEvent) {
       try {
         const place = event.placePrediction.toPlace()
-        await place.fetchFields({ fields: ['displayName', 'formattedAddress'] })
+        await place.fetchFields({ fields: ['displayName', 'formattedAddress', 'location'] })
 
         const placeName =
           place.displayName ??
           place.formattedAddress ??
           event.placePrediction.text.toString()
 
-        if (isCurrent && placeName) onChangeRef.current(placeName)
+        if (!place.location) throw new Error('This place has no coordinates. Please choose another place.')
+        if (isCurrent && placeName) onChangeRef.current(placeName, {
+          latitude: place.location.lat(), longitude: place.location.lng(),
+        })
       } catch (error) {
         if (isCurrent) {
           setLoadError(

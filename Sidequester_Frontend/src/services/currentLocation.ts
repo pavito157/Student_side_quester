@@ -1,4 +1,5 @@
 import { loadGeocodingLibrary } from './googlePlaces'
+import type { OriginCoordinates } from '../types/sidequest'
 
 function getCoordinates(): Promise<GeolocationPosition> {
   return new Promise((resolve, reject) => {
@@ -32,7 +33,7 @@ function getGeolocationErrorMessage(error: unknown): string {
   }
 }
 
-export async function getCurrentLocationLabel(): Promise<string> {
+export async function getCurrentLocation(): Promise<{ label: string; coordinates: OriginCoordinates }> {
   try {
     const position = await getCoordinates()
     const { Geocoder } = await loadGeocodingLibrary()
@@ -46,8 +47,13 @@ export async function getCurrentLocationLabel(): Promise<string> {
     const address = results[0]?.formatted_address
 
     if (!address) throw new Error('Google Maps could not find an address for your location.')
-    return address
+    return { label: address, coordinates: { latitude: position.coords.latitude, longitude: position.coords.longitude } }
   } catch (error) {
     throw new Error(getGeolocationErrorMessage(error))
   }
+}
+
+// Preserve the original helper for teammates that only need a display label.
+export async function getCurrentLocationLabel(): Promise<string> {
+  return (await getCurrentLocation()).label
 }

@@ -39,6 +39,7 @@ test('request metadata never writes balances, even from an untyped caller', () =
 
 const input = {
   preferences: ' Nature ', username: ' Student ', location: 'Museum Road',
+  originCoordinates: { latitude: 29.65, longitude: -82.34 },
   time: { selection: '60', customMinutes: null },
   budget: { selection: '0', customDollars: null },
   distance: { maxDistance: 2, unit: 'miles' }, goals: [' Relax '], vibePreferences: null,
@@ -60,4 +61,12 @@ test('distance builder rejects invalid limits and unsupported units', () => {
   ]) {
     assert.throws(() => builder.buildSidequestRequest({ ...input, distance }), /positive number of miles/)
   }
+})
+
+
+test('distance requests require captured origin coordinates, never a silent filter bypass', () => {
+  assert.throws(() => builder.buildSidequestRequest({ ...input, originCoordinates: undefined }), /starting place/)
+  assert.throws(() => builder.buildSidequestRequest({ ...input, originCoordinates: { latitude: NaN, longitude: -82.34 } }), /valid coordinates/)
+  const payload = JSON.parse(builder.serializeSidequestRequest(builder.buildSidequestRequest(input)))
+  assert.deepEqual(payload.originCoordinates, input.originCoordinates)
 })

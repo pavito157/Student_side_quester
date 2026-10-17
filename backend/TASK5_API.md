@@ -9,8 +9,10 @@ loaded/reused without calling Gemini or the resolver. See
 [INTEGRATION_HANDOFF.md](INTEGRATION_HANDOFF.md) for current test evidence and the
 frontend wiring contract.
 
-No frontend component was changed. Frontend teammates own button wiring, loading,
-error display, refreshing state, and cancelling requests on account changes.
+The Sidequest me button is now wired to the saved-assignment helper, with loading,
+error display and cancellation on account changes. Its modal shows quest content,
+XP reward and downloadable response JSON; frontend teammates own further styling
+and completion UI. See the final button-wiring section in INTEGRATION_HANDOFF.md.
 
 Backend branch integration keeps `firebase_config.py` as a compatibility shim for
 the shared Firebase helpers. It uses ADC / GOOGLE_APPLICATION_CREDENTIALS rather
@@ -90,8 +92,8 @@ const saved = await requestAssignedQuest(firebaseUser.uid, payload, {
 
 Helpers check the signed-in account before fetching and validate IDs, timestamps,
 destination fields, assigned state and zero awarded XP in the returned JSON.
-They preserve `QuestApiError.status` / `.detail` for actionable errors. The normal
-UI button still uses the frontend team's existing behavior until they wire it.
+They preserve `QuestApiError.status` / `.detail` for actionable errors. The Sidequest me button is wired to the saved-assignment helper and displays
+the returned quest and response JSON.
 
 Frontend teammates can use the response example as a **mock fixture** to build
 rendering immediately. There is no backend bypass that saves a fabricated or
@@ -208,8 +210,8 @@ The request accepts `distance: {"maxDistance": 2, "unit": "miles"}` or the
 legacy numeric miles value, and nullable `vibePreferences`. Distance must be
 positive. Include `originCoordinates: {"latitude": ..., "longitude": ...}`
 from the selected place/device when requesting a distance limit. An address
-string alone does not enable the distance check. Frontend teammates own button
-wiring and retaining these coordinates; no UI components were changed here.
+string alone does not enable the distance check. The location controls now retain these coordinates and the button includes them
+when available; selecting Anywhere clears them.
 
 `xp` is authoritative on `Users` and `dorms`. For older records lacking `xp`,
 backend transactions read `totalXp` and write the resulting balance to `xp`.

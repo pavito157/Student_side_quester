@@ -1,8 +1,9 @@
-import { useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import { colors } from '../../constants/colors'
 import { buildSidequestRequest, serializeSidequestRequest } from '../../services/sidequestJson'
 import { saveSidequestRequest } from '../../services/sidequests'
+import { requestAssignedQuest, type SavedQuestResponse } from '../../services/questAssignment'
 import { getUserGoals, getUserPreferences } from '../../services/userPreferences'
 import type {
   BudgetConstraint,
@@ -96,7 +97,7 @@ function getDistanceConstraint(value: string, customValue: string): DistanceCons
   }
 }
 
-function QuestFilterButtons({
+function QuestFilterControls({
   filters,
   setFilters,
   activeVibe,
@@ -106,18 +107,30 @@ function QuestFilterButtons({
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [isLoadingPreview, setIsLoadingPreview] = useState(false)
   const [previewError, setPreviewError] = useState('')
-  const [persistenceMessage, setPersistenceMessage] = useState('')
+  const [historyWarning, setHistoryWarning] = useState('')
+  const [assignment, setAssignment] = useState<SavedQuestResponse | null>(null)
+  const controllerRef = useRef<AbortController | null>(null)
+  const inFlightRef = useRef(false)
   const [requestJson, setRequestJson] = useState('')
-  const [requestCount, setRequestCount] = useState<number | null>(null)
   const [guestPreference, setGuestPreference] = useState('')
 
+  useEffect(() => () => {
+    controllerRef.current?.abort()
+    controllerRef.current = null
+  }, [])
+
   async function showSidequestRequest() {
+    if (inFlightRef.current) return
+    controllerRef.current?.abort()
+    const controller = new AbortController()
+    controllerRef.current = controller
+    inFlightRef.current = true
     setIsPreviewOpen(true)
     setIsLoadingPreview(true)
     setPreviewError('')
-    setPersistenceMessage('')
+    setHistoryWarning('')
+    setAssignment(null)
     setRequestJson('')
-    setRequestCount(null)
 
     try {
       if (!isLoaded) throw new Error('Your account is still loading. Please try again.')
@@ -140,6 +153,9 @@ function QuestFilterButtons({
         preferences,
         username: getUsername(user, email),
         location: filters.where === 'any' ? 'Anywhere' : filters.where || 'Not selected',
+        originCoordinates: filters.latitude !== null && filters.longitude !== null
+          ? { latitude: filters.latitude, longitude: filters.longitude }
+          : null,
         latitude: filters.latitude,
         longitude: filters.longitude,
         time: {
@@ -155,21 +171,33 @@ function QuestFilterButtons({
         vibePreferences: activeVibe?.preferences ?? null,
       })
 
+      if (controller.signal.aborted) return
       setRequestJson(serializeSidequestRequest(request))
 
-      if (isSignedIn && user) {
-        const saved = await saveSidequestRequest(user.id, email, request)
-        setRequestCount(saved.requestCount)
-        setPersistenceMessage('Request saved to your account.')
-      } else {
-        setPersistenceMessage('Request prepared. Sign in to save it to your account.')
+      if (!isSignedIn || !user) {
+        throw new Error('Sign in with a verified @ufl.edu account to get a saved quest.')
+      }
+      const saved = await requestAssignedQuest(user.id, request, { signal: controller.signal })
+      if (controller.signal.aborted) return
+      setAssignment(saved)
+      // Preserve request-history metadata without delaying or blocking the quest.
+      if (!saved.reusedExisting) {
+        void saveSidequestRequest(user.id, email, request).catch(() => {
+          if (!controller.signal.aborted) {
+            setHistoryWarning('Your quest was saved, but request history could not be updated.')
+          }
+        })
       }
     } catch (error) {
+      if (controller.signal.aborted) return
       setPreviewError(
-        error instanceof Error ? error.message : 'Could not prepare the sidequest request.',
+        error instanceof Error ? error.message : 'Could not get your sidequest. Please try again.',
       )
     } finally {
-      setIsLoadingPreview(false)
+      if (controllerRef.current === controller) {
+        inFlightRef.current = false
+        setIsLoadingPreview(false)
+      }
     }
   }
 
@@ -245,8 +273,8 @@ function QuestFilterButtons({
         />
       </section>
 
-      <section aria-label="Quest filters" className="quest-subpanel p-4 sm:p-5">
-        <h3 className="mb-3 text-sm font-semibold">Add Constraints</h3>
+      <section aria-label="Quest filters">
+        <h3 className="mb-3 text-sm font-semibold">Fine-tune your quest</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="min-w-0 space-y-2">
             <span className="block text-xs font-medium" style={{ color: colors.muted }}>
@@ -293,7 +321,7 @@ function QuestFilterButtons({
       {isLoaded && isSignedIn === false && (
         <section
           aria-labelledby="guest-preference-label"
-          className="quest-tag rounded-xl p-4"
+          className="rounded-xl border p-4"
           style={{ backgroundColor: colors.surfaceRaised, borderColor: colors.border }}
         >
           <label
@@ -325,18 +353,24 @@ function QuestFilterButtons({
         </section>
       )}
 
-      <SidequestMeButton onClick={() => void showSidequestRequest()} />
+      <SidequestMeButton onClick={() => void showSidequestRequest()} isLoading={isLoadingPreview} />
       <SidequestJsonModal
         isOpen={isPreviewOpen}
         isLoading={isLoadingPreview}
         requestJson={requestJson}
         errorMessage={previewError}
-        persistenceMessage={persistenceMessage}
-        requestCount={requestCount}
+        response={assignment}
+        historyWarning={historyWarning}
         onClose={() => setIsPreviewOpen(false)}
       />
     </div>
   )
+}
+
+// A different account gets fresh UI state and aborts the old account's request.
+function QuestFilterButtons(props: QuestFilterButtonsProps) {
+  const { user } = useUser()
+  return <QuestFilterControls key={user?.id ?? 'guest'} {...props} />
 }
 
 export default QuestFilterButtons

@@ -8,7 +8,6 @@ export type UserRequestMetadata = {
   email: string | null
   username: string
   requestCount: number
-  xp: number
 }
 
 export function getNextRequestCount(userData: DocumentData | undefined): number {
@@ -26,7 +25,7 @@ export function getNextRequestCount(userData: DocumentData | undefined): number 
 }
 
 export function getUserXp(userData: DocumentData | undefined): number {
-  const xp: unknown = userData?.xp
+  const xp: unknown = userData?.xp === undefined ? userData?.totalXp : userData.xp
   if (xp === undefined) return 0
   if (typeof xp !== 'number' || !Number.isSafeInteger(xp) || xp < 0) {
     throw new Error('Your saved XP value is invalid.')
@@ -40,5 +39,7 @@ export function stageUserRequestMetadata(
   userRef: DocumentReference,
   metadata: UserRequestMetadata,
 ): void {
-  transaction.set(userRef, metadata, { merge: true })
+  // Keep balances server-owned, even if an untyped caller supplies extra fields.
+  const { email, username, requestCount } = metadata
+  transaction.set(userRef, { email, username, requestCount }, { merge: true })
 }

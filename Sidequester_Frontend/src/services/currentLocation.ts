@@ -58,3 +58,8 @@ export async function getCurrentLocation(): Promise<CurrentLocation> {
     throw new Error(getGeolocationErrorMessage(error))
   }
 }
+
+// Preserve the original helper for teammates that only need a display label.
+export async function getCurrentLocationLabel(): Promise<string> {
+  return (await getCurrentLocation()).label
+}

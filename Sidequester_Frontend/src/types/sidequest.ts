@@ -1,3 +1,5 @@
+export type OriginCoordinates = { latitude: number; longitude: number }
+
 export type TimeConstraint = {
   selection: 'any' | '30' | '60' | '120' | 'custom'
   customMinutes: number | null
@@ -17,6 +19,7 @@ export type SidequestRequestInput = {
   preferences: string
   username: string
   location: string
+  originCoordinates?: OriginCoordinates | null
   latitude: number | null
   longitude: number | null
   time: TimeConstraint
@@ -30,6 +33,7 @@ export type SidequestRequestPayload = {
   preferences: string
   username: string
   location: string
+  originCoordinates?: OriginCoordinates | null
   latitude: number | null
   longitude: number | null
   time: TimeConstraint

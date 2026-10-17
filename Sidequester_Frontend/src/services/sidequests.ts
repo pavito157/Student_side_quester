@@ -41,7 +41,6 @@ export async function saveSidequestRequest(
       email,
       username: request.username,
       requestCount: nextRequestCount,
-      xp: getUserXp(currentUserData),
     })
     transaction.set(sidequestRef, {
       request,

@@ -45,9 +45,9 @@ function validateBudget(budget: BudgetConstraint): void {
 function validateDistance(distance: DistanceConstraint): void {
   if (
     distance !== null &&
-    (!Number.isFinite(distance.maxDistance) || distance.maxDistance < 0)
+    (distance.unit !== 'miles' || !Number.isFinite(distance.maxDistance) || distance.maxDistance <= 0)
   ) {
-    throw new Error('Maximum distance must be a non-negative number of miles.')
+    throw new Error('Maximum distance must be a positive number of miles.')
   }
 }
 
@@ -75,6 +75,18 @@ export function buildSidequestRequest(
   validateDistance(input.distance)
   validateCoordinates(input.latitude, input.longitude)
 
+  const origin = input.originCoordinates
+  if (origin && (!Number.isFinite(origin.latitude) || Math.abs(origin.latitude) > 90 ||
+    !Number.isFinite(origin.longitude) || Math.abs(origin.longitude) > 180)) {
+    throw new Error('Choose a location with valid coordinates.')
+  }
+  if (input.distance !== null && !origin) {
+    throw new Error('Select a starting place or use your location to apply a distance limit.')
+  }
+  if (origin && ['', 'any', 'anywhere', 'not selected'].includes(input.location.trim().toLowerCase())) {
+    throw new Error('Choose a starting place for these coordinates.')
+  }
+
   const username = input.username.trim()
   if (!username) throw new Error('A username is required to build the sidequest request.')
   if (!input.goals.every((goal) => typeof goal === 'string')) {
@@ -84,6 +96,7 @@ export function buildSidequestRequest(
   return {
     preferences: input.preferences.trim(),
     username,
+    ...(origin ? { originCoordinates: { ...origin } } : {}),
     location: input.location.trim() || 'Not selected',
     latitude: input.latitude,
     longitude: input.longitude,

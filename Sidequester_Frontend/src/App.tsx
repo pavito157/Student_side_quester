@@ -1,15 +1,24 @@
 import { useState } from 'react'
 import Header from './componenets/Header'
-import QuestFilterButtons from './componenets/Buttons/QuestFilterButtons'
+import QuestFilterButtons, { type QuestFilters } from './componenets/Buttons/QuestFilterButtons'
 import FirebaseTextBox from './componenets/FirebaseTextBox'
 import GoalsSidebar from './componenets/GoalsSidebar'
 import SettingsModal, { type SettingsSection } from './componenets/SettingsModal'
 import UserPreferencesSummary from './componenets/UserPreferencesSummary'
+import type { Vibe } from './componenets/VibeEditor'
 import { colors } from './constants/colors'
 
 function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null)
+  const [vibeToApply, setVibeToApply] = useState<Vibe | null>(null)
+  const [questFilters, setQuestFilters] = useState<QuestFilters>({
+    where: '',
+    time: '',
+    budget: '',
+    customTime: '',
+    customBudget: '',
+  })
 
   function openSettings(section: SettingsSection | null = null) {
     setSettingsSection(section)
@@ -23,7 +32,19 @@ function App() {
 
   return (
     <>
-      <Header onSettingsClick={() => openSettings()} />
+      <Header
+        onSettingsClick={() => openSettings()}
+        onApplyVibe={(vibe) => {
+          setVibeToApply({ ...vibe })
+          setQuestFilters({
+            where: vibe.where || 'any',
+            time: vibe.time || 'any',
+            budget: vibe.budget || 'any',
+            customTime: vibe.customTime ?? '',
+            customBudget: vibe.customBudget ?? '',
+          })
+        }}
+      />
       <main className="min-h-[calc(100vh-4rem)] bg-gradient-glow px-4 py-8 sm:px-6 sm:py-12">
         <div className="mx-auto max-w-6xl">
           <div className="mb-8 text-center sm:mb-10">
@@ -72,7 +93,11 @@ function App() {
                   Choose what works for you. You can change these anytime.
                 </p>
               </div>
-              <QuestFilterButtons />
+              <QuestFilterButtons
+                filters={questFilters}
+                setFilters={setQuestFilters}
+                activeVibe={vibeToApply}
+              />
             </div>
           </section>
 

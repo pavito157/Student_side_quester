@@ -1,12 +1,14 @@
-import { useAuth } from '@clerk/clerk-react'
-import { useState } from 'react'
+import { useState, type Dispatch, type SetStateAction } from 'react'
+import { useUser } from '@clerk/clerk-react'
 import { colors } from '../../constants/colors'
+import { getUserGoals, getUserPreferences } from '../../services/userPreferences'
+import type { Vibe } from '../VibeEditor'
 import BudgetButton from './BudgetButton'
 import SidequestMeButton from './SidequestMeButton'
 import TimeButton from './TimeButton'
 import WhereButton from './WhereButton'
 
-type Filters = {
+export type QuestFilters = {
   where: string
   time: string
   budget: string
@@ -14,186 +16,238 @@ type Filters = {
   customBudget: string
 }
 
-const sidequests = [
-  // Reitz Union
-  { name: 'Find a student org flyer for an event this week and add it to your calendar', where: 'reitz-union', minutes: 15, cost: 0 },
-  { name: 'Grab a coffee or snack and people-watch for a bit', where: 'reitz-union', minutes: 30, cost: 5 },
-  { name: 'Treat a friend to lunch at the food court', where: 'reitz-union', minutes: 45, cost: 15 },
-  { name: 'Go to an event and introduce yourself to two new people', where: 'reitz-union', minutes: 120, cost: 0 },
-
-  // Marston Science Library
-  { name: 'Browse the shelves and find a book on a topic you know nothing about', where: 'Marston', minutes: 30, cost: 0 },
-  { name: 'Find the best study spot on a floor you have never visited', where: 'Marston', minutes: 45, cost: 0 },
-  { name: 'Do a 60-minute phone-free study sprint', where: 'Marston', minutes: 60, cost: 0 },
-  { name: 'Reserve a group study room and start a study group with two classmates', where: 'Marston', minutes: 120, cost: 0 },
-
-  // Flavet Field
-  { name: 'Toss a frisbee or kick a ball around with a friend', where: 'Flavet', minutes: 30, cost: 0 },
-  { name: 'Pack a picnic and eat it on the field', where: 'Flavet', minutes: 60, cost: 8 },
-  { name: 'Organize a pickup game with at least five friends', where: 'Flavet', minutes: 90, cost: 0 },
-  { name: 'Bring snacks and host a sunset hangout for your group', where: 'Flavet', minutes: 120, cost: 15 },
-
-  // Lake Wauburg (off campus, minutes include travel)
-  { name: 'Take sunset photos from the shoreline', where: 'Wauburg', minutes: 120, cost: 0 },
-  { name: 'Play sand volleyball with a group', where: 'Wauburg', minutes: 120, cost: 0 },
-  { name: 'Pack lunch and picnic by the lake', where: 'Wauburg', minutes: 150, cost: 8 },
-  { name: 'Spend the afternoon on the water with friends', where: 'Wauburg', minutes: 180, cost: 20 },
-
-  // Southwest Recreation Center
-  { name: 'Shoot hoops or join a pickup game', where: 'SouthWest', minutes: 45, cost: 0 },
-  { name: 'Try a group fitness class you have never done', where: 'SouthWest', minutes: 60, cost: 0 },
-  { name: 'Swim a few laps or relax at the pool', where: 'SouthWest', minutes: 60, cost: 0 },
-  { name: 'Work out, then grab a post-workout meal with a friend', where: 'SouthWest', minutes: 120, cost: 15 },
-
-  // Student Recreation Center
-  { name: 'Look up intramural sports and sign up a team', where: 'studentrec', minutes: 15, cost: 0 },
-  { name: 'Do a 30-minute workout with a friend who has never been', where: 'studentrec', minutes: 30, cost: 0 },
-  { name: 'Try a machine or workout you have never used', where: 'studentrec', minutes: 45, cost: 0 },
-  { name: 'Play pickup basketball with strangers, then get a smoothie', where: 'studentrec', minutes: 90, cost: 5 },
-]
-
-const locationFilterIds: Record<string, string> = {
-  'reitz union': 'reitz-union',
-  'j wayne reitz union': 'reitz-union',
-  'reitz student union': 'reitz-union',
-  'marston library': 'Marston',
-  'marston science library': 'Marston',
-  'flavet field': 'Flavet',
-  'lake wauburg': 'Wauburg',
-  'southwest recreation center': 'SouthWest',
-  'southwest rec center': 'SouthWest',
-  'student recreation center': 'studentrec',
-  'student rec center': 'studentrec',
+type QuestInputPreview = {
+  location: string
+  preferences: string
+  vibeName: string
+  vibePreferences: string
+  goals: string[]
+  time: string
+  budget: string
 }
 
-function QuestFilterButtons() {
-  const { isSignedIn } = useAuth()
-  const [selectedFilters, setSelectedFilters] = useState<Filters>({
-    where: '',
-    time: '',
-    budget: '',
-    customTime: '',
-    customBudget: '',
-  })
-  const [suggestion, setSuggestion] = useState('')
+interface QuestFilterButtonsProps {
+  filters: QuestFilters
+  setFilters: Dispatch<SetStateAction<QuestFilters>>
+  activeVibe: Vibe | null
+}
 
-  function generateSidequest() {
-    const customTime = Number(selectedFilters.customTime)
-    if (
-      selectedFilters.time === 'custom' &&
-      (!selectedFilters.customTime || !Number.isInteger(customTime) || customTime <= 0)
-    ) {
-      setSuggestion('Custom time must be a whole number of minutes greater than zero.')
-      return
+function describeTime(filters: QuestFilters): string {
+  if (filters.time === 'any') return 'Any time'
+  if (filters.time === '30') return '30 minutes or less'
+  if (filters.time === '60') return '1 hour or less'
+  if (filters.time === '120') return '2+ hours'
+  if (filters.time === 'custom') {
+    return filters.customTime ? `${filters.customTime} minutes (custom)` : 'Custom minutes not entered'
+  }
+  return 'Not selected'
+}
+
+function describeBudget(filters: QuestFilters): string {
+  if (filters.budget === 'any') return 'Any budget'
+  if (filters.budget === '0') return 'Free'
+  if (filters.budget === '10') return 'Under $10'
+  if (filters.budget === '10-25') return '$10–$25'
+  if (filters.budget === 'custom') {
+    return filters.customBudget ? `$${filters.customBudget} maximum (custom)` : 'Custom budget not entered'
+  }
+  return 'Not selected'
+}
+
+function QuestFilterButtons({
+  filters: selectedFilters,
+  setFilters: setSelectedFilters,
+  activeVibe,
+}: QuestFilterButtonsProps) {
+  const { isLoaded, isSignedIn, user } = useUser()
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false)
+  const [previewError, setPreviewError] = useState('')
+  const [preview, setPreview] = useState<QuestInputPreview | null>(null)
+
+  async function showInputPreview() {
+    setIsPreviewOpen(true)
+    setIsLoadingPreview(true)
+    setPreviewError('')
+    setPreview(null)
+
+    try {
+      if (!isLoaded) throw new Error('Your account is still loading. Please try again.')
+
+      const [preferences, goals] = isSignedIn && user
+        ? await Promise.all([getUserPreferences(user.id), getUserGoals(user.id)])
+        : ['', []]
+
+      setPreview({
+        location: selectedFilters.where === 'any'
+          ? 'Anywhere'
+          : selectedFilters.where || 'Not selected',
+        preferences,
+        vibeName: activeVibe?.name ?? '',
+        vibePreferences: activeVibe?.preferences ?? '',
+        goals,
+        time: describeTime(selectedFilters),
+        budget: describeBudget(selectedFilters),
+      })
+    } catch (error) {
+      setPreviewError(
+        error instanceof Error ? error.message : 'Could not load the current quest inputs.',
+      )
+    } finally {
+      setIsLoadingPreview(false)
     }
-
-    if (
-      !selectedFilters.where ||
-      !selectedFilters.time ||
-      !selectedFilters.budget ||
-      (selectedFilters.budget === 'custom' &&
-        (selectedFilters.customBudget === '' ||
-          !Number.isFinite(Number(selectedFilters.customBudget)) ||
-          Number(selectedFilters.customBudget) < 0))
-    ) {
-      setSuggestion('Please select an option for Where, Time, and Budget.')
-      return
-    }
-
-    const matches = sidequests.filter((sidequest) => {
-      const matchesWhere =
-        !selectedFilters.where ||
-        selectedFilters.where === 'any' ||
-        sidequest.where ===
-          locationFilterIds[
-            selectedFilters.where
-              .toLocaleLowerCase()
-              .replace(/[^a-z0-9]+/g, ' ')
-              .trim()
-          ]
-      const timeLimit = Number(selectedFilters.time)
-      const matchesTime =
-        !selectedFilters.time ||
-        selectedFilters.time === 'any' ||
-        (selectedFilters.time === 'custom'
-          ? sidequest.minutes <= Number(selectedFilters.customTime)
-          : timeLimit === 120
-            ? sidequest.minutes >= timeLimit
-            : sidequest.minutes <= timeLimit)
-      const matchesBudget =
-        !selectedFilters.budget ||
-        selectedFilters.budget === 'any' ||
-        (selectedFilters.budget === 'custom'
-          ? sidequest.cost <= Number(selectedFilters.customBudget)
-          : selectedFilters.budget === '0'
-            ? sidequest.cost === 0
-            : selectedFilters.budget === '10'
-              ? sidequest.cost < 10
-              : sidequest.cost >= 10 && sidequest.cost <= 25)
-
-      return matchesWhere && matchesTime && matchesBudget
-    })
-
-    if (matches.length === 0) {
-      setSuggestion('No sidequests match those filters yet. Try a different combination.')
-      return
-    }
-
-    const index = Math.floor(Math.random() * matches.length)
-    setSuggestion(matches[index].name)
   }
 
   return (
     <div className="space-y-3">
+      {activeVibe && (
+        <div
+          className="rounded-xl border-l-2 px-4 py-3"
+          style={{
+            backgroundColor: colors.surfaceRaised,
+            borderColor: colors.border,
+            borderLeftColor: colors.secondary,
+          }}
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: colors.secondary }}>
+            Using vibe: {activeVibe.name}
+          </p>
+          <p className="mt-1 text-sm leading-relaxed" style={{ color: colors.foreground }}>
+            {activeVibe.preferences}
+          </p>
+        </div>
+      )}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <WhereButton
-          autoLocate={isSignedIn === true}
+          autoLocate={isSignedIn === true && !activeVibe}
           value={selectedFilters.where}
-          onChange={(where) => {
-            setSelectedFilters((currentFilters) => ({ ...currentFilters, where }))
-            setSuggestion('')
-          }}
+          onChange={(where) => setSelectedFilters((current) => ({ ...current, where }))}
         />
         <TimeButton
           value={selectedFilters.time}
           customValue={selectedFilters.customTime}
-          onChange={(time) => {
-            setSelectedFilters((currentFilters) => ({ ...currentFilters, time }))
-            setSuggestion('')
-          }}
-          onCustomChange={(customTime) => {
-            setSelectedFilters((currentFilters) => ({ ...currentFilters, customTime }))
-            setSuggestion('')
-          }}
+          onChange={(time) => setSelectedFilters((current) => ({ ...current, time }))}
+          onCustomChange={(customTime) =>
+            setSelectedFilters((current) => ({ ...current, customTime }))
+          }
         />
         <BudgetButton
           value={selectedFilters.budget}
           customValue={selectedFilters.customBudget}
-          onChange={(budget) => {
-            setSelectedFilters((currentFilters) => ({ ...currentFilters, budget }))
-            setSuggestion('')
-          }}
-          onCustomChange={(customBudget) => {
-            setSelectedFilters((currentFilters) => ({ ...currentFilters, customBudget }))
-            setSuggestion('')
-          }}
+          onChange={(budget) => setSelectedFilters((current) => ({ ...current, budget }))}
+          onCustomChange={(customBudget) =>
+            setSelectedFilters((current) => ({ ...current, customBudget }))
+          }
         />
       </div>
-      <SidequestMeButton onClick={generateSidequest} />
-      {suggestion && (
-        <p
-          aria-live="polite"
-          role="status"
-          className="rounded-lg border p-4 text-sm font-medium leading-relaxed"
-          style={{
-            backgroundColor: colors.surfaceRaised,
-            borderColor: colors.border,
-            color: colors.foreground,
+      <SidequestMeButton onClick={() => void showInputPreview()} />
+
+      {isPreviewOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setIsPreviewOpen(false)
           }}
         >
-          {suggestion}
-        </p>
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="quest-input-preview-title"
+            className="max-h-[min(85vh,48rem)] w-full max-w-xl overflow-y-auto rounded-2xl border p-5 shadow-2xl sm:p-6"
+            style={{
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              color: colors.foreground,
+            }}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p
+                  className="text-xs font-semibold uppercase tracking-[0.16em]"
+                  style={{ color: colors.secondary }}
+                >
+                  Test preview
+                </p>
+                <h2 id="quest-input-preview-title" className="mt-1 text-xl font-semibold">
+                  Sidequest inputs
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPreviewOpen(false)}
+                className="min-h-10 cursor-pointer rounded-lg border px-3 py-2 text-sm font-semibold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+                style={{
+                  borderColor: colors.border,
+                  color: colors.secondary,
+                  outlineColor: colors.secondary,
+                }}
+              >
+                Close
+              </button>
+            </div>
+
+            <p className="mt-3 text-sm leading-relaxed" style={{ color: colors.muted }}>
+              This shows the current information for testing. No AI request is sent yet.
+            </p>
+            {isLoadingPreview ? (
+              <p role="status" className="mt-5 text-sm" style={{ color: colors.muted }}>
+                Loading your saved preferences and goals...
+              </p>
+            ) : previewError ? (
+              <p role="alert" className="mt-5 text-sm" style={{ color: colors.error }}>
+                {previewError}
+              </p>
+            ) : preview ? (
+              <dl className="mt-5 space-y-3">
+                <PreviewItem label="Location" value={preview.location} />
+                <PreviewItem label="Time" value={preview.time} />
+                <PreviewItem label="Budget" value={preview.budget} />
+                {preview.vibeName && <PreviewItem label="Selected vibe" value={preview.vibeName} />}
+                <PreviewItem
+                  label="Vibe preferences"
+                  value={preview.vibePreferences || 'None selected'}
+                />
+                <PreviewItem
+                  label="General preferences"
+                  value={preview.preferences || 'None saved'}
+                />
+                <div
+                  className="rounded-xl border p-4"
+                  style={{ backgroundColor: colors.surfaceRaised, borderColor: colors.border }}
+                >
+                  <dt className="text-xs font-semibold uppercase tracking-wide" style={{ color: colors.secondary }}>
+                    Goals
+                  </dt>
+                  {preview.goals.length > 0 ? (
+                    <ul className="mt-2 list-inside list-disc space-y-1 text-sm">
+                      {preview.goals.map((goal, index) => <li key={`${goal}-${index}`}>{goal}</li>)}
+                    </ul>
+                  ) : (
+                    <dd className="mt-2 text-sm" style={{ color: colors.muted }}>None saved</dd>
+                  )}
+                </div>
+              </dl>
+            ) : null}
+          </section>
+        </div>
       )}
+    </div>
+  )
+}
+
+function PreviewItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div
+      className="rounded-xl border p-4"
+      style={{ backgroundColor: colors.surfaceRaised, borderColor: colors.border }}
+    >
+      <dt className="text-xs font-semibold uppercase tracking-wide" style={{ color: colors.secondary }}>
+        {label}
+      </dt>
+      <dd className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed">
+        {value}
+      </dd>
     </div>
   )
 }

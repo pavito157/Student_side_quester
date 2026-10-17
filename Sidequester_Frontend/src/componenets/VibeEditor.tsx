@@ -13,11 +13,13 @@ export type Vibe = {
   budget: string
   customTime?: string
   customBudget?: string
+  createdAt?: string
+  updatedAt?: string
 }
 
 interface VibeEditorProps {
-  onSave: (vibe: Omit<Vibe, 'id'>) => void
-  onDelete: (id: string) => void
+  onSave: (vibe: Omit<Vibe, 'id' | 'createdAt' | 'updatedAt'>) => void | Promise<void>
+  onDelete: (id: string) => void | Promise<void>
   vibeToEdit?: Vibe | null
 }
 
@@ -33,30 +35,48 @@ function VibeEditor({
   const [customTime, setCustomTime] = useState(vibeToEdit?.customTime ?? '')
   const [budget, setBudget] = useState(vibeToEdit?.budget ?? 'any')
   const [customBudget, setCustomBudget] = useState(vibeToEdit?.customBudget ?? '')
+  const [isSaving, setIsSaving] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    onSave({
-      name: name.trim(),
-      preferences: preferences.trim(),
-      where,
-      time,
-      customTime,
-      budget,
-      customBudget,
-    })
+    setIsSaving(true)
+    setErrorMessage('')
+    try {
+      await onSave({
+        name: name.trim(),
+        preferences: preferences.trim(),
+        where,
+        time,
+        customTime,
+        budget,
+        customBudget,
+      })
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not save this vibe.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!vibeToEdit || !window.confirm(`Delete "${vibeToEdit.name}"? This cannot be undone.`)) {
       return
     }
 
-    onDelete(vibeToEdit.id)
+    setIsSaving(true)
+    setErrorMessage('')
+    try {
+      await onDelete(vibeToEdit.id)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not delete this vibe.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
-    <form id="vibe-editor-form" onSubmit={handleSubmit} className="space-y-6">
+    <form id="vibe-editor-form" onSubmit={(event) => void handleSubmit(event)} className="space-y-6">
       <div
         className="rounded-xl border-l-2 px-4 py-3 text-sm leading-relaxed"
         style={{
@@ -150,6 +170,12 @@ function VibeEditor({
         </div>
       </fieldset>
 
+      {errorMessage && (
+        <p role="alert" className="text-sm" style={{ color: colors.error }}>
+          {errorMessage}
+        </p>
+      )}
+
       <div
         className={`sticky bottom-0 -mx-5 -mb-5 border-t p-5 ${
           vibeToEdit ? 'grid grid-cols-2 gap-3' : ''
@@ -160,6 +186,7 @@ function VibeEditor({
           <button
             type="button"
             onClick={handleDelete}
+            disabled={isSaving}
             className="min-h-12 cursor-pointer rounded-xl px-4 py-3 font-semibold transition-all hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0 active:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2"
             style={{
               backgroundColor: colors.error,
@@ -173,6 +200,7 @@ function VibeEditor({
         <button
           type="submit"
           form="vibe-editor-form"
+          disabled={isSaving}
           className="min-h-12 w-full cursor-pointer rounded-xl px-4 py-3 font-semibold transition-all hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0 active:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2"
           style={{
             backgroundColor: colors.primary,
@@ -180,7 +208,7 @@ function VibeEditor({
             outlineColor: colors.primary,
           }}
         >
-          {vibeToEdit ? 'Save changes' : 'Save vibe'}
+          {isSaving ? 'Saving...' : vibeToEdit ? 'Save changes' : 'Save vibe'}
         </button>
       </div>
     </form>

@@ -195,7 +195,7 @@ class VerifiedDestinationSelector:
     def __call__(self, location_name, location_address):
         return resolve_destination(location_name, location_address)
 
-    def select(self, preferences):
+    def _eligible_places(self, preferences):
         from backend.quest_contracts import SelectedDestination
         from backend.quest_validation import calculate_distance
 
@@ -245,9 +245,28 @@ class VerifiedDestinationSelector:
             eligible.append(place)
         if not eligible:
             raise NoEligibleDestination()
-        place = random.choice(eligible)
-        return SelectedDestination(
-            locationName=place["displayName"]["text"], locationAddress=place["formattedAddress"],
-            latitude=place["location"]["latitude"], longitude=place["location"]["longitude"],
-            placeId=place["id"], scope="gainesville_city",
-        )
+        if origin is not None:
+            eligible.sort(key=lambda place: calculate_distance(
+                origin.latitude, origin.longitude,
+                place["location"]["latitude"], place["location"]["longitude"],
+            ))
+        return [
+            SelectedDestination(
+                locationName=place["displayName"]["text"], locationAddress=place["formattedAddress"],
+                latitude=place["location"]["latitude"], longitude=place["location"]["longitude"],
+                placeId=place["id"], scope="gainesville_city",
+            )
+            for place in eligible
+        ]
+
+    def select(self, preferences):
+        return random.choice(self._eligible_places(preferences))
+
+    def select_stops(self, preferences):
+        """Select two or three unique, verified places; route nearest-first."""
+        places = self._eligible_places(preferences)
+        if len(places) < 2:
+            raise NoEligibleDestination()
+        if getattr(preferences.location, "coordinates", None) is None:
+            random.shuffle(places)
+        return places[:3]

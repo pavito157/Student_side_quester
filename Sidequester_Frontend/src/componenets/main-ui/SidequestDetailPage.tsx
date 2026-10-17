@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import Header from './Header'
-import SidequestMap from './SidequestMap'
+import SidequestMap, { type SidequestMapStop } from './SidequestMap'
 import { colors } from '../../constants/colors'
 import { navigateTo } from '../../services/navigation'
 import { abandonSidequest, completeSidequest, subscribeToActiveSidequest } from '../../services/sidequests'
@@ -14,6 +14,8 @@ type SidequestState =
   | { key: string; status: 'ready'; sidequest: ActiveSidequest }
   | { key: string; status: 'not-found' }
 
+const EMPTY_COMPLETED_STOPS: number[] = []
+
 function formatDate(date: string): string {
   return new Date(date).toLocaleString(undefined, {
     month: 'long',
@@ -22,6 +24,10 @@ function formatDate(date: string): string {
     hour: 'numeric',
     minute: '2-digit',
   })
+}
+
+function stopXpReward(totalXp: number, totalStops: number, index: number): number {
+  return Math.floor(totalXp / totalStops) + (index < totalXp % totalStops ? 1 : 0)
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -123,15 +129,24 @@ function SidequestDetailPage({
     )
   }, [isLoaded, isSignedIn, userId, sidequestId, routeKey])
 
-  async function handleComplete() {
+  async function handleComplete(stopIndex = 0) {
     if (!userId || state.status !== 'ready') return
     setIsCompleting(true)
     setCompletionError('')
     setCompletionMessage('')
     try {
-      const awardedXp = await completeSidequest(userId, sidequestId)
-      setCompletionMessage(`Sidequest completed. You earned ${awardedXp} XP.`)
-      setStoredState({ key: routeKey, status: 'not-found' })
+      const progress = await completeSidequest(userId, sidequestId, stopIndex)
+      if (progress.status === 'completed') {
+        setCompletionMessage(`Sidequest completed. You earned ${progress.xpAwardedSoFar} XP in total.`)
+        setStoredState({ key: routeKey, status: 'not-found' })
+      } else if (state.status === 'ready') {
+        setCompletionMessage(`Stop ${stopIndex + 1} complete. You earned ${progress.xpAwarded} XP.`)
+        setStoredState({
+          key: routeKey,
+          status: 'ready',
+          sidequest: { ...state.sidequest, completedStops: progress.completedStops },
+        })
+      }
     } catch (error) {
       setCompletionError(
         error instanceof Error ? error.message : 'Could not complete this sidequest.',
@@ -160,6 +175,33 @@ function SidequestDetailPage({
 
   const sidequest = state.status === 'ready' ? state.sidequest : null
   const userRequest = sidequest?.userRequest ?? null
+  const sidequestStops = useMemo(() => sidequest?.destinations ?? (sidequest ? [{
+    locationName: sidequest.locationName,
+    placeId: sidequest.placeId,
+    latitude: sidequest.latitude,
+    longitude: sidequest.longitude,
+  }] : []), [sidequest])
+  const completedStops = sidequest?.completedStops ?? EMPTY_COMPLETED_STOPS
+  const nextStopIndex = completedStops.length
+  const mapStops: SidequestMapStop[] = useMemo(() => sidequestStops.map((stop, index) => ({
+    name: stop.locationName,
+    placeId: stop.placeId,
+    latitude: stop.latitude,
+    longitude: stop.longitude,
+    step: sidequest?.steps[index] ?? 'Explore this destination.',
+    completed: completedStops.includes(index),
+  })), [sidequest?.steps, sidequestStops, completedStops])
+  const originCoordinates = useMemo(() => {
+    const requestedOrigin = asRecord(userRequest?.originCoordinates)
+    const originLatitude = requestedOrigin?.latitude ?? userRequest?.latitude
+    const originLongitude = requestedOrigin?.longitude ?? userRequest?.longitude
+    return typeof originLatitude === 'number' && Number.isFinite(originLatitude)
+      && Math.abs(originLatitude) <= 90
+      && typeof originLongitude === 'number' && Number.isFinite(originLongitude)
+      && Math.abs(originLongitude) <= 180
+      ? { latitude: originLatitude, longitude: originLongitude }
+      : null
+  }, [userRequest])
   const requestedPreferences = typeof userRequest?.preferences === 'string'
     ? userRequest.preferences
     : ''
@@ -406,6 +448,38 @@ function SidequestDetailPage({
                     </Detail>
                     <Detail label="Reward">Awarded after successful completion</Detail>
                   </dl>
+                  {sidequestStops.length > 1 && (
+                    <div className="mt-4 rounded-xl border p-3.5" style={{ borderColor: colors.border }}>
+                      <div className="flex items-center justify-between gap-3 text-xs">
+                        <span className="font-semibold">Route progress</span>
+                        <span style={{ color: colors.muted }}>
+                          {completedStops.length} of {sidequestStops.length} stops
+                        </span>
+                      </div>
+                      <div
+                        role="progressbar"
+                        aria-label="Quest stop progress"
+                        aria-valuemin={0}
+                        aria-valuemax={sidequestStops.length}
+                        aria-valuenow={completedStops.length}
+                        className="mt-2 h-2 overflow-hidden rounded-full"
+                        style={{ backgroundColor: colors.surfaceRaised }}
+                      >
+                        <div
+                          className="h-full rounded-full transition-[width]"
+                          style={{
+                            width: `${(completedStops.length / sidequestStops.length) * 100}%`,
+                            backgroundColor: colors.success,
+                          }}
+                        />
+                      </div>
+                      {nextStopIndex < sidequestStops.length && (
+                        <p className="mt-2 truncate text-xs" style={{ color: colors.muted }}>
+                          Next: {sidequestStops[nextStopIndex].locationName}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
                     {destinationUrl && (
                       <a
@@ -440,7 +514,7 @@ function SidequestDetailPage({
                     )}
                     <button
                       type="button"
-                      onClick={() => void handleComplete()}
+                      onClick={() => void handleComplete(nextStopIndex)}
                       disabled={isCompleting || isAbandoning}
                       className="min-h-12 cursor-pointer rounded-xl px-4 py-2.5 text-sm font-black transition hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-wait disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 sm:col-span-2 lg:col-span-1"
                       style={{
@@ -449,7 +523,11 @@ function SidequestDetailPage({
                         outlineColor: colors.primary,
                       }}
                     >
-                      {isCompleting ? 'Completing…' : 'Complete sidequest'}
+                      {isCompleting
+                        ? 'Verifying location…'
+                        : sidequestStops.length > 1
+                          ? `Complete Stop ${nextStopIndex + 1} · +${stopXpReward(sidequest.xpValue, sidequestStops.length, nextStopIndex)} XP`
+                          : 'Complete sidequest'}
                     </button>
                     {!showAbandonConfirmation ? (
                       <button
@@ -592,11 +670,16 @@ function SidequestDetailPage({
                 <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: colors.secondary }}>
-                      Map point
+                      Route map
                     </p>
-                    <h2 className="mt-1 text-lg font-black">{sidequest.locationName}</h2>
+                    <h2 className="mt-1 text-lg font-black">
+                      {sidequestStops.length === 1
+                        ? sidequestStops[0].locationName
+                        : `${sidequestStops.length} verified destinations`}
+                    </h2>
                     <p className="mt-1 text-xs" style={{ color: colors.muted }}>
-                      {sidequest.latitude.toFixed(5)}, {sidequest.longitude.toFixed(5)}
+                      {completedStops.length} of {sidequestStops.length} stops complete
+                      {originCoordinates ? ' · Route starts at your selected location' : ' · Starting location unavailable'}
                     </p>
                   </div>
                   <span
@@ -608,13 +691,12 @@ function SidequestDetailPage({
                     }}
                   >
                     <span className="size-2 rounded-full" style={{ backgroundColor: colors.success }} />
-                    Verified destination
+                    {sidequestStops.length > 1 ? 'Ordered quest stops' : 'Verified destination'}
                   </span>
                 </div>
                 <SidequestMap
-                  location={sidequest.locationName}
-                  latitude={sidequest.latitude}
-                  longitude={sidequest.longitude}
+                  stops={mapStops}
+                  origin={originCoordinates}
                 />
               </section>
             </>

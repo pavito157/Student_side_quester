@@ -1,10 +1,43 @@
 import { collection, doc, onSnapshot, Timestamp, type Unsubscribe } from 'firebase/firestore'
 import { db } from '../configs/FirebaseConfig'
-import { requestQuestAbandon, requestQuestCompletion } from './questAssignment'
+import { requestQuestAbandon, requestQuestCompletion, type StopCompletionResult } from './questAssignment'
 import type { ActiveSidequest } from '../types/sidequest'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+type ActiveDestination = NonNullable<ActiveSidequest['destinations']>[number]
+
+function parseDestinations(value: unknown, fallback: ActiveDestination): ActiveDestination[] | null {
+  const candidates = Array.isArray(value) && value.length > 0 ? value : [fallback]
+  if (candidates.length > 3) return null
+  const parsed: ActiveDestination[] = []
+  for (const candidate of candidates) {
+    if (!isRecord(candidate)
+      || typeof candidate.locationName !== 'string'
+      || typeof candidate.latitude !== 'number' || !Number.isFinite(candidate.latitude)
+      || Math.abs(candidate.latitude) > 90
+      || typeof candidate.longitude !== 'number' || !Number.isFinite(candidate.longitude)
+      || Math.abs(candidate.longitude) > 180
+      || (candidate.placeId !== undefined && candidate.placeId !== null && typeof candidate.placeId !== 'string')) {
+      return null
+    }
+    parsed.push({
+      locationName: candidate.locationName,
+      placeId: typeof candidate.placeId === 'string' ? candidate.placeId : null,
+      latitude: candidate.latitude,
+      longitude: candidate.longitude,
+    })
+  }
+  return parsed.length > 0 ? parsed : null
+}
+
+function parseCompletedStops(value: unknown, totalStops: number): number[] | null {
+  if (!Array.isArray(value) || value.length > totalStops) return null
+  if (!value.every((index) => typeof index === 'number' && Number.isSafeInteger(index)
+    && index >= 0 && index < totalStops)) return null
+  return new Set(value).size === value.length ? value : null
 }
 
 // Generated assignments are written and completed only by FastAPI. Old
@@ -12,6 +45,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function parseActiveSidequest(id: string, data: Record<string, unknown>, userId: string): ActiveSidequest | null {
   if (data.status !== 'assigned' || data.isActive !== true) return null
   const userRequest = data.userRequest === undefined ? null : data.userRequest
+  const destinations = parseDestinations(data.destinations, {
+    locationName: typeof data.locationName === 'string' ? data.locationName : '',
+    placeId: typeof data.placeId === 'string' ? data.placeId : null,
+    latitude: typeof data.latitude === 'number' ? data.latitude : Number.NaN,
+    longitude: typeof data.longitude === 'number' ? data.longitude : Number.NaN,
+  })
+  const completedStops = destinations
+    ? parseCompletedStops(data.completedStops ?? [], destinations.length)
+    : null
   if (data.userId !== userId || data.ownerId !== userId || data.questId !== id
       || typeof data.title !== 'string' || !data.title.trim()
       || typeof data.description !== 'string' || typeof data.locationName !== 'string'
@@ -19,6 +61,7 @@ export function parseActiveSidequest(id: string, data: Record<string, unknown>, 
       || typeof data.latitude !== 'number' || !Number.isFinite(data.latitude) || Math.abs(data.latitude) > 90
       || typeof data.longitude !== 'number' || !Number.isFinite(data.longitude) || Math.abs(data.longitude) > 180
       || (data.placeId !== undefined && data.placeId !== null && typeof data.placeId !== 'string')
+      || !destinations || !completedStops
       || typeof data.xpReward !== 'number' || !Number.isSafeInteger(data.xpReward) || data.xpReward < 0
       || typeof data.estimatedMinutes !== 'number' || !Number.isSafeInteger(data.estimatedMinutes) || data.estimatedMinutes <= 0
       || typeof data.estimatedCostDollars !== 'number' || !Number.isFinite(data.estimatedCostDollars) || data.estimatedCostDollars < 0
@@ -30,6 +73,8 @@ export function parseActiveSidequest(id: string, data: Record<string, unknown>, 
     id, title: data.title, description: data.description, steps: data.steps,
     locationName: data.locationName,
     placeId: typeof data.placeId === 'string' ? data.placeId : null,
+    destinations,
+    completedStops,
     latitude: data.latitude, longitude: data.longitude,
     estimatedMinutes: data.estimatedMinutes, estimatedCostDollars: data.estimatedCostDollars,
     xpValue: data.xpReward, createdAt: data.assignedAt.toDate().toISOString(),
@@ -63,7 +108,9 @@ export function subscribeToActiveSidequests(
   }, (error: Error) => onError(error.message))
 }
 
-export async function completeSidequest(userId: string, sidequestId: string): Promise<number> {
+export async function completeSidequest(
+  userId: string, sidequestId: string, stopIndex = 0,
+): Promise<StopCompletionResult> {
   if (!userId.trim() || !sidequestId.trim()) throw new Error('Sign in and choose a valid sidequest.')
   if (!navigator.geolocation) throw new Error('Your browser does not support location verification.')
   const position = await new Promise<GeolocationPosition>((resolve, reject) => {
@@ -73,7 +120,7 @@ export async function completeSidequest(userId: string, sidequestId: string): Pr
   })
   return requestQuestCompletion(userId, sidequestId, {
     latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy,
-  })
+  }, stopIndex)
 }
 
 export async function abandonSidequest(userId: string, sidequestId: string): Promise<void> {

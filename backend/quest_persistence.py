@@ -191,6 +191,8 @@ def save_verified_assignment(
         id=quest_id, title=proposed.title, description=proposed.description, steps=proposed.steps,
         locationName=destination.locationName, placeId=destination.placeId,
         latitude=destination.latitude, longitude=destination.longitude,
+        destinations=preview.destinations if user_request and user_request.multiQuest else [],
+        completedStops=[],
         radiusMeters=policy.radiusMeters, xpReward=quest_xp_reward(proposed.estimatedMinutes), isActive=True,
         estimatedMinutes=proposed.estimatedMinutes, estimatedCostDollars=proposed.estimatedCostDollars,
     )

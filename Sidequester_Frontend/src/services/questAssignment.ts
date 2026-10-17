@@ -21,6 +21,7 @@ export type AssignQuestPayload = {
   distance?: number | { maxDistance: number; unit: 'miles' } | null
   goals?: string[]
   vibePreferences?: string | null
+  multiQuest?: boolean
 }
 
 export type QuestPreviewResponse = {
@@ -75,6 +76,13 @@ export type GeneratedQuestResponse = Omit<QuestPreviewResponse, 'mode' | 'filter
     placeId: string | null
     scope: 'gainesville_city'
   } | null
+  destinations: Array<{
+    locationName: string
+    latitude: number
+    longitude: number
+    placeId: string | null
+    scope: 'gainesville_city'
+  }>
 }
 
 export type SavedQuestResponse = {
@@ -174,7 +182,7 @@ export async function requestTestQuest(
 
 // Step 4: Gemini preview only. The frontend team owns button/result wiring.
 export async function requestGeneratedQuest(
-  expectedUserId: string,
+  expectedUserId: string | null,
   payload: GenerateQuestPayload,
   options: QuestRequestOptions = {},
 ): Promise<GeneratedQuestResponse> {
@@ -197,7 +205,21 @@ export async function requestGeneratedQuest(
         || !(d.placeId === null || (typeof d.placeId === 'string' && d.placeId.trim().length > 0))) {
       throw new Error('The backend returned an invalid quest destination.')
     }
+    const destinations = Array.isArray(result.destinations) ? result.destinations : [d]
+    if (!Array.isArray(destinations) || destinations.length < 1 || destinations.length > 3
+        || !isRecord(destinations[0]) || destinations[0].locationName !== d.locationName
+        || !destinations.every((stop) => isRecord(stop)
+          && typeof stop.locationName === 'string' && stop.locationName.trim().length > 0
+          && typeof stop.latitude === 'number' && Number.isFinite(stop.latitude) && Math.abs(stop.latitude) <= 90
+          && typeof stop.longitude === 'number' && Number.isFinite(stop.longitude) && Math.abs(stop.longitude) <= 180
+          && stop.scope === 'gainesville_city'
+          && (stop.placeId === null || (typeof stop.placeId === 'string' && stop.placeId.trim().length > 0)))
+        || (payload.multiQuest === true ? destinations.length < 2 : destinations.length !== 1)) {
+      throw new Error('The backend returned an invalid verified destination list.')
+    }
   } else if (d !== null) {
+    throw new Error('The backend returned inconsistent destination verification.')
+  } else if (Array.isArray(result.destinations) && result.destinations.length !== 0) {
     throw new Error('The backend returned inconsistent destination verification.')
   }
   const expectedDistanceStatus = payload.distance == null ? 'not_requested'
@@ -208,7 +230,12 @@ export async function requestGeneratedQuest(
         : result.distanceMeters !== null)) {
     throw new Error('The backend returned inconsistent distance verification.')
   }
-  return result as GeneratedQuestResponse
+  return {
+    ...result,
+    destinations: Array.isArray(result.destinations)
+      ? result.destinations
+      : result.destinationVerified && isRecord(d) ? [d] : [],
+  } as GeneratedQuestResponse
 }
 
 // Step 5: save a verified quest, or reuse the student's existing active assignment.
@@ -232,16 +259,58 @@ export async function getCurrentQuest(
   return result
 }
 
-export type CompletionLocation = { latitude: number; longitude: number; accuracy: number }
+export type CompletionLocation = { latitude: number; longitude: number; accuracy: number; stopIndex?: number }
+export type StopCompletionResult = {
+  questId: string
+  status: 'in_progress' | 'completed'
+  stopIndex: number
+  xpAwarded: number
+  xpAwardedSoFar: number
+  completedStops: number[]
+  totalStops: number
+}
 
-export async function requestQuestCompletion(userId: string, questId: string, location: CompletionLocation): Promise<number> {
+function isSafeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value)
+}
+
+export async function requestQuestCompletion(
+  userId: string, questId: string, location: CompletionLocation, stopIndex = 0,
+): Promise<StopCompletionResult> {
   if (!questId || questId.includes('/')) throw new Error('Choose a valid sidequest.')
-  const result = await requestQuest(`/quests/${encodeURIComponent(questId)}/complete`, userId, location, {})
-  if (!isRecord(result) || result.status !== 'completed' || result.questId !== questId
-      || typeof result.xpAwarded !== 'number' || !Number.isSafeInteger(result.xpAwarded) || result.xpAwarded < 0) {
+  const result = await requestQuest(
+    `/quests/${encodeURIComponent(questId)}/complete`, userId, {
+      latitude: location.latitude,
+      longitude: location.longitude,
+      accuracy: location.accuracy,
+      stopIndex,
+    }, {},
+  )
+  if (!isRecord(result)) {
     throw new Error('The backend returned an invalid completion response.')
   }
-  return result.xpAwarded
+  const completedStops = result.completedStops
+  if ((result.status !== 'completed' && result.status !== 'in_progress')
+      || typeof result.questId !== 'string' || result.questId !== questId
+      || !isSafeInteger(result.stopIndex) || result.stopIndex !== stopIndex
+      || !isSafeInteger(result.xpAwarded) || result.xpAwarded < 0
+      || !isSafeInteger(result.xpAwardedSoFar)
+      || !Array.isArray(completedStops) || !completedStops.every(isSafeInteger)
+      || !isSafeInteger(result.totalStops) || result.totalStops < 1 || result.totalStops > 3
+      || completedStops.length !== stopIndex + 1
+      || completedStops[completedStops.length - 1] !== stopIndex
+      || (result.status === 'completed') !== (completedStops.length === result.totalStops)) {
+    throw new Error('The backend returned an invalid completion response.')
+  }
+  return {
+    questId: result.questId,
+    status: result.status,
+    stopIndex: result.stopIndex,
+    xpAwarded: result.xpAwarded,
+    xpAwardedSoFar: result.xpAwardedSoFar,
+    completedStops,
+    totalStops: result.totalStops,
+  }
 }
 
 export async function requestQuestAbandon(userId: string, questId: string): Promise<void> {
@@ -253,17 +322,20 @@ export async function requestQuestAbandon(userId: string, questId: string): Prom
 }
 
 async function requestQuest(
-  path: string, expectedUserId: string, payload: AssignQuestPayload | CompletionLocation | undefined,
+  path: string, expectedUserId: string | null, payload: AssignQuestPayload | CompletionLocation | undefined,
   options: QuestRequestOptions, method: 'POST' | 'GET' = 'POST',
 ): Promise<unknown> {
   const started = now()
-  const idToken = await getFirebaseIdToken(expectedUserId)
+  const idToken = expectedUserId === null ? null : await getFirebaseIdToken(expectedUserId)
   const tokenReady = now()
   let response: Response
   try {
     response = await fetch(`${apiBaseUrl}${path}`, {
       method,
-      headers: { Authorization: `Bearer ${idToken}`, ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}) },
+      headers: {
+        ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}),
+      },
       credentials: 'omit',
       body: payload === undefined ? undefined : JSON.stringify(payload),
       signal: options.signal,

@@ -293,7 +293,9 @@ class GenerationTests(unittest.TestCase):
                 }) as verify, \
                 patch.object(firebase_helpers, "get_db", side_effect=AssertionError("No database access")) as db, \
                 patch.object(generation, "call_gemini", return_value=GeneratedQuestProposal(**self.proposal)): 
-            self.assertEqual(client.post("/quests/generate", json=self.body).status_code, 401)
+            guest_response = client.post("/quests/generate", json=self.body)
+            self.assertEqual(guest_response.status_code, 200, guest_response.text)
+            self.assertFalse(guest_response.json()["saved"])
             db.assert_not_called()
             response = client.post("/quests/generate", json=self.body,
                                    headers={"Authorization": "Bearer test-token", "Origin": "http://localhost:5173"})

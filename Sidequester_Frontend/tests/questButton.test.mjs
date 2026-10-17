@@ -152,12 +152,21 @@ test('generation starts only once while the submit operation is pending', async 
   await f.settle()
 })
 
-test('signed-out requests never call the protected assignment API', async () => {
+test('guests generate an unsaved quest preview and see the non-persistence warning', async () => {
   const f = await fixture()
   f.auth = { isLoaded: true, isSignedIn: false, user: null }
   f.render(); f.click(); await f.settle()
-  assert.equal(f.calls.length, 0)
-  assert.match(JSON.stringify(f.tree), /Sign in with a verified email account/)
+  assert.equal(f.calls.length, 1)
+  assert.equal(f.calls[0][0], null)
+  assert.equal(f.calls[0][1].multiQuest, false)
+  assert.match(JSON.stringify(f.tree), /Guest quests are previews only and will not be saved/)
+})
+
+test('the multi-stop option is sent in the quest request', async () => {
+  const f = await fixture()
+  f.filters.multiQuest = true
+  f.render(); f.click(); await f.settle()
+  assert.equal(f.calls[0][1].multiQuest, true)
 })
 
 test('choosing Anywhere clears old coordinates before submission', async () => {

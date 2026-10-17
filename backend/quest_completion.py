@@ -4,7 +4,7 @@ from firebase_admin import firestore
 
 from .quest_validation import validate_completion
 from .firebase_helpers import USERS
-from .xp import read_xp
+from .xp import read_xp, xp_for_stop
 
 ASSIGNMENTS = "userQuests"
 
@@ -17,7 +17,7 @@ class CompletionError(Exception):
 
 
 def complete_quest(
-    db, user_id, quest_id, latitude, longitude, accuracy, max_accuracy=50,
+    db, user_id, quest_id, latitude, longitude, accuracy, max_accuracy=50, stop_index=0,
 ):
     """user_id MUST come from a verified Firebase ID token, never request JSON.
 
@@ -52,14 +52,48 @@ def complete_quest(
         if quest.get("isActive") is not True:
             raise CompletionError(409, "This quest is no longer active.")
 
+        destinations = quest.get("destinations")
+        if not destinations:
+            destinations = [{
+                "locationName": quest.get("locationName"),
+                "latitude": quest.get("latitude"),
+                "longitude": quest.get("longitude"),
+            }]
+        if (not isinstance(destinations, list) or not 1 <= len(destinations) <= 3
+                or type(stop_index) is not int or not 0 <= stop_index < len(destinations)):
+            raise CompletionError(409, "The quest stop information is invalid.")
+        completed_stops = quest.get("completedStops", [])
+        if (not isinstance(completed_stops, list)
+                or any(type(index) is not int or not 0 <= index < len(destinations)
+                       for index in completed_stops)
+                or len(set(completed_stops)) != len(completed_stops)):
+            raise CompletionError(409, "The quest completion progress is invalid.")
+        if stop_index in completed_stops:
+            raise CompletionError(409, "This stop has already been completed.")
+        if stop_index != len(completed_stops):
+            raise CompletionError(409, "Complete the next stop in the route.")
+
+        stop = destinations[stop_index]
+        if not isinstance(stop, dict):
+            raise CompletionError(409, "The quest destination is not configured correctly.")
+        stop_quest = {
+            **quest,
+            "latitude": stop.get("latitude"),
+            "longitude": stop.get("longitude"),
+        }
         validation = validate_completion(
-            user_id, assignment, quest, latitude, longitude, accuracy, max_accuracy,
+            user_id, assignment, stop_quest, latitude, longitude, accuracy, max_accuracy,
         )
         if not validation["valid"]:
             raise CompletionError(400, validation)
-        reward = quest.get("xpReward")
-        if type(reward) is not int or reward < 0:
+        total_reward = quest.get("xpReward")
+        if type(total_reward) is not int or total_reward < 0:
             raise CompletionError(409, "The quest XP reward is not configured correctly.")
+        stop_count = len(destinations)
+        reward = xp_for_stop(total_reward, stop_count, stop_index)
+        updated_stops = [*completed_stops, stop_index]
+        total_awarded = sum(xp_for_stop(total_reward, stop_count, index) for index in updated_stops)
+        quest_complete = len(updated_stops) == stop_count
 
         user_snapshot = user_ref.get(transaction=transaction)
         if not user_snapshot.exists:
@@ -81,15 +115,31 @@ def complete_quest(
         # Firestore integer fields are signed 64-bit values.
         if any(balance + reward > 2**63 - 1 for balance in (user_xp, dorm_xp)):
             raise CompletionError(409, "The XP award exceeds the supported total.")
-        transaction.delete(assignment_ref)
-        if not nested.exists and quest.get("ownerId") == user_id:
-            transaction.delete(quest_ref)
+        if quest_complete:
+            transaction.delete(assignment_ref)
+            if not nested.exists and quest.get("ownerId") == user_id:
+                transaction.delete(quest_ref)
+        else:
+            progress_ref = assignment_ref if nested.exists else quest_ref
+            transaction.update(progress_ref, {
+                "completedStops": updated_stops,
+                "xpAwardedSoFar": total_awarded,
+            })
         user_changes = {"xp": user_xp + reward}
-        if user.get("activeQuestId") == quest_id:
+        if quest_complete and user.get("activeQuestId") == quest_id:
             user_changes["activeQuestId"] = firestore.DELETE_FIELD
         transaction.update(user_ref, user_changes)
         transaction.update(dorm_ref, {"xp": dorm_xp + reward})
-        return {**validation, "questId": quest_id, "status": "completed", "xpAwarded": reward}
+        return {
+            **validation,
+            "questId": quest_id,
+            "status": "completed" if quest_complete else "in_progress",
+            "stopIndex": stop_index,
+            "xpAwarded": reward,
+            "xpAwardedSoFar": total_awarded,
+            "completedStops": updated_stops,
+            "totalStops": stop_count,
+        }
 
     return commit(db.transaction())
 

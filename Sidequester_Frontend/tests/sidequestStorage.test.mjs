@@ -48,7 +48,13 @@ async function fixture() {
     }
     else if (name.endsWith('FirebaseConfig')) exports = { db: {} }
     else exports = {
-      requestQuestCompletion: async (...args) => { state.completions.push(args); return 40 },
+      requestQuestCompletion: async (...args) => {
+        state.completions.push(args)
+        return {
+          questId: args[1], status: 'completed', stopIndex: args[3], xpAwarded: 40,
+          xpAwardedSoFar: 40, completedStops: [args[3]], totalStops: 1,
+        }
+      },
       requestQuestAbandon: async (...args) => { state.abandonments.push(args) },
     }
     return new vm.SyntheticModule(Object.keys(exports), function () {
@@ -93,11 +99,28 @@ test('stored assignments reject a different account and invalid rewards', async 
   assert.equal(f.api.parseActiveSidequest('quest-1', legacy, 'alice').placeId, null)
 })
 
+test('active multi-stop assignments retain ordered verified pins and progress', async () => {
+  const f = await fixture()
+  const data = {
+    ...record(),
+    destinations: [
+      { locationName: 'First park', latitude: 29.65, longitude: -82.34, placeId: 'first' },
+      { locationName: 'Second park', latitude: 29.66, longitude: -82.33, placeId: 'second' },
+    ],
+    completedStops: [0],
+  }
+  const parsed = f.api.parseActiveSidequest('quest-1', data, 'alice')
+  assert.deepEqual(plain(parsed.destinations.map((stop) => stop.locationName)), ['First park', 'Second park'])
+  assert.deepEqual(plain(parsed.completedStops), [0])
+})
+
 test('completion requests a fresh precise GPS reading and delegates XP to FastAPI', async () => {
   const f = await fixture()
-  assert.equal(await f.api.completeSidequest('alice', 'quest-1'), 40)
+  assert.equal((await f.api.completeSidequest('alice', 'quest-1')).xpAwarded, 40)
   assert.deepEqual(plain(f.state.gpsOptions), { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 })
-  assert.deepEqual(plain(f.state.completions), [['alice', 'quest-1', { latitude: 29.6501, longitude: -82.3401, accuracy: 8 }]])
+  assert.deepEqual(plain(f.state.completions), [
+    ['alice', 'quest-1', { latitude: 29.6501, longitude: -82.3401, accuracy: 8 }, 0],
+  ])
 })
 
 test('denied GPS access cannot mark a quest complete or award XP', async () => {

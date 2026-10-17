@@ -22,7 +22,8 @@ class PersistenceTests(unittest.TestCase):
     def setUp(self):
         self.body = {"location": "Anywhere", "time": {"selection": "60"},
                      "budget": {"selection": "0"}, "preferences": "Nature"}
-        self.preferences = GenerateQuestRequest.model_validate(self.body).normalize()
+        self.user_request = GenerateQuestRequest.model_validate(self.body)
+        self.preferences = self.user_request.normalize()
         data = json.loads((Path(__file__).resolve().parents[1] / "contracts" /
                            "assignment.response.example.json").read_text())
         data["quest"]["id"] = "saved-quest"
@@ -84,6 +85,25 @@ class PersistenceTests(unittest.TestCase):
                 persistence.get_current_assignment(db, uid)
         db.collection.assert_not_called()
 
+    def test_missing_destination_pointer_is_cleared_when_no_assignment_exists(self):
+        db = MagicMock()
+        transaction = MagicMock()
+        user_ref = db.collection.return_value.document.return_value
+        sidequest_collection = MagicMock()
+        sidequest_collection.stream.return_value = []
+
+        with patch.object(persistence, "sidequests", return_value=sidequest_collection), \
+                patch.object(persistence, "ASSIGNMENTS", "userQuests"):
+            result = persistence._read_active(
+                db, transaction, "user_student", {"activeQuestId": "missing-quest"},
+            )
+
+        self.assertIsNone(result)
+        transaction.update.assert_called_once()
+        updated_ref, changes = transaction.update.call_args.args
+        self.assertEqual(updated_ref, user_ref)
+        self.assertEqual(changes, {"activeQuestId": persistence.firestore.DELETE_FIELD})
+
     def test_generated_content_and_duration_reward_are_saved_to_user_sidequest(self):
         preview = GeneratedQuestResponse(
             filtersApplied=True, destinationVerified=True, distanceStatus="not_requested",
@@ -111,7 +131,7 @@ class PersistenceTests(unittest.TestCase):
         with patch.object(persistence, "_run_transaction",
                           side_effect=lambda _db, callback: callback(transaction)):
             result = persistence.save_verified_assignment(
-                db, "user_student", preview, persistence.AssignmentPolicy(),
+                db, "user_student", preview, persistence.AssignmentPolicy(), self.user_request,
             )
 
         saved = transaction.create.call_args.args[1]
@@ -128,6 +148,7 @@ class PersistenceTests(unittest.TestCase):
         self.assertEqual(saved["xpReward"], 15)
         self.assertEqual(saved["status"], "assigned")
         self.assertEqual(saved["xpAwarded"], 0)
+        self.assertEqual(saved["userRequest"], self.user_request.model_dump(mode="json"))
 
 
 class PersistenceRouteTests(unittest.TestCase):
@@ -156,6 +177,7 @@ class PersistenceRouteTests(unittest.TestCase):
         self.assertIn("auth;dur=", response.headers["server-timing"])
         self.assign.assert_called_once()
         self.assertEqual(self.assign.call_args.args[1], "user_student")
+        self.assertEqual(self.assign.call_args.kwargs["user_request"], self.user_request)
         self.verify.assert_called_once_with("firebase-test-token", check_revoked=True)
 
     def test_existing_assignment_is_200_and_get_reloads_same_contract(self):

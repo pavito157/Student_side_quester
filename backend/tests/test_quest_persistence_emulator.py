@@ -47,7 +47,9 @@ class PersistenceEmulatorTests(unittest.TestCase):
         self.addCleanup(patch.stopall)
         self.preferences = GenerateQuestRequest.model_validate({
             "location": "Anywhere", "time": {"selection": "60"}, "budget": {"selection": "0"},
-        }).normalize()
+        })
+        self.user_request = self.preferences
+        self.preferences = self.user_request.normalize()
         self.proposal = GeneratedQuestProposal(
             title="Test task", description="Draw three leaf shapes.", steps=["Draw three leaves."],
             locationName="AI proposed name", locationAddress="AI proposed address",
@@ -73,7 +75,8 @@ class PersistenceEmulatorTests(unittest.TestCase):
 
     def create(self, resolver=True, uid=None):
         return persistence.assign_generated_quest(self.db, uid or self.uid, self.preferences,
-                                                   self.resolver if resolver else None)
+                                                   self.resolver if resolver else None,
+                                                   user_request=self.user_request)
 
     def records(self):
         return list(persistence.sidequests(self.db, self.uid).stream())
@@ -99,6 +102,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
         self.assertEqual(quest["steps"], self.proposal.steps)
         self.assertEqual(quest["estimatedMinutes"], self.proposal.estimatedMinutes)
         self.assertEqual(quest["estimatedCostDollars"], self.proposal.estimatedCostDollars)
+        self.assertEqual(quest["userRequest"], self.user_request.model_dump(mode="json"))
         self.assertIsNotNone(quest["createdAt"])
         self.assertNotIn("normalizedPreferences", quest)
         self.assertNotIn("locationAddress", quest)  # Do not present proposed address as verified.
@@ -291,6 +295,16 @@ class PersistenceEmulatorTests(unittest.TestCase):
         self.assertIsNone(persistence.get_current_assignment(self.db, self.uid))
         self.assertFalse(self.create().reusedExisting)
         self.assert_xp()
+
+    def test_missing_destination_pointer_is_repaired_before_new_assignment(self):
+        self.db.collection("Users").document(self.uid).update({"activeQuestId": "missing-quest"})
+
+        result = self.create()
+
+        self.assertFalse(result.reusedExisting)
+        profile = self.db.collection("Users").document(self.uid).get().to_dict()
+        self.assertEqual(profile["activeQuestId"], result.quest.id)
+        self.assertEqual(len(self.records()), 1)
 
     def test_nested_completion_race_awards_once_and_keeps_completed_record(self):
         first = self.create()

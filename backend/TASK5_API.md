@@ -147,13 +147,17 @@ limit defaults to 50 meters.
 
 Generated quests now live at **`Users/{uid}/sidequests/{quest.id}`**. The user UID
 comes from the verified Firebase ID token; the client cannot choose the owner.
-Each document combines quest fields and assignment fields (without either public
-`id` field), plus `ownerId`, `source: "gemini"`, and server `createdAt`.
+Each document combines Gemini-generated quest fields and assignment fields
+(without either public `id` field), plus `ownerId`, `source: "gemini"`, server
+`createdAt`, and the validated submitted JSON under `userRequest`. Keeping the
+request nested preserves the original inputs without letting them overwrite
+Gemini's title, description, steps, reward, or resolver-verified destination.
 `questId` equals the child document ID. The public response remains unchanged:
 `{quest, assignment, reusedExisting}`, including `quest.xpReward`.
 `assignment.id` remains the API identifier `{uid}_{questId}` for compatibility;
 it is not the child document ID. Use `response.quest.id` for detail-page links.
-No raw preferences, origin GPS, token or API key is stored in the sidequest.
+The request object includes submitted preferences and, when provided, the
+selected origin coordinates. It never includes authentication tokens or API keys.
 
 Assignment creation atomically creates that document and updates the user's
 `activeQuestId`. Competing creators serialize on the user document; one wins and

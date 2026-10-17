@@ -16,6 +16,17 @@ const record = () => ({
   title: 'Tree sketch', description: 'Draw three leaves.', steps: ['Walk there.', 'Draw three leaves.'],
   locationName: 'Verified park', latitude: 29.65, longitude: -82.34,
   xpReward: 40, estimatedMinutes: 20, estimatedCostDollars: 0, assignedAt: new Timestamp(),
+  userRequest: {
+    preferences: 'Explore nature.',
+    username: 'Alice',
+    location: 'Campus',
+    originCoordinates: { latitude: 29.65, longitude: -82.34 },
+    time: { selection: '60', customMinutes: null },
+    budget: { selection: '0', customDollars: null },
+    distance: { maxDistance: 5, unit: 'miles' },
+    goals: ['Learn outdoors'],
+    vibePreferences: 'Relaxed',
+  },
 })
 async function fixture() {
   const state = { refs: [], callbacks: [], completions: [], gpsOptions: null, denied: false }
@@ -61,6 +72,8 @@ test('active quest subscriptions use Users/uid/sidequests and display generated 
   assert.equal(rows[0].xpValue, 40)
   assert.equal(rows[0].latitude, 29.65)
   assert.deepEqual(plain(rows[0].steps), ['Walk there.', 'Draw three leaves.'])
+  assert.equal(rows[0].userRequest.preferences, 'Explore nature.')
+  assert.deepEqual(plain(rows[0].userRequest.goals), ['Learn outdoors'])
   // The service has no client write/XP/delete imports; none are provided by this fixture.
 })
 
@@ -68,6 +81,7 @@ test('stored assignments reject a different account and invalid rewards', async 
   const f = await fixture()
   assert.throws(() => f.api.parseActiveSidequest('quest-1', record(), 'bob'), /invalid assignment/)
   assert.throws(() => f.api.parseActiveSidequest('quest-1', { ...record(), xpReward: -1 }, 'alice'), /invalid assignment/)
+  assert.throws(() => f.api.parseActiveSidequest('quest-1', { ...record(), userRequest: 'invalid' }, 'alice'), /invalid assignment/)
 })
 
 test('completion requests a fresh precise GPS reading and delegates XP to FastAPI', async () => {

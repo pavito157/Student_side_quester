@@ -18,7 +18,8 @@ from pydantic import Field, ValidationError
 from .firebase_helpers import USERS
 from .quest_completion import ASSIGNMENTS
 from .quest_contracts import (
-    AssignedQuest, AssignQuestResponse, ContractModel, GeneratedQuestResponse, SavedAssignment,
+    AssignedQuest, AssignQuestResponse, ContractModel, GenerateQuestRequest, GeneratedQuestResponse,
+    SavedAssignment,
 )
 from .quest_generation import generate_preview
 from .request_timing import record_timing
@@ -96,13 +97,16 @@ def _nested_response(uid, snapshot):
         raise HTTPException(409, "Current assignment data is incomplete or invalid") from None
 
 
-def _sidequest_data(result):
-    return {
+def _sidequest_data(result, user_request: GenerateQuestRequest | None = None):
+    data = {
         **result.quest.model_dump(exclude={"id"}),
         **result.assignment.model_dump(exclude={"id"}),
         "ownerId": result.assignment.userId, "source": "gemini",
         "createdAt": firestore.SERVER_TIMESTAMP,
     }
+    if user_request is not None:
+        data["userRequest"] = user_request.model_dump(mode="json")
+    return data
 
 
 def _read_active(db, transaction, uid, user):
@@ -131,7 +135,12 @@ def _read_active(db, transaction, uid, user):
                                and item.to_dict().get("status") == "completed"
                                for item in legacy_snapshots)
         if pointer is not None and not completed_legacy and not any(item.id == pointer for item in snapshots):
-            raise HTTPException(409, "Current assignment destination is missing")
+            # No active assignment exists, and the pointer's document is gone.
+            # Repair this stale reference so new quests are not blocked forever.
+            transaction.update(
+                db.collection(USERS).document(uid),
+                {"activeQuestId": firestore.DELETE_FIELD},
+            )
         return None
     result = _stored_response(db, transaction, uid, legacy[0])
     if any(snapshot.id == result.quest.id for snapshot in snapshots):
@@ -164,7 +173,9 @@ def get_current_assignment(db, uid):
     return _run_transaction(db, read)
 
 
-def save_verified_assignment(db, uid, preview, policy):
+def save_verified_assignment(
+    db, uid, preview, policy, user_request: GenerateQuestRequest | None = None,
+):
     """Persist server-verified content only. UID must come from the token."""
     _check_uid(uid)
     try:
@@ -198,14 +209,20 @@ def save_verified_assignment(db, uid, preview, policy):
             return existing
         # Reading the same user document serializes competing creators; all
         # reads precede writes. The losing callback reuses the committed winner.
-        transaction.create(sidequests(db, uid).document(quest_id), _sidequest_data(result))
+        transaction.create(
+            sidequests(db, uid).document(quest_id),
+            _sidequest_data(result, user_request),
+        )
         transaction.update(user_ref, {"activeQuestId": quest_id})
         return result
 
     return _run_transaction(db, commit)
 
 
-def assign_generated_quest(db, uid, preferences, resolver, timings=None):
+def assign_generated_quest(
+    db, uid, preferences, resolver, timings=None,
+    user_request: GenerateQuestRequest | None = None,
+):
     with record_timing(timings, "lookup"):
         existing = get_current_assignment(db, uid)
     if existing is not None:
@@ -216,4 +233,4 @@ def assign_generated_quest(db, uid, preferences, resolver, timings=None):
     # External calls must never be retried inside a Firestore transaction.
     preview = generate_preview(preferences, resolver, timings=timings)
     with record_timing(timings, "save"):
-        return save_verified_assignment(db, uid, preview, policy)
+        return save_verified_assignment(db, uid, preview, policy, user_request)

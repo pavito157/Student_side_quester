@@ -63,4 +63,5 @@ export type ActiveSidequest = {
   estimatedCostDollars: number
   xpValue: number
   createdAt: string
+  userRequest?: Record<string, unknown> | null
 }

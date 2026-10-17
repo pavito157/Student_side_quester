@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import Header from './componenets/main-ui/Header'
 import CinematicHero from './componenets/main-ui/CinematicHero'
@@ -14,6 +14,8 @@ import type { Vibe } from './types/vibe'
 import { subscribeToActiveSidequests } from './services/sidequests'
 import type { ActiveSidequest } from './types/sidequest'
 import { colors } from './constants/colors'
+import { requestAssignedQuest, type GenerateQuestPayload } from './services/questAssignment'
+import { navigateTo } from './services/navigation'
 
 type ActiveSidequestsState = {
   userId: string | null
@@ -22,7 +24,16 @@ type ActiveSidequestsState = {
   error: string
 }
 
-function HomePage() {
+type QuestGenerationState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'error'; message: string }
+
+type HomePageProps = {
+  onStartQuestGeneration: (userId: string, payload: GenerateQuestPayload) => Promise<void>
+}
+
+function HomePage({ onStartQuestGeneration }: HomePageProps) {
   const { isLoaded, isSignedIn, user } = useUser()
   const userId = user?.id
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
@@ -134,6 +145,7 @@ function HomePage() {
                 setFilters={setQuestFilters}
                 activeVibe={vibeToApply}
                 onClearActiveVibe={() => setVibeToApply(null)}
+                onStartQuestGeneration={onStartQuestGeneration}
               />
             </div>
           </section>
@@ -163,6 +175,9 @@ function App() {
   const [pathname, setPathname] = useState(() =>
     window.location.pathname.replace(/\/+$/, '') || '/',
   )
+  const [generationState, setGenerationState] = useState<QuestGenerationState>({ status: 'idle' })
+  const generationControllerRef = useRef<AbortController | null>(null)
+  const generationIdRef = useRef(0)
 
   useEffect(() => {
     function updatePathname() {
@@ -173,14 +188,44 @@ function App() {
     return () => window.removeEventListener('popstate', updatePathname)
   }, [])
 
+  async function startQuestGeneration(userId: string, payload: GenerateQuestPayload) {
+    generationControllerRef.current?.abort()
+    const controller = new AbortController()
+    const generationId = generationIdRef.current + 1
+    generationIdRef.current = generationId
+    generationControllerRef.current = controller
+    setGenerationState({ status: 'loading' })
+    navigateTo('/sidequests/generating')
+
+    try {
+      const saved = await requestAssignedQuest(userId, payload, { signal: controller.signal })
+      if (generationIdRef.current !== generationId) return
+      setGenerationState({ status: 'idle' })
+      navigateTo(`/sidequests/${encodeURIComponent(saved.quest.id)}`)
+    } catch (error) {
+      if (controller.signal.aborted || generationIdRef.current !== generationId) return
+      setGenerationState({
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Could not create your sidequest.',
+      })
+    } finally {
+      if (generationControllerRef.current === controller) generationControllerRef.current = null
+    }
+  }
+
   return (
     <div key={pathname} className="route-transition">
       {pathname === '/leaderboard' ? (
         <LeaderboardPage />
+      ) : pathname === '/sidequests/generating' ? (
+        <SidequestDetailPage
+          sidequestId="generating"
+          generationState={generationState}
+        />
       ) : pathname.startsWith('/sidequests/') ? (
         <SidequestDetailPage sidequestId={decodeURIComponent(pathname.slice('/sidequests/'.length))} />
       ) : (
-        <HomePage />
+        <HomePage onStartQuestGeneration={startQuestGeneration} />
       )}
     </div>
   )

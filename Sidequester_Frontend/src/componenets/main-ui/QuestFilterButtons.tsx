@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import { useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import { colors } from '../../constants/colors'
 import { buildSidequestRequest, toQuestApiPayload } from '../../services/sidequestJson'
 import {
-  requestAssignedQuest,
-  type SavedQuestResponse,
+  type GenerateQuestPayload,
 } from '../../services/questAssignment'
 import { getUserGoals, getUserPreferences } from '../../services/userPreferences'
 import type {
@@ -18,7 +17,6 @@ import DistanceButton from '../Buttons/DistanceButton'
 import SidequestMeButton from '../Buttons/SidequestMeButton'
 import TimeButton from '../Buttons/TimeButton'
 import WhereButton from '../Buttons/WhereButton'
-import SidequestJsonModal from './SidequestJsonModal'
 
 export type QuestFilters = {
   where: string
@@ -37,6 +35,7 @@ interface QuestFilterButtonsProps {
   setFilters: Dispatch<SetStateAction<QuestFilters>>
   activeVibe: Vibe | null
   onClearActiveVibe: () => void
+  onStartQuestGeneration: (userId: string, payload: GenerateQuestPayload) => Promise<void>
 }
 
 function getUsername(user: ReturnType<typeof useUser>['user'], email: string | null): string {
@@ -104,34 +103,19 @@ function QuestFilterControls({
   setFilters,
   activeVibe,
   onClearActiveVibe,
+  onStartQuestGeneration,
 }: QuestFilterButtonsProps) {
   const { isLoaded, isSignedIn, user } = useUser()
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [isLoadingPreview, setIsLoadingPreview] = useState(false)
   const [previewError, setPreviewError] = useState('')
-  const historyWarning = ''
-  const [assignment, setAssignment] = useState<SavedQuestResponse | null>(null)
-  const controllerRef = useRef<AbortController | null>(null)
   const inFlightRef = useRef(false)
-  const [requestJson, setRequestJson] = useState('')
   const [guestPreference, setGuestPreference] = useState('')
-
-  useEffect(() => () => {
-    controllerRef.current?.abort()
-    controllerRef.current = null
-  }, [])
 
   async function showSidequestRequest() {
     if (inFlightRef.current) return
-    controllerRef.current?.abort()
-    const controller = new AbortController()
-    controllerRef.current = controller
     inFlightRef.current = true
-    setIsPreviewOpen(true)
     setIsLoadingPreview(true)
     setPreviewError('')
-    setAssignment(null)
-    setRequestJson('')
 
     try {
       if (!isLoaded) throw new Error('Your account is still loading. Please try again.')
@@ -172,26 +156,19 @@ function QuestFilterControls({
         vibePreferences: activeVibe?.preferences ?? null,
       })
 
-      if (controller.signal.aborted) return
       const apiRequest = toQuestApiPayload(request)
-      setRequestJson(JSON.stringify(apiRequest, null, 2))
 
       if (!isSignedIn || !user) {
         throw new Error('Sign in with a verified email account to get a saved quest.')
       }
-      const saved = await requestAssignedQuest(user.id, apiRequest, { signal: controller.signal })
-      if (controller.signal.aborted) return
-      setAssignment(saved)
+      await onStartQuestGeneration(user.id, apiRequest)
     } catch (error) {
-      if (controller.signal.aborted) return
       setPreviewError(
         error instanceof Error ? error.message : 'Could not get your sidequest. Please try again.',
       )
     } finally {
-      if (controllerRef.current === controller) {
-        inFlightRef.current = false
-        setIsLoadingPreview(false)
-      }
+      inFlightRef.current = false
+      setIsLoadingPreview(false)
     }
   }
 
@@ -348,15 +325,11 @@ function QuestFilterControls({
       )}
 
       <SidequestMeButton onClick={() => void showSidequestRequest()} isLoading={isLoadingPreview} />
-      <SidequestJsonModal
-        isOpen={isPreviewOpen}
-        isLoading={isLoadingPreview}
-        requestJson={requestJson}
-        errorMessage={previewError}
-        response={assignment}
-        historyWarning={historyWarning}
-        onClose={() => setIsPreviewOpen(false)}
-      />
+      {previewError && (
+        <p role="alert" className="text-sm" style={{ color: colors.error }}>
+          {previewError}
+        </p>
+      )}
     </div>
   )
 }

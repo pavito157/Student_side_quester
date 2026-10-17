@@ -116,8 +116,11 @@ def assign(
     }),
     uid: str = Depends(timed_current_uid), resolver=Depends(get_destination_resolver),
 ):
-    result = assign_generated_quest(get_db(), uid, payload.normalize(), resolver,
-                                    timings=getattr(request.state, "quest_timings", None))
+    result = assign_generated_quest(
+        get_db(), uid, payload.normalize(), resolver,
+        timings=getattr(request.state, "quest_timings", None),
+        user_request=payload,
+    )
     response.headers["Cache-Control"] = "no-store"
     response.status_code = 200 if result.reusedExisting else 201
     return result

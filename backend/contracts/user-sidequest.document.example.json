@@ -22,5 +22,28 @@
   "xpAwarded": 0,
   "ownerId": "example-user",
   "source": "gemini",
-  "createdAt": "2026-10-17T15:00:00Z"
+  "createdAt": "2026-10-17T15:00:00Z",
+  "userRequest": {
+    "preferences": "I enjoy programming and want to spend more time outside.",
+    "username": "Example Student",
+    "location": "101 Museum Rd, Gainesville, FL 32603, USA",
+    "originCoordinates": {
+      "latitude": 29.6460745,
+      "longitude": -82.3476577
+    },
+    "time": {
+      "selection": "60",
+      "customMinutes": null
+    },
+    "budget": {
+      "selection": "10",
+      "customDollars": null
+    },
+    "distance": {
+      "maxDistance": 5,
+      "unit": "miles"
+    },
+    "goals": ["Learn Computer Science"],
+    "vibePreferences": "Relax in nature."
+  }
 }

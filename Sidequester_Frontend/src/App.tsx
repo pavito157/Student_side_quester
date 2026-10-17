@@ -1,3 +1,4 @@
+import Button from './componenets/Button'
 
 function App() {
 
@@ -7,6 +8,9 @@ function App() {
         <text>
           Sidequester
         </text>
+        <Button onClick={() => console.log('Button clicked!')}>
+          Click Me
+        </Button>
       </div>
     </>
   )

@@ -1,6 +1,6 @@
 import { collection, doc, onSnapshot, Timestamp, type Unsubscribe } from 'firebase/firestore'
 import { db } from '../configs/FirebaseConfig'
-import { requestQuestAbandon, requestQuestCompletion, type StopCompletionResult } from './questAssignment'
+import { MAX_QUEST_REPLACEMENTS, requestQuestAbandon, requestQuestCompletion, type StopCompletionResult } from './questAssignment'
 import type { ActiveSidequest } from '../types/sidequest'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -48,6 +48,7 @@ function parseCompletedStops(value: unknown, totalStops: number): number[] | nul
 export function parseActiveSidequest(id: string, data: Record<string, unknown>, userId: string): ActiveSidequest | null {
   if (data.status !== 'assigned' || data.isActive !== true) return null
   const userRequest = data.userRequest === undefined ? null : data.userRequest
+  const replacementCount = data.replacementCount === undefined ? 0 : data.replacementCount
   const destinations = parseDestinations(data.destinations, {
     locationName: typeof data.locationName === 'string' ? data.locationName : '',
     placeId: typeof data.placeId === 'string' ? data.placeId : null,
@@ -74,6 +75,8 @@ export function parseActiveSidequest(id: string, data: Record<string, unknown>, 
       || typeof data.xpReward !== 'number' || !Number.isSafeInteger(data.xpReward) || data.xpReward < 0
       || typeof data.estimatedMinutes !== 'number' || !Number.isSafeInteger(data.estimatedMinutes) || data.estimatedMinutes <= 0
       || typeof data.estimatedCostDollars !== 'number' || !Number.isFinite(data.estimatedCostDollars) || data.estimatedCostDollars < 0
+      || typeof replacementCount !== 'number' || !Number.isInteger(replacementCount)
+      || replacementCount < 0 || replacementCount > MAX_QUEST_REPLACEMENTS
       || !(data.assignedAt instanceof Timestamp)
       || (userRequest !== null && !isRecord(userRequest))) {
     throw new Error(`Saved sidequest ${id} has invalid assignment details.`)
@@ -91,7 +94,7 @@ export function parseActiveSidequest(id: string, data: Record<string, unknown>, 
     latitude: data.latitude, longitude: data.longitude,
     estimatedMinutes: data.estimatedMinutes, estimatedCostDollars: data.estimatedCostDollars,
     xpValue: data.xpReward, createdAt: data.assignedAt.toDate().toISOString(),
-    userRequest,
+    userRequest, replacementCount,
   }
 }
 

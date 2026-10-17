@@ -9,10 +9,11 @@ interface SidequestJsonModalProps {
   errorMessage: string
   historyWarning: string
   onClose: () => void
+  onGenerateAnother?: () => void
 }
 
 function SidequestJsonModal({
-  isOpen, isLoading, requestJson, response, errorMessage, historyWarning, onClose,
+  isOpen, isLoading, requestJson, response, errorMessage, historyWarning, onClose, onGenerateAnother,
 }: SidequestJsonModalProps) {
   if (!isOpen) return null
 
@@ -74,7 +75,7 @@ function SidequestJsonModal({
 
         {isLoading && (
           <p role="status" className="mt-5 text-sm" style={{ color: colors.muted }}>
-            Preparing your request...
+            {response ? 'Generating a replacement; your current quest stays saved until it is ready…' : 'Preparing your request...'}
           </p>
         )}
         {response && (
@@ -95,6 +96,16 @@ function SidequestJsonModal({
             <p className="text-xs" style={{ color: colors.muted }}>
               XP is awarded after successful completion, not when this quest is generated.
             </p>
+            {onGenerateAnother && <div className="space-y-2">
+              <button type="button" onClick={onGenerateAnother} disabled={isLoading}
+                className="cursor-pointer rounded-lg border px-3 py-2 text-sm font-semibold hover:bg-white/10 disabled:cursor-wait disabled:opacity-60"
+                style={{ borderColor: colors.border, color: colors.secondary }}>
+                {isLoading ? 'Generating…' : 'Generate another'}
+              </button>
+              <p className="text-xs" style={{ color: colors.muted }}>
+                Uses your current filters. Replaces this quest and marks it skipped without awarding XP.
+              </p>
+            </div>}
             <button
               type="button" onClick={downloadResponse}
               className="cursor-pointer rounded-lg border px-3 py-2 text-sm font-semibold hover:bg-white/10"

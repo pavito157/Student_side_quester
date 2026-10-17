@@ -1,8 +1,8 @@
-"""One active generated assignment per user. No XP awards during assignment creation.
+"""Up to three independent active quests per user. Generation never awards XP.
 
 Gemini/place resolution run outside transactions. The final transaction rechecks
-current state and creates a user-scoped sidequest + user pointer together, or reuses
-the winner of a concurrent request without leaving an orphan quest.
+capacity and creates a user-scoped sidequest + user pointer together. Concurrent
+requests cannot exceed three active quests or leave orphan records.
 """
 
 from datetime import datetime, timezone
@@ -14,12 +14,12 @@ from firebase_admin import firestore
 from google.api_core.exceptions import GoogleAPICallError, RetryError
 from google.cloud.firestore_v1.base_query import FieldFilter
 from pydantic import Field, ValidationError
+from typing import Optional
 
 from .firebase_helpers import USERS
-from .quest_completion import ASSIGNMENTS
+from .quest_completion import ASSIGNMENTS, abandon_quest
 from .quest_contracts import (
-    AssignedQuest, AssignQuestResponse, ContractModel, GenerateQuestRequest, GeneratedQuestResponse,
-    SavedAssignment,
+    AssignedQuest, AssignQuestResponse, ContractModel, GenerateQuestRequest, GeneratedQuestResponse, SavedAssignment, MAX_ACTIVE_QUESTS,
 )
 from .quest_generation import generate_preview
 from .request_timing import record_timing
@@ -77,8 +77,8 @@ def sidequests(db, uid):
     return db.collection(USERS).document(uid).collection("sidequests")
 
 
-def _nested_response(uid, snapshot):
-    data = snapshot.to_dict()
+def _nested_response(uid, snapshot, data=None):
+    data = snapshot.to_dict() if data is None else data
     if (data.get("userId") != uid or data.get("questId") != snapshot.id
             or data.get("ownerId") != uid):
         raise HTTPException(409, "Current assignment identity is inconsistent")
@@ -97,7 +97,7 @@ def _nested_response(uid, snapshot):
         raise HTTPException(409, "Current assignment data is incomplete or invalid") from None
 
 
-def _sidequest_data(result, user_request: GenerateQuestRequest | None = None):
+def _sidequest_data(result, user_request: Optional[GenerateQuestRequest] = None):
     data = {
         **result.quest.model_dump(exclude={"id"}),
         **result.assignment.model_dump(exclude={"id"}),
@@ -109,49 +109,72 @@ def _sidequest_data(result, user_request: GenerateQuestRequest | None = None):
     return data
 
 
-def _read_active(db, transaction, uid, user):
-    """Read user-owned assignments; lazily move an older active assignment atomically."""
+def _read_active_list(db, transaction, uid, user):
+    """Read all active quests; migrate old records with all reads before writes."""
     pointer = user.get("activeQuestId")
     if pointer is not None and not _valid_id(pointer):
         raise HTTPException(409, "Current assignment pointer is invalid")
-    active = []
     snapshots = list(sidequests(db, uid).stream(transaction=transaction, timeout=10))
-    for snapshot in snapshots:
-        data = snapshot.to_dict()
-        if data.get("status") == "assigned":
-            active.append(snapshot)
-        elif snapshot.id == pointer and data.get("status") != "completed":
-            raise HTTPException(409, "Current assignment state is invalid")
-    legacy_snapshots = list(db.collection(ASSIGNMENTS).where(
+    active = [_nested_response(uid, item) for item in snapshots
+              if item.to_dict().get("status") == "assigned"]
+    operations = []
+    ids = {item.id for item in snapshots}
+    # Preserve support for older global assignments. Validate everything before
+    # queuing any migrations so a later read never follows a write.
+    for item in db.collection(ASSIGNMENTS).where(
         filter=FieldFilter("userId", "==", uid),
-    ).stream(transaction=transaction, timeout=10))
-    legacy = [snapshot for snapshot in legacy_snapshots if snapshot.to_dict().get("status") == "assigned"]
-    if len(active) + len(legacy) > 1:
-        raise HTTPException(409, "Multiple active assignments need reconciliation")
-    if active:
-        return _nested_response(uid, active[0])
-    if not legacy:
-        completed_legacy = any(item.to_dict().get("questId") == pointer
-                               and item.to_dict().get("status") == "completed"
-                               for item in legacy_snapshots)
-        if pointer is not None and not completed_legacy and not any(item.id == pointer for item in snapshots):
-            # No active assignment exists, and the pointer's document is gone.
-            # Repair this stale reference so new quests are not blocked forever.
-            transaction.update(
-                db.collection(USERS).document(uid),
-                {"activeQuestId": firestore.DELETE_FIELD},
-            )
-        return None
-    result = _stored_response(db, transaction, uid, legacy[0])
-    if any(snapshot.id == result.quest.id for snapshot in snapshots):
-        raise HTTPException(409, "Legacy assignment conflicts with saved sidequest")
-    # All reads above precede writes. Mark the old record migrated so older
-    # completion handlers cannot also award it. No existing XP is changed.
-    target = sidequests(db, uid).document(result.quest.id)
-    transaction.create(target, _sidequest_data(result))
-    transaction.update(legacy[0].reference, {"status": "migrated", "migratedTo": target.path})
-    transaction.update(db.collection(USERS).document(uid), {"activeQuestId": result.quest.id})
-    return result
+    ).stream(transaction=transaction, timeout=10):
+        if item.to_dict().get("status") != "assigned":
+            continue
+        saved = _stored_response(db, transaction, uid, item)
+        if saved.quest.id in ids:
+            raise HTTPException(409, "Legacy assignment conflicts with saved sidequest")
+        ids.add(saved.quest.id)
+        active.append(saved)
+        target = sidequests(db, uid).document(saved.quest.id)
+        operations.append(("create", target, _sidequest_data(saved)))
+        operations.append(("update", item.reference, {"status": "migrated", "migratedTo": target.path}))
+    if len(active) > MAX_ACTIVE_QUESTS:
+        raise HTTPException(409, "More than three active quests need reconciliation")
+
+    # One-time recovery of alternatives skipped by the previous replacement
+    # feature. Follow only the chain leading to a currently active quest.
+    # Explicitly abandoned/completed records are never recreated.
+    if user.get("activeQuestSchemaVersion") != 2:
+        recovered = {item.quest.id for item in active}
+        candidates = {item.id: item for item in snapshots if item.to_dict().get("status") == "skipped"}
+        while active and len(active) < MAX_ACTIVE_QUESTS:
+            match = next((item for item in candidates.values()
+                          if item.to_dict().get("replacedByQuestId") in recovered), None)
+            if match is None:
+                break
+            del candidates[match.id]
+            data = {**match.to_dict(), "status": "assigned", "isActive": True}
+            saved = _nested_response(uid, match, data)
+            active.append(saved)
+            recovered.add(match.id)
+            operations.append(("update", match.reference, {
+                "status": "assigned", "isActive": True,
+                "skippedAt": firestore.DELETE_FIELD, "replacedByQuestId": firestore.DELETE_FIELD,
+                "restoredFromReplacement": True,
+            }))
+    active.sort(key=lambda item: (item.quest.id != pointer, -item.assignment.assignedAt.timestamp(), item.quest.id))
+    for method, ref, data in operations:
+        getattr(transaction, method)(ref, data)
+    updates = {}
+    if user.get("activeQuestSchemaVersion") != 2:
+        updates["activeQuestSchemaVersion"] = 2
+    current_id = active[0].quest.id if active else None
+    if pointer != current_id:
+        updates["activeQuestId"] = current_id if current_id else firestore.DELETE_FIELD
+    if updates:
+        transaction.update(db.collection(USERS).document(uid), updates)
+    return active
+
+
+def _read_active(db, transaction, uid, user):
+    active = _read_active_list(db, transaction, uid, user)
+    return active[0] if active else None
 
 
 def _run_transaction(db, callback, read_only=False):
@@ -161,21 +184,28 @@ def _run_transaction(db, callback, read_only=False):
         raise HTTPException(503, "Assignment database temporarily unavailable. Retry safely.") from None
 
 
-def get_current_assignment(db, uid):
+def get_active_assignments(db, uid):
     _check_uid(uid)
-
     def read(transaction):
         snapshot = db.collection(USERS).document(uid).get(transaction=transaction)
         if not snapshot.exists:
             raise HTTPException(409, "Sign in to initialize your user profile first")
-        return _read_active(db, transaction, uid, snapshot.to_dict())
-
+        return _read_active_list(db, transaction, uid, snapshot.to_dict())
     return _run_transaction(db, read)
 
 
-def save_verified_assignment(
-    db, uid, preview, policy, user_request: GenerateQuestRequest | None = None,
-):
+def get_current_assignment(db, uid):
+    """Compatibility: return the most recently selected/generated active quest."""
+    active = get_active_assignments(db, uid)
+    return active[0] if active else None
+
+
+def _check_capacity(active):
+    if len(active) >= MAX_ACTIVE_QUESTS:
+        raise HTTPException(429, "You already have three active quests. Complete or abandon one to make room.")
+
+
+def save_verified_assignment(db, uid, preview, policy, user_request: Optional[GenerateQuestRequest] = None, *, source_quest_id=None):
     """Persist server-verified content only. UID must come from the token."""
     _check_uid(uid)
     try:
@@ -206,33 +236,45 @@ def save_verified_assignment(
         user_snapshot = user_ref.get(transaction=transaction)
         if not user_snapshot.exists:
             raise HTTPException(409, "User profile no longer exists")
-        existing = _read_active(db, transaction, uid, user_snapshot.to_dict())
-        if existing is not None:
-            return existing
+        active = _read_active_list(db, transaction, uid, user_snapshot.to_dict())
+        if source_quest_id is not None and not any(item.quest.id == source_quest_id for item in active):
+            raise HTTPException(409, "This quest is no longer active. Open one of your active quests and try again.")
+        _check_capacity(active)
         # Reading the same user document serializes competing creators; all
-        # reads precede writes. The losing callback reuses the committed winner.
-        transaction.create(
-            sidequests(db, uid).document(quest_id),
-            _sidequest_data(result, user_request),
-        )
+        # reads precede writes. A retry checks capacity against the committed state.
+        transaction.create(sidequests(db, uid).document(quest_id), _sidequest_data(result, user_request))
         transaction.update(user_ref, {"activeQuestId": quest_id})
         return result
 
     return _run_transaction(db, commit)
 
 
-def assign_generated_quest(
-    db, uid, preferences, resolver, timings=None,
-    user_request: GenerateQuestRequest | None = None,
-):
+def assign_generated_quest(db, uid, preferences, resolver, timings=None, user_request: Optional[GenerateQuestRequest] = None):
+    return _generate_additional(db, uid, preferences, resolver, timings, user_request)
+
+
+def _generate_additional(db, uid, preferences, resolver, timings, user_request, source_quest_id=None):
     with record_timing(timings, "lookup"):
-        existing = get_current_assignment(db, uid)
-    if existing is not None:
-        return existing
+        active = get_active_assignments(db, uid)
+    source = next((item for item in active if item.quest.id == source_quest_id), None)
+    if source_quest_id is not None and source is None:
+        raise HTTPException(409, "This quest is no longer active. Open one of your active quests and try again.")
+    _check_capacity(active)
     if resolver is None:
-        raise HTTPException(503, "Destination resolver is not connected; use /quests/generate for an unsaved preview")
+        raise HTTPException(503, "Destination resolver is required before saving a new quest")
     policy = get_assignment_policy()
-    # External calls must never be retried inside a Firestore transaction.
-    preview = generate_preview(preferences, resolver, timings=timings)
+    kwargs = {"previous_quest": source.quest} if source else {}
+    preview = generate_preview(preferences, resolver, timings=timings, **kwargs)
     with record_timing(timings, "save"):
-        return save_verified_assignment(db, uid, preview, policy, user_request)
+        return save_verified_assignment(db, uid, preview, policy, user_request, source_quest_id=source_quest_id)
+
+
+def add_generated_quest(db, uid, quest_id, preferences, resolver, timings=None, user_request: Optional[GenerateQuestRequest] = None):
+    _check_uid(uid)
+    if not _valid_id(quest_id):
+        raise HTTPException(400, "Invalid quest ID")
+    return _generate_additional(db, uid, preferences, resolver, timings, user_request, quest_id)
+
+
+# Compatibility for existing imports. Adding is deliberately non-destructive.
+replace_generated_quest = add_generated_quest

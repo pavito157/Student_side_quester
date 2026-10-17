@@ -1,5 +1,2 @@
-fastapi
-uvicorn[standard]
-firebase-admin
-PyJWT[crypto]
-python-dotenv
+# Use the backend dependency versions for either installation entry point.
+-r backend/requirements.txt

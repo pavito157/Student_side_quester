@@ -31,6 +31,12 @@ app.include_router(auth_router)
 app.include_router(quest_assignment_router)
 app.include_router(quest_router)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:5174"],
+    allow_methods=["*"],
+    allow_headers=["Authorization", "Content-Type"],
+   )
 
 @app.get("/")
 def home():

@@ -1,7 +1,9 @@
 # Quest assignment JSON contract
 
 **Current handoff:** [TASK5_API.md](../TASK5_API.md). `/quests/assign` now returns
-the saved response below (201 new / 200 reused), `/me/quest` reloads it, and the
+the saved response below (201 new, up to three active total).
+`/quests/{quest_id}/another` adds without replacing and `/me/active-quests` returns
+an array of all active saved responses. `/me/quest` returns the most recent one. The
 fixed Step 3 test moved to `/quests/preview`. New saves require the real resolver.
 `assignment.request.schema.json` now includes optional originCoordinates,
 required with a distance limit. Historical stage notes below are superseded by
@@ -148,13 +150,12 @@ The example is illustrative, not a verified destination or a seeded quest.
 - `assignment` includes `id`, `userId`, `questId`, `status: "assigned"`, an
   RFC 3339 `assignedAt` timestamp with timezone, `completedAt: null`, and
   `xpAwarded: 0`. XP is awarded only on completion.
-- `reusedExisting` is explicitly false for a new assignment and true when the
-  student's already-active assignment is returned. An existing assignment may
-  reflect older preferences; the frontend should identify it as the current
-  quest instead of presenting it as a fresh generation.
+- `reusedExisting` is false for new assignments and true for read endpoints.
+  Existing quests remain active when another is generated. The legacy optional
+  `assignment.replacementCount` is no longer a quota; count the active list.
 
-Planned HTTP behavior: 201 after creating and persisting a new quest/assignment,
-200 for an existing active assignment. Success must follow database persistence,
+HTTP behavior: 201 after creating and persisting a new quest/assignment,
+200 for reads, 429 when three quests are already active. Success must follow database persistence,
 not merely receiving Gemini text. Invalid preference JSON will use FastAPI's
 422 validation response. Provider failures must not create an assignment or
 return a successful saved-assignment response.

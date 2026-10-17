@@ -2,23 +2,24 @@
 
 Persistence and the API contract are implemented. The merged destination resolver
 is now connected through `get_destination_resolver()` in `quest_generation.py`.
-New generation/save requests require `GOOGLE_PLACES_API_KEY` and a reviewed campus
+New generation/save requests require `GOOGLE_PLACES_API_KEY` and a reviewed Gainesville city
 boundary file at `GAINESVILLE_BOUNDARY_PATH`. Missing resolver configuration returns
 503 before generation, without saving. Existing active assignments can be
-loaded/reused without calling Gemini or the resolver. See
+loaded without calling Gemini or the resolver. Up to three independent quests can be active. See
 [INTEGRATION_HANDOFF.md](INTEGRATION_HANDOFF.md) for current test evidence and the
 frontend wiring contract.
 
-The Sidequest me button is now wired to the saved-assignment helper, with loading,
-error display and cancellation on account changes. Its modal shows quest content,
-XP reward and downloadable response JSON; frontend teammates own further styling
-and completion UI. See the final button-wiring section in INTEGRATION_HANDOFF.md.
+Sidequest me now uses the merged full-page generation/detail interface. The
+structured saved-assignment JSON is unchanged. Generate another lives on the
+quest detail page and adds an independent quest without removing existing ones. Abandon, original
+request details, map, and completion controls retain the frontend team's layout.
+Pending generation is cancelled/reset when the signed-in account changes.
 
 Backend branch integration keeps `firebase_config.py` as a compatibility shim for
 the shared Firebase helpers. It uses ADC / GOOGLE_APPLICATION_CREDENTIALS rather
 than a hardcoded service-account filename. The app registers each quest endpoint
 once. Incoming unfinished `/users`, `/users/{user_id}` and `/leaderboard` routes
-require UF authentication and return 501; they do not advertise a working feature.
+require verified Firebase authentication and return 501; they do not advertise a working feature.
 `POST /test-firestore` is authenticated and read-only, returning connection status
 and whether the existing test document exists without creating/overwriting it.
 
@@ -29,8 +30,11 @@ header. Use the typed helper to obtain it; do not send a UID in request JSON.
 
 | Endpoint | Success | Purpose |
 | --- | --- | --- |
-| `POST /quests/assign` | 201 new / 200 reused | Generate, resolve, validate and atomically save; reuse current assignment first |
-| `GET /me/quest` | 200 object or JSON `null` | Reload the current active assignment without Gemini |
+| `POST /quests/assign` | 201 | Generate and atomically save another quest, maximum three active |
+| `POST /quests/{quest_id}/another` | 201 | Add a different activity while keeping the displayed quest active |
+| `GET /me/active-quests` | 200 array | Reload all active quests and reconcile legacy alternatives |
+| `POST /quests/{quest_id}/abandon` | 200 | Delete only the selected active quest without XP |
+| `GET /me/quest` | 200 object or JSON `null` | Reload the most recent active assignment without Gemini |
 | `POST /quests/generate` | 200 preview | Generate an unsaved draft; preserve verification flags |
 | `POST /quests/preview` | 200 fixed preview | Original Step 3 transport test, moved from `/quests/assign` |
 | `POST /quests/{quest_id}/complete` | 200 | Existing GPS/XP completion transaction, now mounted |
@@ -42,7 +46,7 @@ quotas to the paid generation endpoint.
 
 **Breaking endpoint change:** `/quests/assign` now returns the saved-assignment
 contract, not the old fixed preview. `requestTestQuest` was updated to call
-`/quests/preview`; frontend component files remain untouched.
+`/quests/preview`. The button, quick menu and detail pages use saved assignments.
 
 Request example/schema: `contracts/assignment.request.example.json` and
 `assignment.request.schema.json`. The request accepts the same preferences,
@@ -79,21 +83,22 @@ For single-stop assignments, `destinations` and `completedStops` are empty
 arrays. Multi-stop assignments persist the ordered verified destinations and
 sequentially completed zero-based stop indexes.
 
-`reusedExisting: true` means the current quest was returned even if the latest
-preferences differ. Show it as the existing assignment. GET also sets this flag
-true. Changing preferences does not automatically replace an unfinished quest.
+`reusedExisting: false` accompanies new assignments (HTTP 201). Read endpoints
+set it to true for already saved quests. Each POST creates an independent quest;
+it does not replace or return an unfinished quest. A fourth active quest returns
+429. The optional legacy `assignment.replacementCount` is no longer a quota.
 
 ## Frontend helpers
 
 Import from `src/services/questAssignment.ts`:
 
 ```ts
-import { requestAssignedQuest, getCurrentQuest } from './services/questAssignment'
+import { requestAssignedQuest, getActiveQuests } from './services/questAssignment'
 import type { GenerateQuestPayload, SavedQuestResponse } from './services/questAssignment'
 
 // On page load / account change:
-const current = await getCurrentQuest(firebaseUser.uid, { signal })
-// current is SavedQuestResponse | null
+const active = await getActiveQuests(firebaseUser.uid, { signal })
+// active is SavedQuestResponse[] (0–3). Each quest.id opens its own detail page.
 
 // When the student requests a quest:
 const saved = await requestAssignedQuest(firebaseUser.uid, payload, {
@@ -116,7 +121,7 @@ After resolver integration, test in the signed-in frontend's browser console:
 
 ```js
 const { firebaseAuth } = await import('/src/configs/FirebaseConfig.ts');
-const { requestAssignedQuest, getCurrentQuest } = await import('/src/services/questAssignment.ts');
+const { requestAssignedQuest, getActiveQuests } = await import('/src/services/questAssignment.ts');
 const payload = {
   preferences: 'I enjoy programming and nature.',
   location: 'Anywhere',
@@ -130,12 +135,13 @@ const assigned = await requestAssignedQuest(firebaseAuth.currentUser.uid, payloa
   onTiming: (timing) => console.table(timing)
 });
 console.log(assigned);
-console.log(await getCurrentQuest(firebaseAuth.currentUser.uid));
+console.log(await getActiveQuests(firebaseAuth.currentUser.uid));
 ```
 
 This save test writes a real assignment to the configured project once the
-resolver is connected. Repeating it returns the existing assignment and skips
-Gemini. For read-only testing now, use `getCurrentQuest` or the Step 4 preview.
+resolver is connected. Repeating it creates another quest until three are active.
+For reloading without generation, use `getActiveQuests`. The Step 4 preview
+generates an unsaved quest and does not consume an active slot.
 
 ## Quest XP and configurable policy
 
@@ -172,8 +178,9 @@ The request object includes submitted preferences and, when provided, the
 selected origin coordinates. It never includes authentication tokens or API keys.
 
 Assignment creation atomically creates that document and updates the user's
-`activeQuestId`. Competing creators serialize on the user document; one wins and
-the other reuses it. External providers run outside transactions. Assignment
+`activeQuestId` compatibility pointer. The active collection is authoritative.
+Competing creators serialize on the user document and recheck the three-quest
+limit before committing. External providers run outside transactions. Assignment
 creation does not change XP or dorm balances.
 
 Existing active global `userQuests`/`quests` assignments migrate on the next
@@ -182,15 +189,18 @@ marked `migrated` and the quest content copied under the user; no XP changes.
 Completed global records remain available as legacy history. Direct legacy
 completion remains supported. Old frontend `status: prepared` request snapshots
 are left untouched and excluded from active quests; they cannot earn server XP.
-Multiple active assignments, corrupt ownership or incomplete records fail with
-409. Global collections are no longer written for new generated quests.
+More than three active assignments, corrupt ownership or incomplete records fail
+with 409. Global collections are no longer written for new generated quests.
 
 The active list and detail page subscribe to this user subcollection and display
 the generated title, description, steps, verified destination, estimates and XP.
-There is no automatic expiration/deletion of backend assignments. Completion gets
-a fresh browser GPS reading and calls the authenticated FastAPI endpoint. One
-transaction marks the sidequest completed/inactive, clears its active pointer,
-and awards user/dorm XP once. Completed documents remain stored for history.
+There is no timed expiration of backend assignments. Completion gets a fresh
+browser GPS reading and calls FastAPI. Following the latest main behavior, one
+transaction deletes the completed assignment, clears its active pointer, and
+awards user/dorm XP once. Replaying a deleted quest returns 404 without XP.
+Abandon explicitly deletes only the selected active assignment without XP.
+Generate another keeps all existing quests active. Completing or abandoning any
+one frees a slot; the other quests remain viewable and actionable.
 
 The authenticated profile must exist. Assignment does not require dorm selection;
 completion still requires a valid dorm and integer XP totals under the existing
@@ -200,11 +210,12 @@ activity or protection against location spoofing.
 ## Error behavior and tests
 
 401 token invalid/missing; 403 unverified email; 409 profile/current-state conflict or resolved
-destination too far away; 422 invalid frontend input; 429 Gemini quota; 502 invalid
+destination too far away; 422 invalid frontend input; 429 three active quests or Gemini quota; 502 invalid
 generated content or failed destination resolution; 503 missing resolver, bad
 policy or provider/database outage; 504 Gemini timeout. Failed saves never return
-a fake assigned response. A timeout/ambiguous network response can be retried:
-the existing active assignment is returned if the first save already committed.
+a fake assigned response. After a timeout/ambiguous network response, reload
+`GET /me/active-quests` before retrying: a save may already have committed, and
+another POST can create an additional quest.
 
 Unit/API tests mock external Firebase verification/provider boundaries. Opt-in
 emulator tests use loopback and `demo-sidequest-tests` with anonymous credentials,
@@ -256,3 +267,42 @@ Production now discovers a verified city/distance-eligible Google place before
 Gemini writes activity content. No eligible result in the sampled search returns
 409 before generation/saving. Public request/saved-response JSON is unchanged;
 see `INTEGRATION_HANDOFF.md` for the current order and live test results.
+
+## Three independent active quests
+
+`POST /quests/{quest.id}/another` accepts the same preferences as `/quests/assign`
+and returns HTTP 201 with `{quest, assignment, reusedExisting: false}`. Use the
+currently displayed `quest.id`, not `assignment.id`. The source must still be
+active both before generation and in the final transaction, otherwise HTTP 409.
+The deprecated `/quests/{quest.id}/replace` route delegates to this same
+non-destructive behavior for older callers.
+
+Both creation paths enforce three **total** active quests per user, before paid
+provider calls and again at commit. When full, HTTP 429 explains that completing
+or abandoning a quest frees a slot. Failures do not delete/skip previous quests,
+award XP or consume a slot. Concurrent calls can fill available slots but cannot
+exceed three. This is an active-assignment limit, not a daily prompt quota.
+
+`GET /me/active-quests` returns an array of saved-assignment response objects.
+The frontend calls it on account load, then subscribes to
+`Users/{uid}/sidequests` across all routes. Quick-menu cards each open their own
+`/sidequests/{quest.id}` page with the description, complete step list, original
+request, verified destination/map, reward, Complete and confirmed Abandon controls.
+
+For profiles created under the previous replacement workflow, the first active
+lookup restores the two most recent skipped ancestors leading to a currently
+active quest, up to three total, and sets `activeQuestSchemaVersion: 2` atomically.
+This migration runs once; it never recreates deleted completed/abandoned quests,
+and later abandonment does not resurrect older alternatives. The legacy
+`replacementCount` response field remains readable but does not restrict slots.
+
+Gemini receives the selected source quest's title/description/steps to request a
+different primary activity. Exact repeated description and steps are rejected
+with 502. Semantic uniqueness or different destinations are not guaranteed.
+
+Manual check: generate three quests. Return to the board and open Quick menu;
+expect three cards (3/3). Select each to inspect its own contents and steps.
+Refresh and confirm all remain. A fourth generation must return 429. Abandon
+one: only its card disappears, XP stays unchanged, and one generation slot opens.
+Complete another at its destination: only that quest disappears and user/dorm XP
+increase once by its stored reward. Other quests remain available.

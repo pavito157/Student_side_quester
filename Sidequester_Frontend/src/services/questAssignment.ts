@@ -58,6 +58,9 @@ export type QuestRequestOptions = {
   onTiming?: (timing: QuestRequestTiming) => void
 }
 
+export const MAX_ACTIVE_QUESTS = 3
+export const MAX_QUEST_REPLACEMENTS = 3 // Legacy metadata only.
+
 const now = () => typeof performance === 'undefined' ? Date.now() : performance.now()
 
 export type GeneratedQuestResponse = Omit<QuestPreviewResponse, 'mode' | 'filtersApplied' | 'quest'> & {
@@ -103,6 +106,7 @@ export type SavedQuestResponse = {
     assignedAt: string
     completedAt: null
     xpAwarded: 0
+    replacementCount?: number
   }
   reusedExisting: boolean
 }
@@ -142,6 +146,8 @@ function isSavedQuest(value: unknown, expectedUserId: string): value is SavedQue
     && typeof q.radiusMeters === 'number' && Number.isFinite(q.radiusMeters) && q.radiusMeters > 0
     && typeof q.xpReward === 'number' && Number.isSafeInteger(q.xpReward) && q.xpReward >= 0
     && a.userId === expectedUserId && a.questId === q.id && a.id === `${expectedUserId}_${q.id}`
+    && (a.replacementCount === undefined || (typeof a.replacementCount === 'number'
+      && Number.isInteger(a.replacementCount) && a.replacementCount >= 0 && a.replacementCount <= MAX_QUEST_REPLACEMENTS))
     && a.status === 'assigned' && a.completedAt === null && a.xpAwarded === 0
     && typeof a.assignedAt === 'string' && /T.*(?:Z|[+-]\d{2}:\d{2})$/.test(a.assignedAt)
     && Number.isFinite(Date.parse(a.assignedAt))
@@ -243,7 +249,7 @@ export async function requestGeneratedQuest(
   } as GeneratedQuestResponse
 }
 
-// Step 5: save a verified quest, or reuse the student's existing active assignment.
+// Save another verified quest, up to three independent active assignments.
 export async function requestAssignedQuest(
   expectedUserId: string,
   payload: GenerateQuestPayload,
@@ -252,6 +258,33 @@ export async function requestAssignedQuest(
   const result = await requestQuest('/quests/assign', expectedUserId, payload, options)
   if (!isSavedQuest(result, expectedUserId)) throw new Error('The backend returned an invalid saved assignment.')
   return result
+}
+
+// Add another quest while keeping the displayed quest active.
+export async function requestAdditionalQuest(
+  expectedUserId: string, questId: string, payload: GenerateQuestPayload, options: QuestRequestOptions = {},
+): Promise<SavedQuestResponse> {
+  if (!questId || questId.includes('/')) throw new Error('Choose a valid current quest.')
+  const result = await requestQuest(`/quests/${encodeURIComponent(questId)}/another`, expectedUserId, payload, options)
+  if (!isSavedQuest(result, expectedUserId) || result.reusedExisting || result.quest.id === questId) {
+    throw new Error('The backend returned an invalid additional assignment.')
+  }
+  return result
+}
+
+// Compatibility for earlier callers; this now adds without replacing.
+export const requestReplacementQuest = requestAdditionalQuest
+
+export async function getActiveQuests(
+  expectedUserId: string, options: QuestRequestOptions = {},
+): Promise<SavedQuestResponse[]> {
+  const result = await requestQuest('/me/active-quests', expectedUserId, undefined, options, 'GET')
+  if (!Array.isArray(result) || result.length > MAX_ACTIVE_QUESTS
+      || !result.every((item) => isSavedQuest(item, expectedUserId))
+      || new Set(result.map((item) => item.quest.id)).size !== result.length) {
+    throw new Error('The backend returned an invalid active quest list.')
+  }
+  return result as SavedQuestResponse[]
 }
 
 // Reload on page refresh. A successful JSON null means there is no active quest.

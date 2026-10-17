@@ -48,6 +48,7 @@ async function fixture() {
     }
     else if (name.endsWith('FirebaseConfig')) exports = { db: {} }
     else exports = {
+      MAX_QUEST_REPLACEMENTS: 3,
       requestQuestCompletion: async (...args) => {
         state.completions.push(args)
         return {
@@ -145,4 +146,29 @@ test('abandon requests backend deletion for the signed-in user and sidequest', a
   await f.api.abandonSidequest('alice', 'quest-1')
   assert.deepEqual(plain(f.state.abandonments), [['alice', 'quest-1']])
   await assert.rejects(f.api.abandonSidequest('', 'quest-1'), /Sign in/)
+})
+
+
+test('replacement counter reloads from Firestore and legacy quests start at zero', async () => {
+  const f = await fixture()
+  assert.equal(f.api.parseActiveSidequest('quest-1', record(), 'alice').replacementCount, 0)
+  assert.equal(f.api.parseActiveSidequest('quest-1', { ...record(), replacementCount: 3 }, 'alice').replacementCount, 3)
+  for (const value of [-1, 4, 1.5, null, true]) {
+    assert.throws(() => f.api.parseActiveSidequest('quest-1', { ...record(), replacementCount: value }, 'alice'), /invalid assignment/)
+  }
+})
+
+
+test('Firestore list retains all three independent quests and removes only the abandoned record', async () => {
+  const f = await fixture()
+  let rows
+  f.api.subscribeToActiveSidequests('alice', (value) => { rows = value }, assert.fail)
+  const docs = [1, 2, 3].map((i) => ({ id: `quest-${i}`, data: () => ({ ...record(), questId: `quest-${i}`, title: `Mission ${i}` }) }))
+  f.state.callbacks[0]({ docs })
+  assert.deepEqual(plain(rows.map((row) => row.id).sort()), ['quest-1', 'quest-2', 'quest-3'])
+  assert.ok(rows.every((row) => row.steps.length === 2 && row.description === 'Draw three leaves.'))
+  await f.api.abandonSidequest('alice', 'quest-2')
+  assert.deepEqual(plain(f.state.abandonments), [['alice', 'quest-2']])
+  f.state.callbacks[0]({ docs: [docs[0], docs[2]] })
+  assert.deepEqual(plain(rows.map((row) => row.id).sort()), ['quest-1', 'quest-3'])
 })

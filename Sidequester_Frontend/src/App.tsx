@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import Header from './componenets/main-ui/Header'
 import CinematicHero from './componenets/main-ui/CinematicHero'
+import DormSelectionGate from './componenets/main-ui/DormSelectionGate'
 import LeaderboardPage from './componenets/main-ui/LeaderboardPage'
 import SidequestDetailPage from './componenets/main-ui/SidequestDetailPage'
 import GuestQuestPreviewPage from './componenets/main-ui/GuestQuestPreviewPage'
@@ -15,13 +16,9 @@ import type { Vibe } from './types/vibe'
 import { subscribeToActiveSidequests } from './services/sidequests'
 import type { ActiveSidequest } from './types/sidequest'
 import { colors } from './constants/colors'
-import {
-  requestAssignedQuest,
-  requestGeneratedQuest,
-  type GeneratedQuestResponse,
-  type GenerateQuestPayload,
-} from './services/questAssignment'
+import { getActiveQuests, requestAssignedQuest, requestAdditionalQuest, requestGeneratedQuest, type GeneratedQuestResponse, type GenerateQuestPayload } from './services/questAssignment'
 import { navigateTo } from './services/navigation'
+import { getUserGoals, getUserPreferences } from './services/userPreferences'
 
 type ActiveSidequestsState = {
   userId: string | null
@@ -37,22 +34,17 @@ type QuestGenerationState =
   | { status: 'guest-preview'; result: GeneratedQuestResponse; payload: GenerateQuestPayload }
 
 type HomePageProps = {
+  activeSidequestsState: ActiveSidequestsState
   onStartQuestGeneration: (userId: string | null, payload: GenerateQuestPayload) => Promise<void>
 }
 
-function HomePage({ onStartQuestGeneration }: HomePageProps) {
-  const { isLoaded, isSignedIn, user } = useUser()
+function HomePage({ onStartQuestGeneration, activeSidequestsState }: HomePageProps) {
+  const { user } = useUser()
   const userId = user?.id
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isVibesSidebarOpen, setIsVibesSidebarOpen] = useState(false)
   const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null)
   const [vibeToApply, setVibeToApply] = useState<Vibe | null>(null)
-  const [activeSidequestsState, setActiveSidequestsState] = useState<ActiveSidequestsState>({
-    userId: null,
-    sidequests: [],
-    isLoading: true,
-    error: '',
-  })
   const [questFilters, setQuestFilters] = useState<QuestFilters>({
     where: '',
     latitude: null,
@@ -65,26 +57,6 @@ function HomePage({ onStartQuestGeneration }: HomePageProps) {
     customDistance: '',
     multiQuest: false,
   })
-
-  useEffect(() => {
-    if (!isLoaded || !isSignedIn || !userId) return
-
-    return subscribeToActiveSidequests(
-      userId,
-      (sidequests) => setActiveSidequestsState({
-        userId,
-        sidequests,
-        isLoading: false,
-        error: '',
-      }),
-      (error) => setActiveSidequestsState({
-        userId,
-        sidequests: [],
-        isLoading: false,
-        error,
-      }),
-    )
-  }, [isLoaded, isSignedIn, userId])
 
   const currentActiveSidequests = activeSidequestsState.userId === userId
     ? activeSidequestsState
@@ -150,6 +122,7 @@ function HomePage({ onStartQuestGeneration }: HomePageProps) {
             </div>
             <div className="rpg-panel terminal-panel overflow-hidden p-4 sm:p-8">
               <QuestFilterButtons
+                activeQuestCount={currentActiveSidequests.sidequests.length}
                 filters={questFilters}
                 setFilters={setQuestFilters}
                 activeVibe={vibeToApply}
@@ -180,13 +153,64 @@ function HomePage({ onStartQuestGeneration }: HomePageProps) {
   )
 }
 
-function App() {
+function AccountRoutes() {
+  const { isLoaded, isSignedIn, user } = useUser()
+  const userId = user?.id
+  const [activeSidequestsState, setActiveSidequestsState] = useState<ActiveSidequestsState>({
+    userId: null, sidequests: [], isLoading: true, error: '',
+  })
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || !userId) return
+
+    return subscribeToActiveSidequests(
+      userId,
+      (sidequests) => setActiveSidequestsState({
+        userId,
+        sidequests,
+        isLoading: false,
+        error: '',
+      }),
+      (error) => setActiveSidequestsState({
+        userId,
+        sidequests: [],
+        isLoading: false,
+        error,
+      }),
+    )
+  }, [isLoaded, isSignedIn, userId])
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || !userId) return
+    const controller = new AbortController()
+    // Reconcile legacy replacements once. The live Firestore list then keeps
+    // every route, quest count and quick menu in sync.
+    void getActiveQuests(userId, { signal: controller.signal }).catch((error) => {
+      if (!controller.signal.aborted) setActiveSidequestsState((previous) => ({
+        ...previous, userId, isLoading: false,
+        error: error instanceof Error ? error.message : 'Could not load active quests.',
+      }))
+    })
+    return () => controller.abort()
+  }, [isLoaded, isSignedIn, userId])
+  const activeQuestCount = activeSidequestsState.userId === userId
+    ? activeSidequestsState.sidequests.length : 0
   const [pathname, setPathname] = useState(() =>
     window.location.pathname.replace(/\/+$/, '') || '/',
   )
   const [generationState, setGenerationState] = useState<QuestGenerationState>({ status: 'idle' })
   const generationControllerRef = useRef<AbortController | null>(null)
   const generationIdRef = useRef(0)
+  const activeRef = useRef(true)
+  const lastRequestRef = useRef<{ userId: string; questId: string; payload: GenerateQuestPayload } | null>(null)
+
+  useEffect(() => {
+    activeRef.current = true
+    return () => {
+      activeRef.current = false
+      generationControllerRef.current?.abort()
+      generationIdRef.current += 1
+    }
+  }, [])
 
   useEffect(() => {
     function updatePathname() {
@@ -197,7 +221,8 @@ function App() {
     return () => window.removeEventListener('popstate', updatePathname)
   }, [])
 
-  async function startQuestGeneration(userId: string | null, payload: GenerateQuestPayload) {
+  async function startQuestGeneration(userId: string | null, payload: GenerateQuestPayload, sourceQuestId?: string) {
+    if (!activeRef.current) return
     generationControllerRef.current?.abort()
     const controller = new AbortController()
     const generationId = generationIdRef.current + 1
@@ -208,13 +233,16 @@ function App() {
 
     try {
       if (userId) {
-        const saved = await requestAssignedQuest(userId, payload, { signal: controller.signal })
-        if (generationIdRef.current !== generationId) return
+        const saved = sourceQuestId
+          ? await requestAdditionalQuest(userId, sourceQuestId, payload, { signal: controller.signal })
+          : await requestAssignedQuest(userId, payload, { signal: controller.signal })
+        if (controller.signal.aborted || generationIdRef.current !== generationId) return
+        lastRequestRef.current = { userId, questId: saved.quest.id, payload }
         setGenerationState({ status: 'idle' })
         navigateTo(`/sidequests/${encodeURIComponent(saved.quest.id)}`)
       } else {
         const result = await requestGeneratedQuest(null, payload, { signal: controller.signal })
-        if (generationIdRef.current !== generationId) return
+        if (controller.signal.aborted || generationIdRef.current !== generationId) return
         setGenerationState({ status: 'guest-preview', result, payload })
         navigateTo('/sidequests/guest-preview')
       }
@@ -229,29 +257,59 @@ function App() {
     }
   }
 
+  async function generateAnother(userId: string, questId: string, savedRequest: Record<string, unknown> | null) {
+    const latest = lastRequestRef.current
+    let payload: GenerateQuestPayload
+    if (latest?.userId === userId && latest.questId === questId) {
+      payload = latest.payload
+    } else if (savedRequest) {
+      // This snapshot was validated as GenerateQuestRequest by FastAPI when
+      // persisted. FastAPI validates it again; client input cannot set XP/UID.
+      payload = savedRequest as GenerateQuestPayload
+    } else {
+      const [preferences, goals] = await Promise.all([getUserPreferences(userId), getUserGoals(userId)])
+      payload = { location: 'Anywhere', time: { selection: 'any' }, budget: { selection: 'any' }, preferences, goals }
+    }
+    return startQuestGeneration(userId, payload, questId)
+  }
+
   return (
-    <div key={pathname} className="route-transition">
-      {pathname === '/leaderboard' ? (
-        <LeaderboardPage />
-      ) : pathname === '/sidequests/generating' ? (
-        <SidequestDetailPage
-          sidequestId="generating"
-          generationState={generationState.status === 'guest-preview'
-            ? { status: 'idle' }
-            : generationState}
-        />
-      ) : pathname === '/sidequests/guest-preview' ? (
-        <GuestQuestPreviewPage
-          result={generationState.status === 'guest-preview' ? generationState.result : null}
-          payload={generationState.status === 'guest-preview' ? generationState.payload : null}
-        />
-      ) : pathname.startsWith('/sidequests/') ? (
-        <SidequestDetailPage sidequestId={decodeURIComponent(pathname.slice('/sidequests/'.length))} />
-      ) : (
-        <HomePage onStartQuestGeneration={startQuestGeneration} />
-      )}
-    </div>
+    <DormSelectionGate>
+      <div key={pathname} className="route-transition">
+        {pathname === '/leaderboard' ? (
+          <LeaderboardPage />
+        ) : pathname === '/sidequests/generating' ? (
+          <SidequestDetailPage
+            sidequestId="generating"
+            generationState={generationState.status === 'guest-preview'
+              ? { status: 'idle' }
+              : generationState}
+          />
+        ) : pathname === '/sidequests/guest-preview' ? (
+          <GuestQuestPreviewPage
+            result={generationState.status === 'guest-preview' ? generationState.result : null}
+            payload={generationState.status === 'guest-preview' ? generationState.payload : null}
+          />
+        ) : pathname.startsWith('/sidequests/') ? (
+          <SidequestDetailPage
+            activeQuestCount={activeQuestCount}
+            sidequestId={decodeURIComponent(pathname.slice('/sidequests/'.length))}
+            onGenerateAnother={generateAnother}
+          />
+        ) : (
+          <HomePage
+            activeSidequestsState={activeSidequestsState}
+            onStartQuestGeneration={startQuestGeneration}
+          />
+        )}
+      </div>
+    </DormSelectionGate>
   )
+}
+
+function App() {
+  const { user } = useUser()
+  return <AccountRoutes key={user?.id ?? 'guest'} />
 }
 
 export default App

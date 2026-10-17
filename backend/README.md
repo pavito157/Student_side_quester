@@ -2,14 +2,17 @@
 
 The saved-assignment API, frontend helpers, examples and integration boundary are
 in [TASK5_API.md](TASK5_API.md). `POST /quests/assign` saves a verified assignment
-or reuses the active one; `GET /me/quest` reloads it. New saves require the
-configured verified destination resolver. `/quests/generate` is an unsaved preview
-available to guests and signed-in users; guest previews are never persisted. It can
-optionally generate a verified two- or three-stop route when `multiQuest` is true,
-which requires an explicit origin. Public deployments should enforce edge rate
-limits and provider quotas for this paid generation endpoint. The original fixed
-test moved to `/quests/preview`; GET/completion routes and frontend integration
-are implemented.
+and permits up to three independent active quests per user.
+`GET /me/active-quests` returns all of them; each can be viewed, GPS-completed, or
+abandoned independently. `/quests/{quest_id}/another` adds without replacing.
+New saves use the connected Gainesville destination resolver. `/quests/generate` remains an unsaved Gemini preview,
+and the original fixed test moved to `/quests/preview`. GET/completion routes are
+now mounted. The frontend button, quick menu and detail pages are connected.
+Guests can generate unsaved previews; signed-in users can save quests. Optional
+`multiQuest: true` requests two or three verified stops and requires an explicit
+origin. A multi-stop quest occupies one active slot; GPS verifies each stop in
+order and awards its share of XP to both the user and dorm. Public deployments
+should enforce edge rate limits and provider quotas for guest generation.
 
 See [AUTH_SETUP.md](AUTH_SETUP.md) for Clerk-to-Firebase sign-in and
 [TASK4_GEMINI.md](TASK4_GEMINI.md) for backend-only Gemini configuration. The
@@ -28,14 +31,49 @@ inspect or migrate.
   It can be tested while FastAPI startup is unresolved.
 - `quest_routes.py` contains the supplied GET/completion routes and uses the
   shared authentication/database helpers in `firebase_helpers.py`.
+- `leaderboard_routes.py` exposes authenticated individual and dorm XP
+  leaderboards. Individual balances come from `Users/{uid}` (`xp`, with legacy
+  `totalXp` read compatibility). Dorm scores are recomputed from those user
+  balances grouped by each profile's `dormId`.
+- `dorm_catalog.py` contains the UF residence list supplied for this feature,
+  including the `Off campus` category. `dorm_routes.py` returns the catalog and
+  lets the authenticated user save their own residence; selection creates the
+  corresponding Firestore `dorms/{dormId}` XP record when it does not exist.
 - `quest_completion.py` owns the Firestore completion transaction.
 - `quest_assignment_routes.py` mounts fixed/Gemini previews and saved/current
   assignment endpoints. `quest_persistence.py` owns atomic assignment creation.
 - `quest_generation.py` owns direct Gemini generation and the resolver interface.
 
-The frontend team owns wiring the typed helper to the UI. Backend 1's completion
-transaction and leaderboard work remain separate; Step 5 reuses the existing
-completion implementation without changing its XP logic.
+The frontend still needs to switch its leaderboard view to these backend
+endpoints. Quest completion remains a separate transaction and continues to
+update both a user's XP and the stored dorm total.
+
+## Leaderboards
+
+Both leaderboard endpoints require a valid Firebase ID token:
+
+- `GET /leaderboard` returns `{"leaderboard": [{"userId", "username", "xp"}],
+  "skippedUsers": n}`. A non-empty `username` is preferred; `displayName` is
+  used when username is absent. Profiles without either display name are
+  counted in `skippedUsers`.
+- `GET /leaderboard/dorms` returns
+  `{"leaderboard": [{"dormId", "dormName", "xp", "memberCount"}],
+  "unassignedUsers": n}`. Each score is the sum of the XP balances of users
+  whose stored `dormId` matches a document in `dorms`. Dorms with no members
+  remain on the board with zero XP. Missing, malformed, and unknown dorm IDs
+  are counted in `unassignedUsers`.
+
+`xp` is canonical; legacy `totalXp` is read only when `xp` is absent, following
+the shared `backend/xp.py` contract. Invalid XP data or Firestore read failures
+return HTTP 503 rather than a partial ranking. These endpoints scan the user
+collection on each request; consider a trusted, transactionally maintained
+aggregate or caching strategy if the user base grows substantially.
+
+`GET /me/dorm` returns the signed-in user's current `dormId`/`dormName` and the
+configured catalog. `PUT /me/dorm` accepts only `{"dormId": "<catalog ID>"}`;
+the ID is derived from the catalog entry, never from a user-provided name or UID.
+The frontend prompts new profiles to select a hall or `Off campus` before using
+the app and provides the same selector under Settings → Residence.
 
 ## Test without application startup
 

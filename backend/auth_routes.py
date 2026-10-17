@@ -1,5 +1,5 @@
 """Exchange a verified Clerk session for Firebase custom-token sign-in."""
-
+import traceback
 import os
 from functools import lru_cache
 from typing import Optional
@@ -22,7 +22,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 def frontend_origins():
     origins = [value.strip().rstrip("/") for value in os.environ.get(
-        "FRONTEND_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173",
+        "FRONTEND_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174",
     ).split(",") if value.strip()]
     if not origins or any(value == "*" or urlsplit(value).scheme not in ("http", "https")
                           or not urlsplit(value).netloc for value in origins):
@@ -156,6 +156,7 @@ def firebase_sign_in(payload: BridgeRequest, response: Response,
     except auth.EmailAlreadyExistsError:
         raise HTTPException(409, "Email is linked to another Firebase UID; account linking is required")
     except (exceptions.FirebaseError, GoogleAPICallError, RetryError, GoogleAuthError, ValueError, OSError):
+        traceback.print_exc()
         raise HTTPException(503, "Firebase authentication temporarily unavailable")
     response.headers["Cache-Control"] = "no-store"
     response.headers["Pragma"] = "no-cache"

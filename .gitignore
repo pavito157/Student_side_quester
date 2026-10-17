@@ -151,6 +151,10 @@ activemq-data/
 
 # Environments
 .env
+.env.*
+!.env.example
+*firebase-adminsdk*.json
+serviceAccount*.json
 .envrc
 .venv
 env/
@@ -221,4 +225,3 @@ __marimo__/
 # Firebase private credentials
 serviceAccountKey.json
 serviceAccountKey*.json
-.env

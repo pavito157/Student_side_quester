@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import Header from './Header'
@@ -7,6 +7,7 @@ import { colors } from '../../constants/colors'
 import { navigateTo } from '../../services/navigation'
 import { abandonSidequest, completeSidequest, subscribeToActiveSidequest } from '../../services/sidequests'
 import type { ActiveSidequest } from '../../types/sidequest'
+import { MAX_ACTIVE_QUESTS } from '../../services/questAssignment'
 
 type SidequestState =
   | { key: string; status: 'loading' }
@@ -106,8 +107,12 @@ function Detail({ label, children }: { label: string; children: ReactNode }) {
 function SidequestDetailPage({
   sidequestId,
   generationState,
+  onGenerateAnother,
+  activeQuestCount = 1,
 }: {
   sidequestId: string
+  activeQuestCount?: number
+  onGenerateAnother?: (userId: string, questId: string, savedRequest: Record<string, unknown> | null) => Promise<void>
   generationState?: { status: 'idle' | 'loading' } | { status: 'error'; message: string }
 }) {
   const { isLoaded, isSignedIn, user } = useUser()
@@ -122,6 +127,8 @@ function SidequestDetailPage({
     : { key: routeKey, status: 'loading' }
   const [isCompleting, setIsCompleting] = useState(false)
   const [isAbandoning, setIsAbandoning] = useState(false)
+  const [isReplacing, setIsReplacing] = useState(false)
+  const actionRef = useRef(false)
   const [showAbandonConfirmation, setShowAbandonConfirmation] = useState(false)
   const [completionMessage, setCompletionMessage] = useState('')
   const [completionError, setCompletionError] = useState('')
@@ -142,7 +149,8 @@ function SidequestDetailPage({
   }, [isLoaded, isSignedIn, userId, sidequestId, routeKey])
 
   async function handleComplete(stopIndex = 0) {
-    if (!userId || state.status !== 'ready') return
+    if (!userId || state.status !== 'ready' || actionRef.current) return
+    actionRef.current = true
     setIsCompleting(true)
     setCompletionError('')
     setCompletionMessage('')
@@ -164,12 +172,14 @@ function SidequestDetailPage({
         error instanceof Error ? error.message : 'Could not complete this sidequest.',
       )
     } finally {
+      actionRef.current = false
       setIsCompleting(false)
     }
   }
 
   async function handleAbandon() {
-    if (!userId || state.status !== 'ready') return
+    if (!userId || state.status !== 'ready' || actionRef.current) return
+    actionRef.current = true
     setIsAbandoning(true)
     setAbandonError('')
     setCompletionMessage('')
@@ -180,12 +190,30 @@ function SidequestDetailPage({
     } catch (error) {
       setAbandonError(error instanceof Error ? error.message : 'Could not abandon this sidequest.')
     } finally {
+      actionRef.current = false
       setIsAbandoning(false)
       setShowAbandonConfirmation(false)
     }
   }
 
+  async function handleGenerateAnother() {
+    if (!userId || state.status !== 'ready' || !onGenerateAnother || actionRef.current) return
+    if (activeQuestCount >= MAX_ACTIVE_QUESTS) return
+    actionRef.current = true
+    setIsReplacing(true)
+    setAbandonError('')
+    try {
+      await onGenerateAnother(userId, sidequestId, state.sidequest.userRequest ?? null)
+    } catch (error) {
+      setAbandonError(error instanceof Error ? error.message : 'Could not generate another quest.')
+    } finally {
+      actionRef.current = false
+      setIsReplacing(false)
+    }
+  }
+
   const sidequest = state.status === 'ready' ? state.sidequest : null
+  const slotsRemaining = Math.max(0, MAX_ACTIVE_QUESTS - activeQuestCount)
   const userRequest = sidequest?.userRequest ?? null
   const sidequestStops = useMemo(() => sidequest?.destinations ?? (sidequest ? [{
     locationName: sidequest.locationName,
@@ -243,7 +271,7 @@ function SidequestDetailPage({
 
   return (
     <>
-      <Header title="Sidequest details" />
+      <Header title="Sidequest details" activeSidequestCount={activeQuestCount} />
       <main className="min-h-[calc(100vh-4rem)] bg-gradient-glow px-4 py-8 sm:px-6 sm:py-12">
         <div className="mx-auto max-w-6xl">
           <button
@@ -569,7 +597,7 @@ function SidequestDetailPage({
                     <button
                       type="button"
                       onClick={() => void handleComplete(nextStopIndex)}
-                      disabled={isCompleting || isAbandoning}
+                      disabled={isCompleting || isAbandoning || isReplacing}
                       className="min-h-12 cursor-pointer rounded-xl px-4 py-2.5 text-sm font-black transition hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-wait disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 sm:col-span-2 lg:col-span-1"
                       style={{
                         backgroundColor: colors.primary,
@@ -583,6 +611,19 @@ function SidequestDetailPage({
                           ? `Complete Stop ${nextStopIndex + 1} · +${stopXpReward(sidequest.xpValue, sidequestStops.length, nextStopIndex)} XP`
                           : 'Complete sidequest'}
                     </button>
+                    {onGenerateAnother && <div className="space-y-2">
+                      <button type="button" onClick={() => void handleGenerateAnother()}
+                        disabled={isCompleting || isAbandoning || isReplacing || slotsRemaining === 0}
+                        className="min-h-11 w-full cursor-pointer rounded-xl border px-4 py-2 text-sm font-semibold hover:bg-white/5 disabled:cursor-wait disabled:opacity-60"
+                        style={{ borderColor: colors.border, color: colors.secondary }}>
+                        {isReplacing ? 'Generating…' : `Generate another (${slotsRemaining} left)`}
+                      </button>
+                      <p className="text-xs" style={{ color: colors.muted }}>
+                        {slotsRemaining === 0
+                          ? 'You have three active quests. Complete or abandon one to free a slot.'
+                          : 'Adds a quest using your latest filters or saved request. Your existing quests stay active; up to three total.'}
+                      </p>
+                    </div>}
                     {!showAbandonConfirmation ? (
                       <button
                         type="button"
@@ -590,7 +631,7 @@ function SidequestDetailPage({
                           setAbandonError('')
                           setShowAbandonConfirmation(true)
                         }}
-                        disabled={isCompleting || isAbandoning}
+                        disabled={isCompleting || isAbandoning || isReplacing}
                         className="min-h-11 cursor-pointer rounded-xl border px-4 py-2 text-sm font-semibold transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 sm:col-span-2 lg:col-span-1"
                         style={{
                           borderColor: colors.errorBorder,

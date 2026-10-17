@@ -5,12 +5,12 @@ The test response is intentionally incompatible with a saved-assignment result.
 """
 
 from fastapi import APIRouter, Body, Depends, Request, Response
-from typing import Optional
+from typing import List, Optional
 
 from .firebase_helpers import bearer, current_uid, get_db
 from .quest_generation import generate_preview, get_destination_resolver
 from .request_timing import record_timing
-from .quest_persistence import assign_generated_quest, get_current_assignment
+from .quest_persistence import assign_generated_quest, get_current_assignment, replace_generated_quest, get_active_assignments
 from .quest_contracts import (
     AssignQuestRequest, NormalizedQuestPreferences, QuestPreviewResponse, TestQuestPreview,
     GenerateQuestRequest, GeneratedQuestResponse,
@@ -109,11 +109,11 @@ def generate_assignment_preview(
 
 @router.post(
     "/quests/assign", response_model=AssignQuestResponse, status_code=201,
-    summary="Create or reuse the student's saved assignment",
-    description=("Returns an existing active assignment before calling Gemini. Otherwise "
-                 "requires destination resolution and atomically saves one user-owned sidequest "
+    summary="Add a saved quest (maximum three active)",
+    description=("Generates a new independent active quest if fewer than three are active. "
+                 "Requires destination resolution and atomically saves one user-owned sidequest "
                  "and user activeQuestId. No XP awarded. Identity comes only from the token."),
-    responses={200: {"model": AssignQuestResponse, "description": "Reused existing active assignment"},
+    responses={429: {"description": "Three active quests already saved or provider quota reached"},
                409: {"description": "Profile/state conflict or destination beyond distance limit"},
                503: {"description": "Resolver/configuration/database/provider unavailable"}},
 )
@@ -130,7 +130,6 @@ def assign(
         user_request=payload,
     )
     response.headers["Cache-Control"] = "no-store"
-    response.status_code = 200 if result.reusedExisting else 201
     return result
 
 
@@ -140,3 +139,26 @@ def current_assignment(request: Request, response: Response, uid: str = Depends(
     response.headers["Cache-Control"] = "no-store"
     with record_timing(getattr(request.state, "quest_timings", None), "lookup"):
         return get_current_assignment(get_db(), uid)
+
+
+@router.post("/quests/{quest_id}/replace", deprecated=True, response_model=AssignQuestResponse, status_code=201)
+@router.post("/quests/{quest_id}/another", response_model=AssignQuestResponse, status_code=201,
+             summary="Add another active quest without replacing this one",
+             responses={409: {"description": "Displayed quest is no longer active; reopen the current quest"},
+                        429: {"description": "Three active quests already saved"}})
+def replace_assignment(
+    quest_id: str, request: Request, response: Response,
+    payload: GenerateQuestRequest,
+    uid: str = Depends(timed_current_uid), resolver=Depends(get_destination_resolver),
+):
+    result = replace_generated_quest(get_db(), uid, quest_id, payload.normalize(), resolver,
+                                     timings=getattr(request.state, "quest_timings", None), user_request=payload)
+    response.headers["Cache-Control"] = "no-store"
+    return result
+
+
+@router.get("/me/active-quests", response_model=List[AssignQuestResponse],
+            summary="Read all active quests and reconcile earlier saved alternatives")
+def active_assignments(response: Response, uid: str = Depends(timed_current_uid)):
+    response.headers["Cache-Control"] = "no-store"
+    return get_active_assignments(get_db(), uid)

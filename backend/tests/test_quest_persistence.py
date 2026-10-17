@@ -47,20 +47,20 @@ class PersistenceTests(unittest.TestCase):
                         persistence.get_assignment_policy()
                     self.assertEqual(caught.exception.status_code, 503)
 
-    def test_existing_assignment_bypasses_ai_resolver_policy_and_save(self):
-        existing = self.saved.model_copy(update={"reusedExisting": True})
-        with patch.object(persistence, "get_current_assignment", return_value=existing), \
+    def test_three_active_quests_reject_before_ai_resolver_policy_or_save(self):
+        with patch.object(persistence, "get_active_assignments", return_value=[self.saved] * 3), \
                 patch.object(persistence, "generate_preview") as provider, \
                 patch.object(persistence, "get_assignment_policy") as policy, \
                 patch.object(persistence, "save_verified_assignment") as save:
-            self.assertEqual(persistence.assign_generated_quest(MagicMock(), "user_student",
-                                                               self.preferences, None), existing)
+            with self.assertRaises(HTTPException) as caught:
+                persistence.assign_generated_quest(MagicMock(), "user_student", self.preferences, None)
+            self.assertEqual(caught.exception.status_code, 429)
             provider.assert_not_called()
             policy.assert_not_called()
             save.assert_not_called()
 
     def test_missing_resolver_fails_without_paid_generation_or_save(self):
-        with patch.object(persistence, "get_current_assignment", return_value=None), \
+        with patch.object(persistence, "get_active_assignments", return_value=[]), \
                 patch.object(persistence, "generate_preview") as provider, \
                 patch.object(persistence, "save_verified_assignment") as save:
             with self.assertRaises(HTTPException) as caught:
@@ -70,7 +70,7 @@ class PersistenceTests(unittest.TestCase):
             save.assert_not_called()
 
     def test_generation_error_never_saves_and_remains_actionable(self):
-        with patch.object(persistence, "get_current_assignment", return_value=None), \
+        with patch.object(persistence, "get_active_assignments", return_value=[]), \
                 patch.object(persistence, "generate_preview", side_effect=HTTPException(429, "Quota reached")), \
                 patch.object(persistence, "save_verified_assignment") as save:
             with self.assertRaises(HTTPException) as caught:
@@ -84,6 +84,36 @@ class PersistenceTests(unittest.TestCase):
             with self.assertRaises(HTTPException):
                 persistence.get_current_assignment(db, uid)
         db.collection.assert_not_called()
+
+    def test_replacement_requires_displayed_current_quest_before_paid_generation(self):
+        with patch.object(persistence, "get_active_assignments", return_value=[self.saved]), \
+                patch.object(persistence, "generate_preview") as provider:
+            with self.assertRaises(HTTPException) as caught:
+                persistence.replace_generated_quest(MagicMock(), "user_student", "stale", self.preferences, MagicMock())
+            self.assertEqual(caught.exception.status_code, 409)
+            provider.assert_not_called()
+
+    def test_legacy_replacement_count_does_not_block_free_active_slots(self):
+        current = self.saved.model_copy(update={
+            "assignment": self.saved.assignment.model_copy(update={"replacementCount": 3}),
+        })
+        with patch.object(persistence, "get_active_assignments", return_value=[current]), \
+                patch.object(persistence, "generate_preview", return_value="preview") as provider, \
+                patch.object(persistence, "save_verified_assignment", return_value=self.saved) as save:
+            result = persistence.add_generated_quest(MagicMock(), "user_student", current.quest.id, self.preferences, MagicMock())
+            self.assertEqual(result, self.saved)
+            self.assertEqual(provider.call_args.kwargs["previous_quest"], current.quest)
+            self.assertEqual(save.call_args.kwargs["source_quest_id"], current.quest.id)
+
+    def test_replacement_failure_never_saves_or_skips(self):
+        with patch.object(persistence, "get_active_assignments", return_value=[self.saved]), \
+                patch.object(persistence, "generate_preview", side_effect=HTTPException(504, "Timeout")), \
+                patch.object(persistence, "save_verified_assignment") as save:
+            with self.assertRaises(HTTPException) as caught:
+                persistence.replace_generated_quest(MagicMock(), "user_student", self.saved.quest.id, self.preferences, MagicMock())
+            self.assertEqual(caught.exception.status_code, 504)
+            save.assert_not_called()
+
 
     def test_missing_destination_pointer_is_cleared_when_no_assignment_exists(self):
         db = MagicMock()
@@ -102,7 +132,7 @@ class PersistenceTests(unittest.TestCase):
         transaction.update.assert_called_once()
         updated_ref, changes = transaction.update.call_args.args
         self.assertEqual(updated_ref, user_ref)
-        self.assertEqual(changes, {"activeQuestId": persistence.firestore.DELETE_FIELD})
+        self.assertEqual(changes, {"activeQuestId": persistence.firestore.DELETE_FIELD, "activeQuestSchemaVersion": 2})
 
     def test_generated_content_and_duration_reward_are_saved_to_user_sidequest(self):
         preview = GeneratedQuestResponse(
@@ -164,6 +194,7 @@ class PersistenceRouteTests(unittest.TestCase):
         self.assign = patch("backend.quest_assignment_routes.assign_generated_quest",
                             return_value=self.saved).start()
         self.read = patch("backend.quest_assignment_routes.get_current_assignment", return_value=None).start()
+        self.replace = patch("backend.quest_assignment_routes.replace_generated_quest", return_value=self.saved).start()
         self.headers = {"Authorization": "Bearer firebase-test-token"}
 
     def test_new_assignment_is_201_with_structured_json_and_token_identity(self):
@@ -180,14 +211,18 @@ class PersistenceRouteTests(unittest.TestCase):
         self.assertEqual(self.assign.call_args.kwargs["user_request"], self.user_request)
         self.verify.assert_called_once_with("firebase-test-token", check_revoked=True)
 
-    def test_existing_assignment_is_200_and_get_reloads_same_contract(self):
-        reused = self.saved.model_copy(update={"reusedExisting": True})
-        self.assign.return_value = self.read.return_value = reused
-        post = self.client.post("/quests/assign", json=self.body, headers=self.headers)
-        get = self.client.get("/me/quest", headers=self.headers)
-        self.assertEqual(post.status_code, 200)
-        self.assertEqual(get.status_code, 200)
-        self.assertEqual(post.json(), get.json())
+    def test_active_list_is_authenticated_and_uses_token_owner(self):
+        with patch("backend.quest_assignment_routes.get_active_assignments", return_value=[self.saved]) as read:
+            response = self.client.get("/me/active-quests", headers=self.headers)
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(response.headers["cache-control"], "no-store")
+            self.assertEqual(response.json()[0]["quest"]["id"], self.saved.quest.id)
+            self.assertEqual(read.call_args.args[1], "user_student")
+            read.reset_mock()
+            self.assertEqual(self.client.get("/me/active-quests").status_code, 401)
+            read.assert_not_called()
+        self.read.return_value = self.saved.model_copy(update={"reusedExisting": True})
+        self.assertTrue(self.client.get("/me/quest", headers=self.headers).json()["reusedExisting"])
 
     def test_no_active_assignment_is_json_null(self):
         response = self.client.get("/me/quest", headers=self.headers)
@@ -204,7 +239,7 @@ class PersistenceRouteTests(unittest.TestCase):
         self.assign.assert_not_called()
 
     def test_trusted_fields_are_not_accepted_from_frontend(self):
-        for field in ["uid", "userId", "ownerId", "xpReward", "radiusMeters", "questId", "status"]:
+        for field in ["uid", "userId", "ownerId", "xpReward", "radiusMeters", "questId", "status", "replacementCount"]:
             response = self.client.post("/quests/assign", json={**self.body, field: "untrusted"}, headers=self.headers)
             self.assertEqual(response.status_code, 422)
         self.assign.assert_not_called()
@@ -216,10 +251,21 @@ class PersistenceRouteTests(unittest.TestCase):
             self.assertEqual(response.status_code, status)
             self.assertEqual(response.json()["detail"], "Cannot assign")
 
+    def test_replacement_uses_token_uid_path_id_and_same_response_contract(self):
+        result = self.client.post("/quests/old-quest/replace", json=self.body, headers=self.headers)
+        self.assertEqual(result.status_code, 201, result.text)
+        AssignQuestResponse.model_validate(result.json())
+        self.assertEqual(result.headers["cache-control"], "no-store")
+        self.assertEqual(self.replace.call_args.args[1:3], ("user_student", "old-quest"))
+        self.assertEqual(self.replace.call_args.args[3], self.preferences)
+        self.assertEqual(self.client.post("/quests/old-quest/replace", json=self.body).status_code, 401)
+        for field in ["userId", "xpReward", "status", "replacementCount"]:
+            self.assertEqual(self.client.post("/quests/old-quest/replace", json={**self.body, field: "bad"}, headers=self.headers).status_code, 422)
+
     def test_openapi_documents_distinct_saved_and_preview_contracts(self):
         schema = self.client.get("/openapi.json").json()
         post = schema["paths"]["/quests/assign"]["post"]
-        for code in ["200", "201"]:
+        for code in ["201"]:
             self.assertTrue(post["responses"][code]["content"]["application/json"]["schema"]["$ref"].endswith("AssignQuestResponse"))
         self.assertIn("/quests/preview", schema["paths"])
         self.assertIn("/quests/{quest_id}/complete", schema["paths"])

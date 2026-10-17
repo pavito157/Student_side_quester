@@ -1,20 +1,65 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { colors } from '../../constants/colors'
 import { getCurrentLocationLabel } from '../../services/currentLocation'
 
 type CurrentLocationButtonProps = {
+  autoLocate: boolean
   onLocationFound: (location: string) => void
 }
 
-function CurrentLocationButton({ onLocationFound }: CurrentLocationButtonProps) {
+function CurrentLocationButton({ autoLocate, onLocationFound }: CurrentLocationButtonProps) {
   const [isLocating, setIsLocating] = useState(false)
+  const [isManualLocating, setIsManualLocating] = useState(false)
   const [error, setError] = useState('')
+  const onLocationFoundRef = useRef(onLocationFound)
+  const manualLookupStartedRef = useRef(false)
+
+  useEffect(() => {
+    onLocationFoundRef.current = onLocationFound
+  }, [onLocationFound])
+
+  useEffect(() => {
+    if (!autoLocate || !navigator.permissions) return
+
+    let isCurrent = true
+
+    async function locateIfAlreadyAllowed() {
+      try {
+        const permission = await navigator.permissions.query({ name: 'geolocation' })
+        if (!isCurrent || permission.state !== 'granted') return
+
+        setIsLocating(true)
+        const location = await getCurrentLocationLabel()
+        if (isCurrent && !manualLookupStartedRef.current) {
+          onLocationFoundRef.current(location)
+        }
+      } catch (locationError) {
+        if (isCurrent) {
+          setError(
+            locationError instanceof Error
+              ? locationError.message
+              : 'Could not determine your location.',
+          )
+        }
+      } finally {
+        if (isCurrent) setIsLocating(false)
+      }
+    }
+
+    void locateIfAlreadyAllowed()
+
+    return () => {
+      isCurrent = false
+    }
+  }, [autoLocate])
 
   async function handleCurrentLocation() {
+    manualLookupStartedRef.current = true
     setIsLocating(true)
+    setIsManualLocating(true)
     setError('')
     try {
-      onLocationFound(await getCurrentLocationLabel())
+      onLocationFoundRef.current(await getCurrentLocationLabel())
     } catch (locationError) {
       setError(
         locationError instanceof Error
@@ -23,6 +68,7 @@ function CurrentLocationButton({ onLocationFound }: CurrentLocationButtonProps) 
       )
     } finally {
       setIsLocating(false)
+      setIsManualLocating(false)
     }
   }
 
@@ -31,7 +77,7 @@ function CurrentLocationButton({ onLocationFound }: CurrentLocationButtonProps) 
       <button
         type="button"
         onClick={() => void handleCurrentLocation()}
-        disabled={isLocating}
+        disabled={isManualLocating}
         aria-busy={isLocating}
         className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-70"
         style={{

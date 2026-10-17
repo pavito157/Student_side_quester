@@ -1,3 +1,4 @@
+import { useAuth } from '@clerk/clerk-react'
 import { useState } from 'react'
 import { colors } from '../../constants/colors'
 import BudgetButton from './BudgetButton'
@@ -64,6 +65,7 @@ const locationFilterIds: Record<string, string> = {
 }
 
 function QuestFilterButtons() {
+  const { isSignedIn } = useAuth()
   const [selectedFilters, setSelectedFilters] = useState<Filters>({
     where: '',
     time: '',
@@ -118,6 +120,7 @@ function QuestFilterButtons() {
     <div className="space-y-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <WhereButton
+          autoLocate={isSignedIn === true}
           value={selectedFilters.where}
           onChange={(where) => {
             setSelectedFilters((currentFilters) => ({ ...currentFilters, where }))

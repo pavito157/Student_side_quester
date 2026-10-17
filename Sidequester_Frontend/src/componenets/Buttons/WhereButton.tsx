@@ -4,11 +4,12 @@ import CurrentLocationButton from './CurrentLocationButton'
 import { loadPlacesLibrary } from '../../services/googlePlaces'
 
 type WhereButtonProps = {
+  autoLocate: boolean
   value: string
   onChange: (value: string) => void
 }
 
-function WhereButton({ value, onChange }: WhereButtonProps) {
+function WhereButton({ autoLocate, value, onChange }: WhereButtonProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const autocompleteRef = useRef<google.maps.places.PlaceAutocompleteElement | null>(null)
   const onChangeRef = useRef(onChange)
@@ -94,7 +95,7 @@ function WhereButton({ value, onChange }: WhereButtonProps) {
         aria-busy={isLoading}
       />
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <CurrentLocationButton onLocationFound={onChange} />
+        <CurrentLocationButton autoLocate={autoLocate} onLocationFound={onChange} />
         <button
           type="button"
           aria-pressed={value === 'any'}

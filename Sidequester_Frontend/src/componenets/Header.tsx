@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
-import { AccountIcon, CloseIcon, MenuIcon, SettingsIcon } from './icons'
+import { useState } from 'react'
+import { AccountIcon, MenuIcon, SettingsIcon } from './icons'
 import { colors } from '../constants/colors'
+import SidebarModal from './SidebarModal'
 
 interface HeaderProps {
   title?: string
@@ -14,12 +15,6 @@ function Header({
   onSettingsClick,
 }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-
-  useEffect(() => {
-    if (isMenuOpen) {
-        console.log('Menu is open')
-    }
-  }, [isMenuOpen])
 
   return (
     <>
@@ -69,6 +64,16 @@ function Header({
         </div>
       </header>
 
+      
+      <SidebarModal
+        isOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        title="Quick menu"
+      >
+        <p className="text-sm" style={{ color: colors.muted }}>
+          Your next side quest is just around the corner.
+        </p>
+      </SidebarModal>
     </>
   )
 }

@@ -24,6 +24,7 @@ export type QuestFilters = {
   customTime: string
   customBudget: string
   distance: string
+  customDistance: string
 }
 
 interface QuestFilterButtonsProps {
@@ -71,7 +72,7 @@ function getBudgetSelection(value: string): BudgetConstraint['selection'] {
   }
 }
 
-function getDistanceConstraint(value: string): DistanceConstraint {
+function getDistanceConstraint(value: string, customValue: string): DistanceConstraint {
   switch (value) {
     case '':
     case 'any':
@@ -81,6 +82,13 @@ function getDistanceConstraint(value: string): DistanceConstraint {
     case '10':
     case '25':
       return { maxDistance: Number(value), unit: 'miles' }
+    case 'custom': {
+      const maxDistance = Number(customValue)
+      if (customValue.trim() === '' || !Number.isFinite(maxDistance) || maxDistance <= 0) {
+        throw new Error('Custom distance must be a number greater than zero miles.')
+      }
+      return { maxDistance, unit: 'miles' }
+    }
     default:
       throw new Error('Choose a valid distance constraint.')
   }
@@ -136,7 +144,7 @@ function QuestFilterButtons({
           selection: getBudgetSelection(filters.budget),
           customDollars,
         },
-        distance: getDistanceConstraint(filters.distance),
+        distance: getDistanceConstraint(filters.distance, filters.customDistance),
         goals,
         vibePreferences: activeVibe?.preferences ?? null,
       })
@@ -259,7 +267,11 @@ function QuestFilterButtons({
             </span>
             <DistanceButton
               value={filters.distance}
+              customValue={filters.customDistance}
               onChange={(distance) => setFilters((current) => ({ ...current, distance }))}
+              onCustomChange={(customDistance) =>
+                setFilters((current) => ({ ...current, customDistance }))
+              }
             />
           </div>
         </div>

@@ -29,7 +29,17 @@ function readVibe(id: string, value: unknown): Vibe {
     throw new Error('A saved vibe has an invalid format.')
   }
 
-  const { name, preferences, where, time, budget, distance, customTime, customBudget } = value
+  const {
+    name,
+    preferences,
+    where,
+    time,
+    budget,
+    distance,
+    customTime,
+    customBudget,
+    customDistance,
+  } = value
   if (
     typeof name !== 'string' ||
     typeof preferences !== 'string' ||
@@ -38,7 +48,8 @@ function readVibe(id: string, value: unknown): Vibe {
     typeof budget !== 'string' ||
     (distance !== undefined && typeof distance !== 'string') ||
     (customTime !== undefined && typeof customTime !== 'string') ||
-    (customBudget !== undefined && typeof customBudget !== 'string')
+    (customBudget !== undefined && typeof customBudget !== 'string') ||
+    (customDistance !== undefined && typeof customDistance !== 'string')
   ) {
     throw new Error('A saved vibe contains invalid fields.')
   }
@@ -53,6 +64,7 @@ function readVibe(id: string, value: unknown): Vibe {
     distance: typeof distance === 'string' ? distance : 'any',
     customTime: customTime ?? '',
     customBudget: customBudget ?? '',
+    customDistance: customDistance ?? '',
     createdAt: readTimestamp(value.createdAt, 'createdAt'),
     updatedAt: readTimestamp(value.updatedAt, 'updatedAt'),
   }
@@ -68,6 +80,7 @@ function normalizeVibe(vibe: VibeInput): VibeInput {
     distance: vibe.distance.trim(),
     customTime: vibe.customTime?.trim() ?? '',
     customBudget: vibe.customBudget?.trim() ?? '',
+    customDistance: vibe.customDistance?.trim() ?? '',
   }
 
   if (!normalized.name || !normalized.preferences) {
@@ -79,7 +92,7 @@ function normalizeVibe(vibe: VibeInput): VibeInput {
   if (!['any', '0', '10', '10-25', 'custom'].includes(normalized.budget)) {
     throw new Error('Choose a valid budget filter before saving this vibe.')
   }
-  if (!['any', '1', '5', '10', '25'].includes(normalized.distance)) {
+  if (!['any', '1', '5', '10', '25', 'custom'].includes(normalized.distance)) {
     throw new Error('Choose a valid distance filter before saving this vibe.')
   }
   if (
@@ -95,6 +108,14 @@ function normalizeVibe(vibe: VibeInput): VibeInput {
       Number(normalized.customBudget) < 0)
   ) {
     throw new Error('Enter a valid non-negative custom budget.')
+  }
+  if (
+    normalized.distance === 'custom' &&
+    (normalized.customDistance === '' ||
+      !Number.isFinite(Number(normalized.customDistance)) ||
+      Number(normalized.customDistance) <= 0)
+  ) {
+    throw new Error('Enter a valid custom distance greater than zero miles.')
   }
 
   return normalized

@@ -21,6 +21,7 @@ function App() {
     customTime: '',
     customBudget: '',
     distance: 'any',
+    customDistance: '',
   })
 
   function openSettings(section: SettingsSection | null = null) {
@@ -51,6 +52,7 @@ function App() {
             customTime: vibe.customTime ?? '',
             customBudget: vibe.customBudget ?? '',
             distance: vibe.distance || 'any',
+            customDistance: vibe.customDistance ?? '',
           })
         }}
       />

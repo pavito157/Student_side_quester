@@ -27,6 +27,7 @@ function VibeEditor({
   const [budget, setBudget] = useState(vibeToEdit?.budget ?? 'any')
   const [distance, setDistance] = useState(vibeToEdit?.distance ?? 'any')
   const [customBudget, setCustomBudget] = useState(vibeToEdit?.customBudget ?? '')
+  const [customDistance, setCustomDistance] = useState(vibeToEdit?.customDistance ?? '')
   const [isSaving, setIsSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -44,6 +45,7 @@ function VibeEditor({
         budget,
         distance,
         customBudget,
+        customDistance,
       })
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Could not save this vibe.')
@@ -153,7 +155,12 @@ function VibeEditor({
             <span className="block text-xs font-medium" style={{ color: colors.muted }}>
               Distance from current location
             </span>
-            <DistanceButton value={distance} onChange={setDistance} />
+            <DistanceButton
+              value={distance}
+              customValue={customDistance}
+              onChange={setDistance}
+              onCustomChange={setCustomDistance}
+            />
           </div>
           <div className="space-y-2">
             <span className="block text-xs font-medium" style={{ color: colors.muted }}>

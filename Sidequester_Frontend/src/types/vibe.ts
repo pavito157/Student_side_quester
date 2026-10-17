@@ -8,6 +8,7 @@ export type Vibe = {
   distance: string
   customTime?: string
   customBudget?: string
+  customDistance?: string
   createdAt?: string
   updatedAt?: string
 }

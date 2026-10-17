@@ -19,6 +19,19 @@ permission and a secure context (HTTPS or localhost). Sidequest suggestions
 are currently available for the campus locations listed in
 `src/componenets/Buttons/QuestFilterButtons.tsx`.
 
+## Backend API
+
+The leaderboard and quest flows use the FastAPI backend. Set
+`VITE_API_BASE_URL` in this frontend's `.env.local` to the backend origin when
+it is not running at `http://127.0.0.1:8000`, then restart Vite so it reloads
+the setting. The leaderboard requires a signed-in account connected through
+the Firebase session bridge.
+
+The dorm leaderboard sums XP for profiles with a valid `dormId` that matches
+a dorm in the backend catalog. The available halls, including “Off campus,”
+are listed in `backend/dorm_catalog.py`. New signed-in users are prompted to
+choose one; they can change it later under Settings → Residence.
+
 ## User preferences and goals
 
 For signed-in users, general preferences are stored as plain text in the

@@ -175,7 +175,7 @@ function QuestFilterControls({
       setRequestJson(serializeSidequestRequest(request))
 
       if (!isSignedIn || !user) {
-        throw new Error('Sign in with a verified @ufl.edu account to get a saved quest.')
+        throw new Error('Sign in with a verified email account to get a saved quest.')
       }
       const saved = await requestAssignedQuest(user.id, request, { signal: controller.signal })
       if (controller.signal.aborted) return

@@ -106,17 +106,24 @@ class BridgeRouteTests(unittest.TestCase):
             self.assertEqual(self.post(body={field: "forged"}).status_code, 422)
         self.mint.assert_not_called()
 
-    def test_only_verified_primary_uf_email_is_accepted(self):
+    def test_unverified_or_invalid_primary_email_is_rejected(self):
         original = deepcopy(self.user)
-        for email, status in [("student@gmail.com", "verified"), ("student@ufl.edu.evil.com", "verified"),
-                              ("student@ufl.edu", "unverified"), ("ufl.edu", "verified")]:
+        for email, status in [("student@gmail.com", "unverified"), ("ufl.edu", "verified"),
+                              (None, "verified"), ("@gmail.com", "verified"), ("student@", "verified")]:
             self.user = deepcopy(original)
             self.user["email_addresses"][0].update(email_address=email, verification={"status": status})
-            # A verified secondary UF address is not implicitly selected.
-            self.user["email_addresses"].append({"id": "secondary", "email_address": "other@ufl.edu",
+            # A verified secondary email never substitutes for the primary one.
+            self.user["email_addresses"].append({"id": "secondary", "email_address": "other@gmail.com",
                                                  "verification": {"status": "verified"}})
             self.assertEqual(self.post().status_code, 403)
         self.mint.assert_not_called()
+
+    def test_verified_primary_emails_from_any_domain_can_sign_in(self):
+        for email in ["Teammate@gmail.com", "tester@outlook.com", "tester@another-university.edu"]:
+            with self.subTest(email=email):
+                self.user["email_addresses"][0]["email_address"] = email
+                self.assertEqual(self.post().status_code, 200)
+                self.assertEqual(self.sync.call_args.args[0]["email"], email.lower())
 
     def test_banned_or_locked_accounts_are_rejected(self):
         for field in ["banned", "locked"]:

@@ -181,7 +181,7 @@ test('signed-out requests never call the protected assignment API', async () => 
   f.auth = { isLoaded: true, isSignedIn: false, user: null }
   f.render(); f.click(); await f.settle()
   assert.equal(f.calls.length, 0)
-  assert.match(f.props('SidequestJsonModal').errorMessage, /Sign in.*@ufl.edu/)
+  assert.match(f.props('SidequestJsonModal').errorMessage, /Sign in.*verified email/)
 })
 
 test('result modal exposes full response and server reward as XP on completion', async () => {

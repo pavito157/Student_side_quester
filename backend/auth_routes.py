@@ -14,7 +14,7 @@ from google.api_core.exceptions import GoogleAPICallError, RetryError
 from google.auth.exceptions import GoogleAuthError
 from pydantic import BaseModel, ConfigDict
 
-from .firebase_helpers import USERS, bearer, current_uid, get_db, get_firebase_app, is_uf_email
+from .firebase_helpers import USERS, bearer, current_uid, get_db, get_firebase_app, is_valid_email
 from .xp import read_xp
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -88,8 +88,8 @@ def verified_clerk_user(
                     and email.get("id") == user.get("primary_email_address_id")), {})
     verification = primary.get("verification")
     if (not isinstance(verification, dict) or verification.get("status") != "verified"
-            or not is_uf_email(primary.get("email_address"))):
-        raise HTTPException(403, "Use a verified primary @ufl.edu email in your Clerk account")
+            or not is_valid_email(primary.get("email_address"))):
+        raise HTTPException(403, "Use a verified primary email in your Clerk account")
     email = primary["email_address"].lower()
     display_name = " ".join(part for part in (user.get("first_name"), user.get("last_name"))
                             if isinstance(part, str) and part.strip()).strip() or email.split("@")[0]

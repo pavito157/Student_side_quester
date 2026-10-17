@@ -68,6 +68,17 @@ async function fixture() {
       if (name.endsWith('/sidequestJson')) return load('services/sidequestJson.ts')
       if (name.endsWith('/questAssignment')) return synthetic({
         requestAssignedQuest: async (...args) => { f.calls.push(args); return f.request(...args) },
+        toQuestApiPayload: (payload) => ({
+          location: payload.location,
+          time: payload.time,
+          budget: payload.budget,
+          preferences: payload.preferences,
+          username: payload.username,
+          distance: payload.distance,
+          goals: payload.goals,
+          vibePreferences: payload.vibePreferences,
+          originCoordinates: payload.originCoordinates,
+        }),
       })
       if (name.endsWith('/sidequests')) return synthetic({
         saveSidequestRequest: async (...args) => { f.historyCalls.push(args); return f.history(...args) },

@@ -228,6 +228,28 @@ test('assignment helper accepts committed new/reused responses and binds them to
   }
 })
 
+test('assignment requests keep coordinates only in originCoordinates', async () => {
+  const f = await fixture()
+  const uid = savedExample.assignment.userId
+  const input = {
+    ...payload,
+    originCoordinates: { latitude: 29.6460745, longitude: -82.3476577 },
+    latitude: 29.6460745,
+    longitude: -82.3476577,
+  }
+  const before = structuredClone(input)
+  f.state.fetch = async (url, options) => {
+    assert.equal(url, 'http://localhost:8000/quests/assign')
+    const body = JSON.parse(options.body)
+    assert.deepEqual(body.originCoordinates, input.originCoordinates)
+    assert.equal('latitude' in body, false)
+    assert.equal('longitude' in body, false)
+    return { ok: true, status: 201, json: async () => structuredClone(savedExample) }
+  }
+  await f.api.requestAssignedQuest(uid, input)
+  assert.deepEqual(input, before)
+})
+
 test('current-quest helper reloads by GET and handles an empty active assignment', async () => {
   const f = await fixture()
   const uid = savedExample.assignment.userId

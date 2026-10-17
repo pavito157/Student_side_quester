@@ -3,7 +3,11 @@ import { useUser } from '@clerk/clerk-react'
 import { colors } from '../../constants/colors'
 import { buildSidequestRequest, toQuestApiPayload } from '../../services/sidequestJson'
 import { saveSidequestRequest } from '../../services/sidequests'
-import { requestAssignedQuest, type SavedQuestResponse } from '../../services/questAssignment'
+import {
+  requestAssignedQuest,
+  toQuestApiPayload,
+  type SavedQuestResponse,
+} from '../../services/questAssignment'
 import { getUserGoals, getUserPreferences } from '../../services/userPreferences'
 import type {
   BudgetConstraint,
@@ -172,8 +176,7 @@ function QuestFilterControls({
       })
 
       if (controller.signal.aborted) return
-      const apiRequest = toQuestApiPayload(request)
-      setRequestJson(JSON.stringify(apiRequest, null, 2))
+      setRequestJson(JSON.stringify(toQuestApiPayload(request), null, 2))
 
       if (!isSignedIn || !user) {
         throw new Error('Sign in with a verified email account to get a saved quest.')

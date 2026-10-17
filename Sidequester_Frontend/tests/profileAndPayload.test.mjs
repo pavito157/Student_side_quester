@@ -40,7 +40,7 @@ test('request metadata never writes balances, even from an untyped caller', () =
 const input = {
   preferences: ' Nature ', username: ' Student ', location: 'Museum Road',
   originCoordinates: { latitude: 29.65, longitude: -82.34 },
-  latitude: 29.65, longitude: -82.34,
+  latitude: null, longitude: null,
   time: { selection: '60', customMinutes: null },
   budget: { selection: '0', customDollars: null },
   distance: { maxDistance: 2, unit: 'miles' }, goals: [' Relax '], vibePreferences: null,

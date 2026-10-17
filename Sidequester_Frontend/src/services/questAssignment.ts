@@ -45,6 +45,25 @@ export type GenerateQuestPayload = AssignQuestPayload & {
   originCoordinates?: { latitude: number; longitude: number } | null
 }
 
+type QuestPayloadWithLegacyCoordinates = GenerateQuestPayload & {
+  latitude?: number | null
+  longitude?: number | null
+}
+
+export function toQuestApiPayload(payload: QuestPayloadWithLegacyCoordinates): GenerateQuestPayload {
+  return {
+    location: payload.location,
+    time: payload.time,
+    budget: payload.budget,
+    preferences: payload.preferences,
+    username: payload.username,
+    distance: payload.distance,
+    goals: payload.goals,
+    vibePreferences: payload.vibePreferences,
+    originCoordinates: payload.originCoordinates,
+  }
+}
+
 export type QuestRequestTiming = {
   tokenMs: number
   requestMs: number
@@ -174,10 +193,11 @@ export async function requestTestQuest(
 // Step 4: Gemini preview only. The frontend team owns button/result wiring.
 export async function requestGeneratedQuest(
   expectedUserId: string,
-  payload: GenerateQuestPayload,
+  payload: QuestPayloadWithLegacyCoordinates,
   options: QuestRequestOptions = {},
 ): Promise<GeneratedQuestResponse> {
-  const result = await requestQuest('/quests/generate', expectedUserId, payload, options)
+  const apiPayload = toQuestApiPayload(payload)
+  const result = await requestQuest('/quests/generate', expectedUserId, apiPayload, options)
   if (!isRecord(result) || result.mode !== 'generated' || typeof result.filtersApplied !== 'boolean'
       || typeof result.destinationVerified !== 'boolean'
       || result.filtersApplied !== result.destinationVerified
@@ -212,9 +232,12 @@ export async function requestGeneratedQuest(
 
 // Step 5: save a verified quest, or reuse the student's existing active assignment.
 export async function requestAssignedQuest(
-  expectedUserId: string, payload: GenerateQuestPayload, options: QuestRequestOptions = {},
+  expectedUserId: string,
+  payload: QuestPayloadWithLegacyCoordinates,
+  options: QuestRequestOptions = {},
 ): Promise<SavedQuestResponse> {
-  const result = await requestQuest('/quests/assign', expectedUserId, payload, options)
+  const apiPayload = toQuestApiPayload(payload)
+  const result = await requestQuest('/quests/assign', expectedUserId, apiPayload, options)
   if (!isSavedQuest(result, expectedUserId)) throw new Error('The backend returned an invalid saved assignment.')
   return result
 }

@@ -1,19 +1,52 @@
-import { useAuth } from '@clerk/clerk-react'
+import { useRef, useState } from 'react'
+import { useUser } from '@clerk/clerk-react'
 import { completeQuest } from '../../services/questApi'
 
-export default function CompleteQuestButton({ assignedQuestId }: { assignedQuestId: string }) {
-  const { getToken } = useAuth()
+type Props = {
+  // The Firestore child document ID / response.quest.id.
+  assignedQuestId: string
+}
+
+export default function CompleteQuestButton(props: Props) {
+  const { user } = useUser()
+  // Remount account/quest-specific feedback when either identity changes.
+  return <CompletionControl key={`${user?.id ?? ''}:${props.assignedQuestId}`} {...props} userId={user?.id} />
+}
+
+function CompletionControl({ assignedQuestId, userId }: Props & { userId?: string }) {
+  const [pending, setPending] = useState(false)
+  const [hasCompleted, setHasCompleted] = useState(false)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+  const inFlight = useRef(false)
+  const completed = useRef(false)
 
   async function handleClick() {
-    const token = await getToken()
-    if (!token) return // not signed in
+    if (inFlight.current || completed.current) return
+    if (!userId) { setError('Sign in to complete a sidequest.'); return }
+    inFlight.current = true
+    setPending(true)
+    setMessage('')
+    setError('')
     try {
-      const result = await completeQuest(assignedQuestId, token)
-      alert(result.status === 'completed' ? `+${result.xp_awarded} XP!` : 'Already completed')
+      const result = await completeQuest(userId, assignedQuestId)
+      completed.current = true
+      setHasCompleted(true)
+      setMessage(`Sidequest completed. You earned ${result.xpAwarded} XP.`)
     } catch (e) {
-      alert((e as Error).message)
+      setError(e instanceof Error ? e.message : 'Could not complete quest.')
+      return
+    } finally {
+      inFlight.current = false
+      setPending(false)
     }
   }
 
-  return <button onClick={handleClick}>Complete quest</button>
+  return <div>
+    <button type="button" disabled={pending || hasCompleted || !userId} onClick={() => void handleClick()}>
+      {pending ? 'Verifying location…' : hasCompleted ? 'Completed' : 'Complete quest'}
+    </button>
+    {message && <p role="status">{message}</p>}
+    {error && <p role="alert">{error}</p>}
+  </div>
 }

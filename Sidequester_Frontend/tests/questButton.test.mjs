@@ -11,8 +11,16 @@ const plain = (value) => JSON.parse(JSON.stringify(value))
 async function fixture() {
   const f = {
     auth: { isLoaded: true, isSignedIn: true, user: { id: 'example-user', fullName: 'Test Student', primaryEmailAddress: { emailAddress: 'student@ufl.edu' } } },
-    calls: [], historyCalls: [],
+    calls: [], historyCalls: [], replacementCalls: [],
     request: async () => structuredClone(saved), history: async () => ({ requestCount: 1 }),
+    replace: async () => {
+      const result = structuredClone(saved)
+      result.quest.id = 'replacement-quest'
+      result.assignment.questId = result.quest.id
+      result.assignment.id = `${result.assignment.userId}_${result.quest.id}`
+      result.reusedExisting = false
+      return result
+    },
     filters: {
       where: 'Selected origin',
       latitude: 29.65, longitude: -82.34,
@@ -69,6 +77,7 @@ async function fixture() {
       if (name.endsWith('/sidequestJson')) return load('services/sidequestJson.ts')
       if (name.endsWith('/questAssignment')) return synthetic({
         requestAssignedQuest: async (...args) => { f.calls.push(args); return f.request(...args) },
+        requestReplacementQuest: async (...args) => { f.replacementCalls.push(args); return f.replace(...args) },
       })
       if (name.endsWith('/sidequests')) return synthetic({
         saveSidequestRequest: async (...args) => { f.historyCalls.push(args); return f.history(...args) },
@@ -235,4 +244,37 @@ test('choosing Anywhere clears old coordinates before submission', async () => {
   f.render(); f.click(); await f.settle()
   assert.equal(f.calls[0][1].location, 'Anywhere')
   assert.equal(f.calls[0][1].originCoordinates, undefined)
+})
+
+
+test('Generate another replaces the displayed quest using the latest filters and displays its response', async () => {
+  const f = await fixture()
+  f.click(); await f.settle()
+  f.filters.time = '30'
+  f.props('SidequestJsonModal').onGenerateAnother()
+  await f.settle()
+  assert.equal(f.replacementCalls.length, 1)
+  assert.equal(f.replacementCalls[0][0], 'example-user')
+  assert.equal(f.replacementCalls[0][1], saved.quest.id)
+  assert.equal(f.replacementCalls[0][2].time.selection, '30')
+  assert.equal(f.props('SidequestJsonModal').response.quest.id, 'replacement-quest')
+  assert.equal(f.props('SidequestJsonModal').response.assignment.xpAwarded, 0)
+  assert.equal(f.historyCalls.length, 0)
+})
+
+test('replacement failure preserves the displayed saved quest and rapid clicks submit once', async () => {
+  const f = await fixture()
+  f.click(); await f.settle()
+  let reject
+  f.replace = () => new Promise((_resolve, fail) => { reject = fail })
+  f.props('SidequestJsonModal').onGenerateAnother()
+  f.props('SidequestJsonModal').onGenerateAnother()
+  await f.settle()
+  assert.equal(f.replacementCalls.length, 1)
+  assert.equal(f.props('SidequestJsonModal').isLoading, true)
+  assert.equal(f.props('SidequestJsonModal').response.quest.id, saved.quest.id)
+  reject(new Error('Gemini quota reached.'))
+  await f.settle()
+  assert.equal(f.props('SidequestJsonModal').response.quest.id, saved.quest.id)
+  assert.match(f.props('SidequestJsonModal').errorMessage, /quota/)
 })

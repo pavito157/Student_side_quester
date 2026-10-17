@@ -61,15 +61,15 @@ def get_quest(quest_id: str, uid: str = Depends(current_uid), db=Depends(get_db)
 
 @router.get("/me/quests")
 def my_quests(
-    status: Optional[Literal["assigned", "completed"]] = None,
+    status: Optional[Literal["assigned", "completed", "skipped"]] = None,
     uid: str = Depends(current_uid), db=Depends(get_db),
 ):
     snapshots = db.collection(ASSIGNMENTS).where(
         filter=FieldFilter("userId", "==", uid)
     ).stream()
-    legacy = [document(s) for s in snapshots if s.to_dict().get("status") in ("assigned", "completed")]
+    legacy = [document(s) for s in snapshots if s.to_dict().get("status") in ("assigned", "completed", "skipped")]
     owned = [{**document(s), "id": f"{uid}_{s.id}"} for s in sidequests(db, uid).stream()
-             if s.to_dict().get("status") in ("assigned", "completed")]
+             if s.to_dict().get("status") in ("assigned", "completed", "skipped")]
     by_id = {item["id"]: item for item in legacy + owned}
     return {"quests": [item for item in by_id.values() if status is None or item["status"] == status]}
 

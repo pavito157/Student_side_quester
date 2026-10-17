@@ -4,6 +4,7 @@ import { colors } from '../../constants/colors'
 import { buildSidequestRequest, toQuestApiPayload } from '../../services/sidequestJson'
 import {
   requestAssignedQuest,
+  requestReplacementQuest,
   type SavedQuestResponse,
 } from '../../services/questAssignment'
 import { getUserGoals, getUserPreferences } from '../../services/userPreferences'
@@ -121,7 +122,7 @@ function QuestFilterControls({
     controllerRef.current = null
   }, [])
 
-  async function showSidequestRequest() {
+  async function showSidequestRequest(replaceQuestId?: string) {
     if (inFlightRef.current) return
     controllerRef.current?.abort()
     const controller = new AbortController()
@@ -130,7 +131,7 @@ function QuestFilterControls({
     setIsPreviewOpen(true)
     setIsLoadingPreview(true)
     setPreviewError('')
-    setAssignment(null)
+    if (!replaceQuestId) setAssignment(null)
     setRequestJson('')
 
     try {
@@ -179,7 +180,9 @@ function QuestFilterControls({
       if (!isSignedIn || !user) {
         throw new Error('Sign in with a verified email account to get a saved quest.')
       }
-      const saved = await requestAssignedQuest(user.id, apiRequest, { signal: controller.signal })
+      const saved = replaceQuestId
+        ? await requestReplacementQuest(user.id, replaceQuestId, apiRequest, { signal: controller.signal })
+        : await requestAssignedQuest(user.id, apiRequest, { signal: controller.signal })
       if (controller.signal.aborted) return
       setAssignment(saved)
     } catch (error) {
@@ -356,6 +359,7 @@ function QuestFilterControls({
         response={assignment}
         historyWarning={historyWarning}
         onClose={() => setIsPreviewOpen(false)}
+        onGenerateAnother={() => { if (assignment) void showSidequestRequest(assignment.quest.id) }}
       />
     </div>
   )

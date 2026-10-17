@@ -83,6 +83,24 @@ class PersistenceTests(unittest.TestCase):
                 persistence.get_current_assignment(db, uid)
         db.collection.assert_not_called()
 
+    def test_replacement_requires_displayed_current_quest_before_paid_generation(self):
+        with patch.object(persistence, "get_current_assignment", return_value=self.saved), \
+                patch.object(persistence, "generate_preview") as provider:
+            with self.assertRaises(HTTPException) as caught:
+                persistence.replace_generated_quest(MagicMock(), "user_student", "stale", self.preferences, MagicMock())
+            self.assertEqual(caught.exception.status_code, 409)
+            provider.assert_not_called()
+
+    def test_replacement_failure_never_saves_or_skips(self):
+        with patch.object(persistence, "get_current_assignment", return_value=self.saved), \
+                patch.object(persistence, "generate_preview", side_effect=HTTPException(504, "Timeout")), \
+                patch.object(persistence, "save_verified_assignment") as save:
+            with self.assertRaises(HTTPException) as caught:
+                persistence.replace_generated_quest(MagicMock(), "user_student", self.saved.quest.id, self.preferences, MagicMock())
+            self.assertEqual(caught.exception.status_code, 504)
+            save.assert_not_called()
+
+
 
 class PersistenceRouteTests(unittest.TestCase):
     def setUp(self):
@@ -97,6 +115,7 @@ class PersistenceRouteTests(unittest.TestCase):
         self.assign = patch("backend.quest_assignment_routes.assign_generated_quest",
                             return_value=self.saved).start()
         self.read = patch("backend.quest_assignment_routes.get_current_assignment", return_value=None).start()
+        self.replace = patch("backend.quest_assignment_routes.replace_generated_quest", return_value=self.saved).start()
         self.headers = {"Authorization": "Bearer firebase-test-token"}
 
     def test_new_assignment_is_201_with_structured_json_and_token_identity(self):
@@ -147,6 +166,17 @@ class PersistenceRouteTests(unittest.TestCase):
             response = self.client.post("/quests/assign", json=self.body, headers=self.headers)
             self.assertEqual(response.status_code, status)
             self.assertEqual(response.json()["detail"], "Cannot assign")
+
+    def test_replacement_uses_token_uid_path_id_and_same_response_contract(self):
+        result = self.client.post("/quests/old-quest/replace", json=self.body, headers=self.headers)
+        self.assertEqual(result.status_code, 201, result.text)
+        AssignQuestResponse.model_validate(result.json())
+        self.assertEqual(result.headers["cache-control"], "no-store")
+        self.assertEqual(self.replace.call_args.args[1:3], ("user_student", "old-quest"))
+        self.assertEqual(self.replace.call_args.args[3], self.preferences)
+        self.assertEqual(self.client.post("/quests/old-quest/replace", json=self.body).status_code, 401)
+        for field in ["userId", "xpReward", "status"]:
+            self.assertEqual(self.client.post("/quests/old-quest/replace", json={**self.body, field: "bad"}, headers=self.headers).status_code, 422)
 
     def test_openapi_documents_distinct_saved_and_preview_contracts(self):
         schema = self.client.get("/openapi.json").json()

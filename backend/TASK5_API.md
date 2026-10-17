@@ -235,3 +235,30 @@ Production now discovers a verified city/distance-eligible Google place before
 Gemini writes activity content. No eligible result in the sampled search returns
 409 before generation/saving. Public request/saved-response JSON is unchanged;
 see `INTEGRATION_HANDOFF.md` for the current order and live test results.
+
+## Generate another (replace/skip)
+
+`POST /quests/{quest.id}/replace` accepts the same preference JSON as
+`POST /quests/assign` and requires the same verified Firebase ID token. It returns
+HTTP 201 with the unchanged `AssignQuestResponse` JSON and `reusedExisting: false`.
+Use the currently displayed `quest.id`, not the public `assignment.id`.
+
+The service checks that this quest is still the caller's active assignment,
+generates/resolves/validates a replacement outside Firestore transactions, then
+atomically rechecks and swaps it. The old document remains under the user with
+`status: "skipped"`, `isActive: false`, `skippedAt` and `replacedByQuestId`; its
+`completedAt` stays null and `xpAwarded` stays 0. User/dorm XP is not changed.
+The new quest is assigned and `activeQuestId` points to it. Skipped quests cannot
+be completed for XP, and `/me/quests?status=skipped` returns their history.
+
+Generation, resolution, filter or save failures leave the current quest active.
+A concurrent completion/replacement wins without being overwritten; the stale
+request gets 409 and must reopen the current assignment. There are no automatic
+paid generation retries. Concurrent replacement requests can both call providers,
+but only one can replace the same active quest.
+
+Gemini receives only the previous title/description/steps, without IDs, GPS or XP,
+to request a different primary activity. An exact repeat of the prior description
+and steps is rejected with 502 while retaining the old quest. This does not
+promise semantic uniqueness or a different destination when few places qualify.
+Normal Sidequest me / `/quests/assign` retains its existing reuse behavior.

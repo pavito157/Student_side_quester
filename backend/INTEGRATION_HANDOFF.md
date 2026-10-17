@@ -423,3 +423,160 @@ local Firestore emulator. Frontend 49/49 tests passed, as did
 the TypeScript/Vite build and lint. Tests use mocked authentication and provider
 responses with real emulator transactions. No signed-in production completion or
 Firestore rules deployment was performed.
+
+## Luis_backend compatibility fixes
+
+The teammate additions now reuse the existing architecture:
+
+- `auth.get_current_user_id` is the existing Firebase `current_uid` dependency.
+  Clerk sessions are exchanged through `/auth/firebase` as before; completion
+  never accepts a raw Clerk session token instead of the Firebase ID token.
+- `firebase_config.db` is a lazy alias for `backend.firebase_helpers.get_db()`.
+  Imports do not initialize credentials. Existing Firebase app/ADC configuration
+  (including `GOOGLE_APPLICATION_CREDENTIALS` in the ignored root `.env`) works;
+  there is no required root `serviceAccountKey.json` filename.
+- `xp_service.complete_assigned_quest(uid, questId, latitude, longitude, accuracy)`
+  delegates to `backend.quest_completion.complete_quest`. GPS is required. The
+  canonical transaction reads `Users/{uid}/sidequests/{questId}`, validates
+  ownership/state/destination/accuracy/proximity, then atomically completes the
+  assignment and updates both `Users/{uid}.xp` and `dorms/{dormId}.xp`. No separate
+  `assignedQuests` collection or reward field named `xp` is introduced. Concurrent
+  and repeated completion cannot award twice; replay remains HTTP 409.
+- `services/questApi.completeQuest(expectedUserId, questId)` uses the existing
+  fresh-GPS service and Firebase-authenticated HTTP helper. Its return value is
+  `{status: "completed", xpAwarded: number}`. The full HTTP completion response
+  still includes `valid`, `reason`, distance/accuracy/radius and `questId`.
+  `VITE_API_BASE_URL` remains the single frontend API setting.
+- `CompleteQuestButton` remains an optional reusable component. Its existing
+  `assignedQuestId` prop must be **response.quest.id**, not assignment.id. It
+  shows location/error/success feedback, disables duplicate clicks and handles
+  zero-XP success. Current detail-page layout is unchanged and already uses the
+  same completion service. Frontend teammates can import the optional button
+  without building another authentication or GPS flow.
+- One CORS layer uses `FRONTEND_ORIGINS` for both API preflights and the Clerk
+  bridge. Defaults include localhost and 127.0.0.1 on ports 5173 and 5174. An
+  explicit environment setting replaces those defaults; include the actual
+  frontend origin and restart FastAPI after changing it. Untrusted origins stay
+  blocked; `Server-Timing` remains exposed.
+- `.env.*`, Firebase Admin key filenames and service-account patterns are ignored
+  again; `.env.example` remains shareable. Root `requirements.txt` includes
+  `backend/requirements.txt` so both installation entry points use the same deps.
+
+### Manual verification
+
+1. Start/restart FastAPI from the repository root with the existing environment:
+   `python -m uvicorn main:app --host 127.0.0.1 --port 8000 --env-file .env`.
+   Start Vite from `Sidequester_Frontend` with `npm run dev`. No new key is needed.
+2. Sign in with any verified email. Click Sidequest me and confirm the same
+   structured assignment JSON including `quest.id` and `quest.xpReward`.
+   Open Users → your Firebase UID → sidequests → quest.id in Firestore.
+3. Open that quest's detail page and click Complete. In browser Network, verify
+   `POST /quests/{quest.id}/complete`, a Firebase Bearer token (do not share it),
+   and JSON `{latitude, longitude, accuracy}` from a fresh device reading.
+4. Deny location access: display a location error and send no completion request.
+   Outside the destination radius / with poor accuracy: expect HTTP 400 with a
+   reason. User XP, dorm XP and assignment state must remain unchanged.
+5. With accurate GPS at the destination and an existing valid user dorm, expect
+   HTTP 200 and `xpAwarded === quest.xpReward`. Both user and dorm XP must increase
+   by that amount. The stored sidequest is completed/inactive and its active
+   pointer cleared. Retry the same authenticated request: expect 409 and no
+   additional XP. Missing/invalid dorm also returns 409 without completing.
+6. Load Vite through `localhost` and `127.0.0.1` on the allowed port; requests
+   should pass CORS. Keep `FRONTEND_ORIGINS` consistent if explicitly configured.
+
+### Automated verification
+
+```sh
+# Backend; run an emulator on loopback:8787 for the full transaction suite.
+FIRESTORE_EMULATOR_HOST=127.0.0.1:8787 python -m unittest discover -s backend/tests
+
+# From Sidequester_Frontend:
+node --experimental-vm-modules --test tests/*.test.mjs
+npm run build
+npm run lint
+```
+
+Without the emulator environment setting, transaction tests skip rather than
+access production Firestore. Regression tests cover the optional button/helper
+through actual frontend service modules, Firebase token selection, fresh GPS,
+camelCase server rewards, signed-out/account-switch errors, duplicate clicks,
+CORS hostnames/ports/custom origins, lazy Firebase initialization, and the
+teammate backend helper's GPS/dorm rejection and concurrent user/dorm XP awards.
+Authentication/provider responses are mocked; Firestore transaction tests use
+real local emulator transactions. A signed-in production completion and deployed
+Firestore rules still require the team's manual verification.
+
+Compatibility-fix validation: 184/184 backend tests passed with real loopback
+emulator transactions; 56/56 frontend tests passed; build and lint passed. The
+restarted API passed health and preflight checks for localhost/127.0.0.1 on
+port 5173 using the existing local environment. The local root .env explicitly
+limits FRONTEND_ORIGINS to port 5173, so port 5174 correctly remains blocked there
+until it is added to that setting; default-config tests cover both ports.
+Production Firestore records were not modified by these tests.
+
+## Quest-design prompt improvements from backend branch
+
+Adapted `e7d361d` (Improve Gemini quest generation prompt) into
+`backend/quest_generation.py`. Kept its concrete adventures, natural preference
+matching, activity variety, measurable endpoints, single-place activities and
+avoidance of homework/vague reflection. Condensed repeated rules and removed the
+unused alternate prompt. Added explicit cautions against assuming paths, benches,
+weather-dependent shadows and required drawing equipment.
+
+The scope stays Gainesville city limits. The normal destination-first flow tells
+Gemini to use only the already selected venue and return activity fields, without
+contradictory requests to choose another UF destination or generate an address.
+Legacy unverified previews can still propose a name/address. Both modes share the
+same quest-design rules; no fragile substring extraction of prompt wording.
+Response JSON, reward/GPS ownership, model, thinking depth, one-candidate limit,
+timeouts and output-token budget remain unchanged. No frontend changes for this
+prompt update. This is guidance to a generative model, not a deterministic
+quality, novelty, amenity or activity-duration guarantee.
+
+Validation: 59 generation/contract/assignment-route tests passed. Four synthetic
+live Google Places/Gemini previews passed schema and time/budget validation,
+without Firestore writes. Initial samples took 1.98s and 1.62s; after tightening
+feature/equipment wording, final samples took 1.63s and 1.51s. These observations
+exclude browser token acquisition and assignment persistence.
+
+To inspect fresh output, use authenticated `POST /quests/generate` (or the frontend
+`requestGeneratedQuest` helper), which returns an unsaved preview. Sidequest me /
+`POST /quests/assign` intentionally reuses an existing active assignment, so that
+quest does not change just because the prompt was edited. Completion and a new
+assignment will use the updated prompt on the next generation.
+
+## Generate another button
+
+Open Sidequest me and use **Generate another** in the result modal. It uses the
+page's latest filters/preferences/vibe to request a new saved quest through
+`requestReplacementQuest(uid, currentQuestId, payload, options)` →
+`POST /quests/{currentQuestId}/replace`. The structured response JSON is unchanged.
+The current quest remains visible during generation and after errors. The modal
+explains that replacement skips the old quest without XP. Duplicate clicks are
+blocked; account changes retain the existing cancellation/reset behavior.
+
+On success, the old record is `skipped`/inactive with `skippedAt` and
+`replacedByQuestId`, and the new record is assigned under the same user's
+`sidequests` subcollection. XP remains unchanged for both user and dorm. The active
+list automatically displays the replacement. Old skipped records stay as history,
+and their completion requests return 409. If another tab replaces or completes
+the displayed quest while generation is running, that state is preserved and the
+stale replacement returns 409. Close/reopen Sidequest me to load the current quest.
+
+Manual check: open an existing quest, click Generate another, confirm a new
+`quest.id` and response JSON. Refresh: the replacement should remain active.
+Check the old Firestore record is skipped with `xpAwarded: 0`, and user/dorm XP
+is unchanged. Change page filters and repeat to inspect the updated request JSON.
+If generation fails, the old quest should remain active and visible. Completing
+the skipped quest must fail; completing the active one still requires fresh GPS
+and awards both balances only once.
+
+Replacement validation: final full suite 195/195 backend tests passed with the
+local Firestore emulator; 60/60 frontend tests, build and lint passed. The first
+full run hit the previously observed transaction-lock retry exhaustion in an old
+completion stress test; its isolated rerun and the subsequent full rerun passed.
+A live Gemini/Places FastAPI smoke test with synthetic authentication and emulator
+persistence assigned a quest in 1.70s and replaced it in 1.47s. The old record
+became skipped; user and dorm XP stayed 0; the current-quest endpoint reloaded the
+replacement. Synthetic documents were cleaned up; no production Firestore records
+were changed. The restarted local API exposes the replacement endpoint.

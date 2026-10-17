@@ -326,3 +326,28 @@ test('completion surfaces proximity failures and refuses inconsistent successful
   f.state.fetch = async () => ({ ok: true, status: 200, json: async () => ({ questId: 'another-quest', status: 'completed', xpAwarded: 999 }) })
   await assert.rejects(f.api.requestQuestCompletion('user_student', 'quest-1', {}), /invalid completion response/)
 })
+
+
+test('replacement helper posts the latest filters for the displayed quest with Firebase authentication', async () => {
+  const f = await fixture()
+  f.state.fetch = async (url, options) => {
+    f.calls.push(['fetch', url, options])
+    return { ok: true, status: 201, json: async () => structuredClone(savedExample) }
+  }
+  const result = await f.api.requestReplacementQuest(savedExample.assignment.userId, 'old-quest', payload)
+  assert.equal(result.quest.id, savedExample.quest.id)
+  const [, url, options] = f.calls[1]
+  assert.equal(url, 'http://localhost:8000/quests/old-quest/replace')
+  assert.equal(options.headers.Authorization, 'Bearer firebase-id-token')
+  assert.deepEqual(JSON.parse(options.body), payload)
+  for (const response of [savedExample, { ...savedExample, reusedExisting: true }]) {
+    f.state.fetch = async () => ({ ok: true, status: 201, json: async () => structuredClone(response) })
+    await assert.rejects(f.api.requestReplacementQuest(savedExample.assignment.userId, savedExample.quest.id, payload), /invalid replacement/)
+  }
+})
+
+test('stale replacement errors retain HTTP 409 for actionable UI feedback', async () => {
+  const f = await fixture()
+  f.state.fetch = async () => ({ ok: false, status: 409, json: async () => ({ detail: 'Your current quest changed. Reopen it before generating another.' }) })
+  await assert.rejects(f.api.requestReplacementQuest('example-user', 'old-quest', payload), (error) => error.status === 409 && /Reopen/.test(error.message))
+})

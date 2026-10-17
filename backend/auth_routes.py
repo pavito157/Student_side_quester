@@ -22,7 +22,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 def frontend_origins():
     origins = [value.strip().rstrip("/") for value in os.environ.get(
-        "FRONTEND_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173",
+        "FRONTEND_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174",
     ).split(",") if value.strip()]
     if not origins or any(value == "*" or urlsplit(value).scheme not in ("http", "https")
                           or not urlsplit(value).netloc for value in origins):

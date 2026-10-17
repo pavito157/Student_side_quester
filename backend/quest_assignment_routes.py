@@ -10,7 +10,7 @@ from typing import Optional
 from .firebase_helpers import bearer, current_uid, get_db
 from .quest_generation import generate_preview, get_destination_resolver
 from .request_timing import record_timing
-from .quest_persistence import assign_generated_quest, get_current_assignment
+from .quest_persistence import assign_generated_quest, get_current_assignment, replace_generated_quest
 from .quest_contracts import (
     AssignQuestRequest, NormalizedQuestPreferences, QuestPreviewResponse, TestQuestPreview,
     GenerateQuestRequest, GeneratedQuestResponse,
@@ -129,3 +129,17 @@ def current_assignment(request: Request, response: Response, uid: str = Depends(
     response.headers["Cache-Control"] = "no-store"
     with record_timing(getattr(request.state, "quest_timings", None), "lookup"):
         return get_current_assignment(get_db(), uid)
+
+
+@router.post("/quests/{quest_id}/replace", response_model=AssignQuestResponse, status_code=201,
+             summary="Generate another quest and skip the displayed active quest without XP",
+             responses={409: {"description": "Displayed quest is no longer active; reopen the current quest"}})
+def replace_assignment(
+    quest_id: str, request: Request, response: Response,
+    payload: GenerateQuestRequest,
+    uid: str = Depends(timed_current_uid), resolver=Depends(get_destination_resolver),
+):
+    result = replace_generated_quest(get_db(), uid, quest_id, payload.normalize(), resolver,
+                                     timings=getattr(request.state, "quest_timings", None))
+    response.headers["Cache-Control"] = "no-store"
+    return result

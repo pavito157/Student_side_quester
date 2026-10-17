@@ -222,6 +222,18 @@ export async function requestAssignedQuest(
   return result
 }
 
+// Replace exactly the displayed active quest; no XP is awarded for skipping it.
+export async function requestReplacementQuest(
+  expectedUserId: string, questId: string, payload: GenerateQuestPayload, options: QuestRequestOptions = {},
+): Promise<SavedQuestResponse> {
+  if (!questId || questId.includes('/')) throw new Error('Choose a valid current quest.')
+  const result = await requestQuest(`/quests/${encodeURIComponent(questId)}/replace`, expectedUserId, payload, options)
+  if (!isSavedQuest(result, expectedUserId) || result.reusedExisting || result.quest.id === questId) {
+    throw new Error('The backend returned an invalid replacement assignment.')
+  }
+  return result
+}
+
 // Reload on page refresh. A successful JSON null means there is no active quest.
 export async function getCurrentQuest(
   expectedUserId: string, options: QuestRequestOptions = {},

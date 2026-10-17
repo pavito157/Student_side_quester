@@ -117,7 +117,7 @@ def _read_active(db, transaction, uid, user):
         data = snapshot.to_dict()
         if data.get("status") == "assigned":
             active.append(snapshot)
-        elif snapshot.id == pointer and data.get("status") != "completed":
+        elif snapshot.id == pointer and data.get("status") not in ("completed", "skipped"):
             raise HTTPException(409, "Current assignment state is invalid")
     legacy_snapshots = list(db.collection(ASSIGNMENTS).where(
         filter=FieldFilter("userId", "==", uid),
@@ -165,7 +165,7 @@ def get_current_assignment(db, uid):
     return _run_transaction(db, read)
 
 
-def save_verified_assignment(db, uid, preview, policy):
+def save_verified_assignment(db, uid, preview, policy, *, replace_quest_id=None):
     """Persist server-verified content only. UID must come from the token."""
     _check_uid(uid)
     try:
@@ -195,7 +195,14 @@ def save_verified_assignment(db, uid, preview, policy):
         if not user_snapshot.exists:
             raise HTTPException(409, "User profile no longer exists")
         existing = _read_active(db, transaction, uid, user_snapshot.to_dict())
-        if existing is not None:
+        if replace_quest_id is not None:
+            if existing is None or existing.quest.id != replace_quest_id:
+                raise HTTPException(409, "Your current quest changed. Reopen it before generating another.")
+            transaction.update(sidequests(db, uid).document(replace_quest_id), {
+                "status": "skipped", "isActive": False, "skippedAt": firestore.SERVER_TIMESTAMP,
+                "replacedByQuestId": quest_id,
+            })
+        elif existing is not None:
             return existing
         # Reading the same user document serializes competing creators; all
         # reads precede writes. The losing callback reuses the committed winner.
@@ -218,3 +225,24 @@ def assign_generated_quest(db, uid, preferences, resolver, timings=None):
     preview = generate_preview(preferences, resolver, timings=timings)
     with record_timing(timings, "save"):
         return save_verified_assignment(db, uid, preview, policy)
+
+
+def replace_generated_quest(db, uid, quest_id, preferences, resolver, timings=None):
+    """Generate first, then compare-and-swap only the displayed active assignment.
+
+    A concurrent replacement/completion wins safely; stale requests return 409.
+    Provider failures never skip the current quest. Skipping never awards XP.
+    """
+    _check_uid(uid)
+    if not _valid_id(quest_id):
+        raise HTTPException(400, "Invalid quest ID")
+    with record_timing(timings, "lookup"):
+        existing = get_current_assignment(db, uid)
+    if existing is None or existing.quest.id != quest_id:
+        raise HTTPException(409, "Your current quest changed. Reopen it before generating another.")
+    if resolver is None:
+        raise HTTPException(503, "Destination resolver is required before replacing your quest")
+    policy = get_assignment_policy()
+    preview = generate_preview(preferences, resolver, timings=timings, previous_quest=existing.quest)
+    with record_timing(timings, "save"):
+        return save_verified_assignment(db, uid, preview, policy, replace_quest_id=quest_id)

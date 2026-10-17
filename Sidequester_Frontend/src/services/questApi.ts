@@ -1,21 +1,17 @@
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+import { completeSidequest } from './sidequests'
 
 export type CompleteQuestResult = {
-  status: 'completed' | 'already_completed'
-  xp_awarded: number
+  status: 'completed'
+  xpAwarded: number
 }
 
+// Compatibility helper for the teammate's reusable button. The existing service
+// obtains fresh GPS, exchanges no Clerk token here, and authenticates with the
+// same Firebase ID-token helper and VITE_API_BASE_URL as every other quest call.
 export async function completeQuest(
-  assignedQuestId: string,
-  token: string,
+  expectedUserId: string,
+  questId: string,
 ): Promise<CompleteQuestResult> {
-  const response = await fetch(
-    `${API_URL}/quests/${encodeURIComponent(assignedQuestId)}/complete`,
-    { method: 'POST', headers: { Authorization: `Bearer ${token}` } },
-  )
-  if (!response.ok) {
-    const error = await response.json().catch(() => null)
-    throw new Error(error?.detail ?? 'Could not complete quest')
-  }
-  return response.json()
+  const xpAwarded = await completeSidequest(expectedUserId, questId)
+  return { status: 'completed', xpAwarded }
 }

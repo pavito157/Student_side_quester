@@ -6,6 +6,10 @@ import unittest
 from collections import Counter
 from unittest.mock import MagicMock, patch
 
+from fastapi import HTTPException
+from fastapi.security import HTTPAuthorizationCredentials
+from fastapi.middleware.cors import CORSMiddleware
+
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
@@ -63,6 +67,65 @@ class BackendMergeTests(unittest.TestCase):
             get_db.assert_called_once_with()
         # Restore exported aliases after patching, for other tests/importers.
         importlib.reload(module)
+
+    def test_compatibility_auth_uses_firebase_dependency_without_second_token_policy(self):
+        module = importlib.import_module("auth")
+        self.assertIs(module.get_current_user_id, firebase_helpers.current_uid)
+        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="firebase-test-token")
+        self.assertEqual(module.get_current_user_id(credentials), "user_student")
+        firebase_helpers.auth.verify_id_token.assert_called_with("firebase-test-token", check_revoked=True)
+        from firebase_admin import auth
+        firebase_helpers.auth.verify_id_token.side_effect = auth.InvalidIdTokenError("Invalid token")
+        with self.assertRaises(HTTPException) as caught:
+            module.get_current_user_id(credentials)
+        self.assertEqual(caught.exception.status_code, 401)
+
+    def test_compatibility_xp_helper_requires_gps_and_delegates_to_canonical_transaction(self):
+        module = importlib.import_module("xp_service")
+        with patch.object(module, "get_db") as get_db, patch.object(module, "complete_quest") as complete:
+            with self.assertRaises(TypeError):
+                module.complete_assigned_quest("user_student", "quest-id")
+            get_db.assert_not_called()
+            result = {"status": "completed", "xpAwarded": 40}
+            complete.return_value = result
+            self.assertIs(module.complete_assigned_quest("user_student", "quest-id", 29.65, -82.34, 8,
+                                                       db=self.db, max_accuracy=35), result)
+            complete.assert_called_once_with(self.db, "user_student", "quest-id", 29.65, -82.34, 8, 35)
+            get_db.assert_not_called()
+
+    def test_single_cors_layer_allows_local_hostnames_and_preserves_diagnostics(self):
+        layers = [item for item in app.user_middleware if item.cls is CORSMiddleware]
+        self.assertEqual(len(layers), 1)
+        for origin in ["http://localhost:5173", "http://127.0.0.1:5173",
+                       "http://localhost:5174", "http://127.0.0.1:5174"]:
+            response = self.client.options("/quests/example/complete", headers={
+                "Origin": origin, "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "authorization,content-type",
+            })
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.headers.get("access-control-allow-origin"), origin)
+        response = self.client.get("/health", headers={"Origin": "http://127.0.0.1:5173"})
+        self.assertIn("Server-Timing", response.headers.get("access-control-expose-headers", ""))
+
+    def test_custom_origin_configuration_is_shared_by_cors_and_clerk_bridge(self):
+        from backend.auth_routes import frontend_origins
+        from fastapi import FastAPI
+        with patch.dict("os.environ", {"FRONTEND_ORIGINS": "https://preview.example"}):
+            configured = FastAPI()
+            configured.add_middleware(CORSMiddleware, allow_origins=frontend_origins(),
+                                      allow_methods=["POST"], allow_headers=["Authorization", "Content-Type"])
+            with TestClient(configured) as client:
+                for origin, expected in [("https://preview.example", 200), ("http://localhost:5173", 400)]:
+                    response = client.options("/quests/assign", headers={
+                        "Origin": origin, "Access-Control-Request-Method": "POST",
+                        "Access-Control-Request-Headers": "authorization,content-type",
+                    })
+                    self.assertEqual(response.status_code, expected)
+
+    def test_completion_requires_gps_body_even_with_valid_authentication(self):
+        response = self.client.post("/quests/example/complete", headers=self.headers)
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["detail"][0]["loc"], ["body"])
 
 
 if __name__ == "__main__":

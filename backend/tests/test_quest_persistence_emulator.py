@@ -318,6 +318,42 @@ class PersistenceEmulatorTests(unittest.TestCase):
             self.assert_xp()
             ref.set(saved)
 
+    def test_teammate_completion_helper_keeps_gps_dorm_awards_and_replay_protection(self):
+        from xp_service import complete_assigned_quest
+        first = self.create()
+        def finish(latitude=29.65, longitude=-82.34, accuracy=10):
+            return complete_assigned_quest(self.uid, first.quest.id, latitude, longitude, accuracy, db=self.db)
+        for location in [(0, 0, 10), (29.65, -82.34, 100)]:
+            with self.assertRaises(CompletionError) as caught:
+                finish(*location)
+            self.assertEqual(caught.exception.status_code, 400)
+            self.assert_xp()
+        user = self.db.collection("Users").document(self.uid)
+        user.update({"dormId": None})
+        with self.assertRaises(CompletionError) as caught:
+            finish()
+        self.assertEqual(caught.exception.status_code, 409)
+        self.assert_xp()
+        user.update({"dormId": self.dorm_id})
+        def complete_once(_):
+            try:
+                return finish()
+            except CompletionError as error:
+                return error.status_code
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(complete_once, range(2)))
+        success = [result for result in results if isinstance(result, dict)]
+        self.assertEqual(len(success), 1)
+        self.assertIn(409, results)
+        self.assertEqual(success[0]["xpAwarded"], 25)
+        self.assertNotIn("xp_awarded", success[0])
+        self.assert_xp(35, 125)
+        saved = persistence.sidequests(self.db, self.uid).document(first.quest.id).get().to_dict()
+        self.assertEqual(saved["status"], "completed")
+        self.assertFalse(saved["isActive"])
+        self.assertEqual(saved["xpAwarded"], 25)
+        self.assertEqual(list(user.collection("assignedQuests").stream()), [])
+
     def test_nested_assignment_is_private_and_prepared_requests_are_not_quests(self):
         persistence.sidequests(self.db, self.uid).document("old-preview").set({
             "status": "prepared", "isActive": True, "xpValue": 500,
@@ -333,6 +369,125 @@ class PersistenceEmulatorTests(unittest.TestCase):
         with self.assertRaises(CompletionError):
             complete_quest(self.db, "someone-else", first.quest.id, 29.65, -82.34, 10)
         self.assert_xp()
+
+    def replacement(self, quest_id):
+        return persistence.replace_generated_quest(self.db, self.uid, quest_id, self.preferences, self.resolver)
+
+    def use_new_activity(self):
+        self.provider.return_value = self.proposal.model_copy(update={
+            "title": "Different challenge", "description": "Invent a short movement sequence.",
+            "steps": ["Perform three gentle movements in order."],
+        })
+
+    def test_replacement_atomically_skips_old_quest_preserves_history_and_awards_no_xp(self):
+        first = self.create()
+        self.use_new_activity()
+        second = self.replacement(first.quest.id)
+        self.assertNotEqual(first.quest.id, second.quest.id)
+        self.assertFalse(second.reusedExisting)
+        self.assertEqual(second.assignment.xpAwarded, 0)
+        old = persistence.sidequests(self.db, self.uid).document(first.quest.id).get().to_dict()
+        self.assertEqual(old["status"], "skipped")
+        self.assertFalse(old["isActive"])
+        self.assertEqual(old["xpAwarded"], 0)
+        self.assertIsNone(old["completedAt"])
+        self.assertIsNotNone(old["skippedAt"])
+        self.assertEqual(old["replacedByQuestId"], second.quest.id)
+        self.assertEqual(persistence.get_current_assignment(self.db, self.uid).quest.id, second.quest.id)
+        self.assertEqual(len(self.records()), 2)
+        with self.assertRaises(CompletionError) as caught:
+            complete_quest(self.db, self.uid, first.quest.id, 29.65, -82.34, 10)
+        self.assertEqual(caught.exception.status_code, 409)
+        self.assert_xp()
+        complete_quest(self.db, self.uid, second.quest.id, 29.65, -82.34, 10)
+        self.assertIsNone(persistence.get_current_assignment(self.db, self.uid))
+        self.assert_xp(35, 125)
+
+    def test_replacement_generation_and_database_failures_leave_old_quest_active(self):
+        first = self.create()
+        self.provider.side_effect = HTTPException(504, "Provider timeout")
+        with self.assertRaises(HTTPException):
+            self.replacement(first.quest.id)
+        self.provider.side_effect = None
+        self.use_new_activity()
+        original = self.db.transaction
+        def broken_transaction(*args, **kwargs):
+            transaction = original(*args, **kwargs)
+            create = transaction.create
+            def fail(ref, data):
+                create(ref, data)
+                raise ServiceUnavailable("Failure after queued skip and create")
+            transaction.create = fail
+            return transaction
+        with patch.object(self.db, "transaction", side_effect=broken_transaction):
+            with self.assertRaises(HTTPException) as caught:
+                self.replacement(first.quest.id)
+            self.assertEqual(caught.exception.status_code, 503)
+        old = persistence.sidequests(self.db, self.uid).document(first.quest.id).get().to_dict()
+        self.assertEqual(old["status"], "assigned")
+        self.assertNotIn("skippedAt", old)
+        self.assertEqual(len(self.records()), 1)
+        self.assertEqual(persistence.get_current_assignment(self.db, self.uid).quest.id, first.quest.id)
+        self.assert_xp()
+
+    def test_concurrent_replacements_create_one_successor_and_reject_stale_requests(self):
+        first = self.create()
+        self.use_new_activity()
+        replacement_proposal = self.provider.return_value
+        barrier = threading.Barrier(2)
+        def generate(*args, **kwargs):
+            barrier.wait(timeout=15)
+            return replacement_proposal
+        self.provider.side_effect = generate
+        def replace_once(_):
+            try:
+                return self.replacement(first.quest.id)
+            except HTTPException as error:
+                return error.status_code
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(replace_once, range(2)))
+        self.assertEqual(sum(isinstance(result, persistence.AssignQuestResponse) for result in results), 1)
+        self.assertIn(409, results)
+        self.assertEqual(len(self.records()), 2)
+        self.assertEqual(sum(item.to_dict()["status"] == "assigned" for item in self.records()), 1)
+        self.assert_xp()
+        self.provider.reset_mock()
+        with self.assertRaises(HTTPException) as caught:
+            self.replacement(first.quest.id)
+        self.assertEqual(caught.exception.status_code, 409)
+        self.provider.assert_not_called()
+
+    def test_completion_during_generation_is_preserved_and_cannot_be_skipped(self):
+        first = self.create()
+        self.use_new_activity()
+        replacement_proposal = self.provider.return_value
+        def generate(*args, **kwargs):
+            complete_quest(self.db, self.uid, first.quest.id, 29.65, -82.34, 10)
+            return replacement_proposal
+        self.provider.side_effect = generate
+        with self.assertRaises(HTTPException) as caught:
+            self.replacement(first.quest.id)
+        self.assertEqual(caught.exception.status_code, 409)
+        self.assertEqual(len(self.records()), 1)
+        self.assertEqual(self.records()[0].to_dict()["status"], "completed")
+        self.assertIsNone(persistence.get_current_assignment(self.db, self.uid))
+        self.assert_xp(35, 125)
+
+    def test_replacement_endpoint_returns_same_json_and_skipped_history(self):
+        with self.wired_resolver_client() as (client, _lookup, _place):
+            headers = {"Authorization": "Bearer test-token"}
+            body = {"location": "Anywhere", "time": {"selection": "60"}, "budget": {"selection": "0"}}
+            first = client.post("/quests/assign", json=body, headers=headers).json()
+            self.use_new_activity()
+            result = client.post(f"/quests/{first['quest']['id']}/replace", json=body, headers=headers)
+            self.assertEqual(result.status_code, 201, result.text)
+            self.assertEqual(result.json()["assignment"]["xpAwarded"], 0)
+            self.assertNotEqual(result.json()["quest"]["id"], first["quest"]["id"])
+            history = client.get("/me/quests?status=skipped", headers=headers)
+            self.assertEqual(history.status_code, 200)
+            self.assertEqual(len(history.json()["quests"]), 1)
+            self.assertEqual(history.json()["quests"][0]["questId"], first["quest"]["id"])
+            self.assert_xp()
 
     @contextmanager
     def wired_resolver_client(self):

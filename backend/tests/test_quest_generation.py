@@ -206,6 +206,58 @@ class GenerationTests(unittest.TestCase):
         self.assertNotIn("placeId", json.dumps(context))
         self.assertNotIn("xpReward", json.dumps(context))
 
+    def test_city_scope_and_adventure_rules_do_not_reselect_a_verified_destination(self):
+        self.http()
+        generation.call_gemini(self.preferences)
+        draft_body = json.loads(self.requests[-1].content)
+        draft_instruction = draft_body["systemInstruction"]["parts"][0]["text"]
+        self.assertIn("Gainesville, Florida city limits", draft_instruction)
+        self.assertIn("full street address", draft_instruction)
+        self.assertNotIn("University of Florida campus", draft_instruction)
+        self.proposal.pop("locationName")
+        self.proposal.pop("locationAddress")
+        self.http()
+        selected = SelectedDestination(**self.destination.model_dump(), locationAddress="Provider address")
+        generation.call_gemini(self.preferences, selected)
+        body = json.loads(self.requests[-1].content)
+        instruction = body["systemInstruction"]["parts"][0]["text"]
+        self.assertIn("Use only that place", instruction)
+        self.assertIn("Do not return location fields", instruction)
+        self.assertNotIn("full street address", instruction)
+        self.assertNotIn("Choose one real", instruction)
+        for rules in [draft_instruction, instruction]:
+            self.assertIn("not a generic visit", rules)
+            self.assertIn("measurable finished result", rules)
+            self.assertIn("cannot prove the activity was performed", rules)
+        # Prompt improvements must not change the response contract or latency controls.
+        self.assertEqual(body["generationConfig"]["candidateCount"], 1)
+        self.assertEqual(body["generationConfig"]["maxOutputTokens"], 1536)
+
+    def test_replacement_prompt_contains_activity_but_no_previous_identity_or_gps(self):
+        from types import SimpleNamespace
+        previous = SimpleNamespace(title="Old quest", description="Old challenge", steps=["Old action"],
+                                   id="private-quest-id", latitude=29.65, longitude=-82.34, xpReward=25)
+        self.proposal.pop("locationName")
+        self.proposal.pop("locationAddress")
+        self.http()
+        selected = SelectedDestination(**self.destination.model_dump(), locationAddress="Provider address")
+        generation.call_gemini(self.preferences, selected, previous_quest=previous)
+        body = json.loads(self.requests[-1].content)
+        context = json.loads(body["contents"][0]["parts"][0]["text"])
+        self.assertEqual(context["previousActivity"], {
+            "title": "Old quest", "description": "Old challenge", "steps": ["Old action"],
+        })
+        self.assertIn("different primary challenge", body["systemInstruction"]["parts"][0]["text"])
+        for forbidden in ["private-quest-id", "latitude", "xpReward"]:
+            self.assertNotIn(forbidden, json.dumps(context))
+
+    def test_identical_replacement_activity_is_rejected_before_persistence(self):
+        from types import SimpleNamespace
+        previous = SimpleNamespace(title="Old title", description=self.proposal["description"],
+                                   steps=[*self.proposal["steps"], "You're done when you have three labeled sketches."])
+        self.http()
+        self.assert_status(502, lambda: generation.generate_preview(self.preferences, previous_quest=previous))
+
     def test_time_budget_and_two_plus_hours_are_enforced(self):
         for time, budget, minutes, cost, valid in [
             ("60", "0", 60, 0, True), ("60", "0", 61, 0, False),

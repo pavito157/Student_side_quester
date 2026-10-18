@@ -147,13 +147,23 @@ function AccountRoutes() {
   }
 
   async function acceptOrganizationQuest(userId: string, organizationId: string, questId: string) {
-    if (userId !== user?.id) throw new Error('Your account changed. Reload the quest board and try again.')
-    const saved = await requestOrganizationQuest(userId, organizationId, questId)
-    const path = `/sidequests/${encodeURIComponent(saved.quest.id)}`
+    if (!activeRef.current || userId !== user?.id) throw new Error('Your account changed. Reload the quest board and try again.')
+    generationControllerRef.current?.abort()
+    const controller = new AbortController()
     const generationId = generationIdRef.current + 1
     generationIdRef.current = generationId
-    setCelebration({ id: generationId, path })
-    navigateTo(path)
+    generationControllerRef.current = controller
+    try {
+      const saved = await requestOrganizationQuest(userId, organizationId, questId, { signal: controller.signal })
+      if (!activeRef.current || controller.signal.aborted || generationIdRef.current !== generationId) return
+      const path = `/sidequests/${encodeURIComponent(saved.quest.id)}`
+      setCelebration({ id: generationId, path })
+      navigateTo(path)
+    } catch (error) {
+      if (!controller.signal.aborted && activeRef.current) throw error
+    } finally {
+      if (generationControllerRef.current === controller) generationControllerRef.current = null
+    }
   }
 
   return (

@@ -37,8 +37,7 @@ test('loads individual leaderboard from the backend with Firebase bearer token',
       ok: true,
       json: async () => ({
         leaderboard: [{ userId: 'user_1', username: 'Alex', xp: 42 }],
-        skippedUsers: 1,
-      }),
+          }),
     },
   })
 
@@ -57,8 +56,7 @@ test('loads dorm leaderboard from the backend', async () => {
       ok: true,
       json: async () => ({
         leaderboard: [{ dormId: 'broward', dormName: 'Broward Hall', xp: 120, memberCount: 4 }],
-        unassignedUsers: 2,
-      }),
+          }),
     },
   })
 

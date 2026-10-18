@@ -3,7 +3,6 @@
 These models do not mount routes, call Gemini, or read/write Firestore.
 """
 
-import re
 from typing import Annotated, List, Literal, Optional, Union
 
 from pydantic import (
@@ -208,8 +207,20 @@ class AssignQuestRequest(ContractModel):
     def normalized_location(self):
         # Accept the address-label link formatting from the emailed example.
         # Never follow user-supplied URLs or infer trustworthy coordinates here.
-        link = re.fullmatch(r"\[([^\]\r\n]+)\]\(https?://[^\s]+\)", self.location)
-        label = (link.group(1) if link else self.location).strip()
+        label = self.location
+        if label.startswith("[") and label.endswith(")"):
+            separator = label.find("](")
+            if separator > 1:
+                link_label = label[1:separator]
+                url = label[separator + 2:-1]
+                has_url_content = any(
+                    url.startswith(prefix) and len(url) > len(prefix)
+                    for prefix in ("https://", "http://")
+                )
+                if ("]" not in link_label and "\r" not in link_label and "\n" not in link_label
+                        and has_url_content and not any(character.isspace() for character in url)):
+                    label = link_label
+        label = label.strip()
         if label.lower() in ("", "any", "anywhere", "not selected"):
             return AnywhereLocation(mode="anywhere")
         return PlaceLocation(mode="place", label=label)

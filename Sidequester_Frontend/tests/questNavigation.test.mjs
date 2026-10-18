@@ -11,6 +11,7 @@ async function fixture(file = 'App.tsx', path = '/') {
   const f = { user: { id: 'alice' }, calls: [], navigations: [],
     assign: async () => saved('quest-1'), replace: async () => saved('quest-2'),
     preferences: async () => 'Nature', goals: async () => ['Explore'],
+    acceptOrganization: async () => saved('org-quest'),
     detailReplace: async () => {}, activeQuestCount: 1, activeQuests: [],
     sidequest: { id: 'quest-1', title: 'Existing quest', description: 'Existing activity', steps: ['Try it'],
       stepProofMethods: ['location'], verifiedPhotoSteps: [], skippedPhotoSteps: [],
@@ -58,11 +59,11 @@ async function fixture(file = 'App.tsx', path = '/') {
     if (name.endsWith('/colors')) return synthetic({ colors: {} })
     if (name.endsWith('/questAssignment')) return synthetic({
       MAX_ACTIVE_QUESTS: 3,
+      requestOrganizationQuest: async (...args) => { f.calls.push(['acceptOrganization', ...args]); return f.acceptOrganization(...args) },
       requestGeneratedQuest: async (...args) => { f.calls.push(['preview', ...args]); return { quest: { title: 'Guest challenge' }, saved: false } },
       getActiveQuests: async () => { f.reconciled = true; return [] },
       requestAssignedQuest: async (...args) => { f.calls.push(['assign', ...args]); return f.assign(...args) },
       requestAdditionalQuest: async (...args) => { f.calls.push(['replace', ...args]); return f.replace(...args) },
-      requestOrganizationQuest: async (...args) => { f.calls.push(['organization', ...args]); return f.assign(...args) },
     })
     if (name.endsWith('/userPreferences')) return synthetic({ getUserPreferences: (...args) => f.preferences(...args), getUserGoals: (...args) => f.goals(...args) })
     if (name.endsWith('/sidequests')) return synthetic({
@@ -298,4 +299,26 @@ test('welcome route contains the separate hero and main route goes directly to t
   const welcome = await fixture('App.tsx', '/welcome')
   assert.ok(welcome.props('CinematicHero'))
   assert.equal(welcome.props('HomePage'), undefined)
+})
+
+
+test('organization acceptance opens its saved quest without replacing existing quests', async () => {
+  const f = await fixture()
+  await f.props('HomePage').onAcceptOrganizationQuest('alice', 'club', 'gbm'); f.render()
+  assert.equal(f.calls[0][0], 'acceptOrganization')
+  assert.equal(f.calls[0][1], 'alice')
+  assert.equal(f.props('SidequestDetailPage').sidequestId, 'org-quest')
+  assert.ok(f.props('QuestConfetti'))
+})
+
+test('account changes abort organization acceptance and ignore the old account result', async () => {
+  const f = await fixture()
+  let resolve
+  f.acceptOrganization = () => new Promise((done) => { resolve = done })
+  const pending = f.props('HomePage').onAcceptOrganizationQuest('alice', 'club', 'gbm')
+  f.render(); const signal = f.calls[0][4].signal
+  f.user = { id: 'bob' }; f.render()
+  assert.equal(signal.aborted, true)
+  resolve(saved('alice-org-quest')); await pending; f.render()
+  assert.equal(f.navigations.includes('/sidequests/alice-org-quest'), false)
 })

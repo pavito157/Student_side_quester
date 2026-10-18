@@ -4,7 +4,7 @@ import { colors } from '../../constants/colors'
 import Header from '../../components/navigation/Header'
 import { AccentStrokes } from '../../components/decor/AdventureDecor'
 import QuestSlots from '../quests/components/QuestSlots'
-import OrganizationQuestBoard from '../organization-quests/OrganizationQuestBoard'
+import GlobalQuests from '../quests/detail/GlobalQuests'
 import QuestFilterButtons, { type QuestFilters } from '../quest-generation/QuestFilterButtons'
 import GoalsSidebar from '../preferences/GoalsSidebar'
 import UserPreferencesSummary from '../preferences/UserPreferencesSummary'
@@ -128,10 +128,10 @@ function HomePage({
               <UserPreferencesSummary onEdit={() => openSettings('preferences')} />
             </section>
           </div>
-          <OrganizationQuestBoard
-            userId={userId ?? null}
+          <GlobalQuests
+            key={userId ?? 'guest'}
             activeQuests={currentActiveSidequests.sidequests}
-            onAccept={onAcceptOrganizationQuest}
+            onAcceptOrganizationQuest={onAcceptOrganizationQuest}
           />
         </div>
       </main>

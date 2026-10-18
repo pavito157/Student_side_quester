@@ -93,6 +93,10 @@ residence catalog, including “Off campus.”
   quest text and the submitted image; malformed review output fails closed.
   Global-event GPS check-ins currently award no XP until attendance can be
   verified by a trusted server-side signal.
+- Made quest generation more resilient to estimate mistakes: the backend states
+  normalized time and budget limits explicitly in the Gemini prompt and gives
+  one bounded correction attempt with the exact failed estimate before returning
+  an error. The server still enforces the requested limits after the retry.
 - Connected Clerk sign-in to Firebase Auth with a backend-verified identity
   bridge, then use Firebase ID tokens for authenticated API calls.
 - Built individual and residence leaderboards, organization-published quest

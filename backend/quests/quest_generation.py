@@ -237,7 +237,9 @@ def _proof_mode_instructions(proof_options):
     )
 
 
-def call_gemini(preferences, selected_destination=None, *, previous_quest=None):
+def call_gemini(
+    preferences, selected_destination=None, *, previous_quest=None, validation_feedback=None,
+):
     key = os.environ.get("GEMINI_API_KEY", "").strip()
     model = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash").strip()
     if not key:
@@ -330,6 +332,43 @@ def call_gemini(preferences, selected_destination=None, *, previous_quest=None):
         + (_proof_mode_instructions(preferences.proofOptions)
            if "recreation" not in preferences.proofOptions else "")
     )
+    time = preferences.time
+    if time.minMinutes is not None or time.maxMinutes is not None:
+        time_bounds = []
+        if time.minMinutes is not None:
+            time_bounds.append(f"at least {time.minMinutes} minutes")
+        if time.maxMinutes is not None:
+            time_bounds.append(f"no more than {time.maxMinutes} minutes")
+        instruction += (
+            "\nHARD ACTIVITY-TIME LIMIT: estimatedMinutes must be "
+            + " and ".join(time_bounds)
+            + ". Estimate only time spent doing the activity, excluding travel. "
+            "Keep both the plan and its estimate inside this limit; do not use a "
+            "rounded estimate outside the bound."
+        )
+    budget = preferences.budget
+    if budget.maxDollars is not None or budget.minDollars > 0:
+        budget_bounds = []
+        if budget.minDollars > 0:
+            budget_bounds.append(f"at least ${budget.minDollars:g}")
+        if budget.maxDollars is not None:
+            comparator = "less than" if budget.maxExclusive else "no more than"
+            budget_bounds.append(f"{comparator} ${budget.maxDollars:g}")
+        instruction += (
+            "\nHARD ACTIVITY-BUDGET LIMIT: estimatedCostDollars must be "
+            + " and ".join(budget_bounds)
+            + ". Estimate the plausible total activity cost, not travel. Keep the "
+            "plan and estimate inside this limit. Do not invent admission, purchase "
+            "prices, or spending merely to reach a minimum; choose a feasible activity "
+            "whose realistic cost fits the requested range."
+        )
+    if validation_feedback:
+        instruction += (
+            "\nCORRECTION REQUIRED: Your previous draft did not satisfy the backend's "
+            "hard time/budget checks. Revise the complete quest, not just the numbers. "
+            f"Feedback: {validation_feedback} The revised plan and its estimates must "
+            "comply with every hard limit above. Return only the revised JSON object."
+        )
     body = {
         "systemInstruction": {"parts": [{"text": instruction}]},
         "contents": [{"role": "user", "parts": [{"text": json.dumps(context)}]}],
@@ -345,8 +384,8 @@ def call_gemini(preferences, selected_destination=None, *, previous_quest=None):
         body["generationConfig"]["thinkingConfig"] = {
             "thinkingLevel": "MINIMAL" if model == "gemini-3.5-flash-lite" else "LOW",
         }
-    # Existing httpx dependency avoids a new SDK/runtime requirement. No retries:
-    # a caller can retry explicitly without hidden duplicate billable generations.
+    # Existing httpx dependency avoids a new SDK/runtime requirement. Constraint
+    # correction retries are explicit at the generation pipeline boundary.
     try:
         response = get_gemini_http_client().post(
             f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
@@ -452,6 +491,69 @@ def call_gemini(preferences, selected_destination=None, *, previous_quest=None):
         ) from None
 
 
+def _apply_selected_destination(proposal, selected, preferences):
+    if selected is None:
+        return proposal, None
+
+    if isinstance(selected, list):
+        candidate_indexes = proposal.routeCandidateIndexes
+        if not candidate_indexes or any(index >= len(selected) for index in candidate_indexes):
+            raise HTTPException(502, "Generated quest selected invalid route places")
+        selected = [selected[index] for index in candidate_indexes]
+        proposal = proposal.model_copy(update={"routeCandidateIndexes": []})
+
+    primary = selected[0] if isinstance(selected, list) else selected
+    route_count = len(selected) if isinstance(selected, list) else 1
+    if (len(proposal.stepDestinationIndexes) != len(proposal.steps)
+            or any(index >= route_count for index in proposal.stepDestinationIndexes)
+            or proposal.stepDestinationIndexes != sorted(proposal.stepDestinationIndexes)
+            or set(proposal.stepDestinationIndexes) != set(range(route_count))):
+        raise HTTPException(502, "Generated quest steps do not match its verified route")
+    if isinstance(selected, list):
+        from backend.quest_route_ordering import order_new_quest
+        try:
+            proposal, selected = order_new_quest(
+                proposal, selected, getattr(preferences.location, "coordinates", None),
+            )
+        except ValueError:
+            raise HTTPException(
+                502, "Generated quest has invalid activity dependencies or route mappings. Try again.",
+            ) from None
+        primary = selected[0]
+    proposal = proposal.model_copy(update={
+        "locationName": primary.locationName,
+        "locationAddress": primary.locationAddress,
+    })
+    return proposal, selected
+
+
+def _estimate_constraint_feedback(preferences, proposal):
+    time, budget = preferences.time, preferences.budget
+    violations = []
+    if time.minMinutes is not None and proposal.estimatedMinutes < time.minMinutes:
+        violations.append(
+            f"estimatedMinutes was {proposal.estimatedMinutes}, below the minimum of {time.minMinutes}"
+        )
+    if time.maxMinutes is not None and proposal.estimatedMinutes > time.maxMinutes:
+        violations.append(
+            f"estimatedMinutes was {proposal.estimatedMinutes}, above the maximum of {time.maxMinutes}"
+        )
+    if proposal.estimatedCostDollars < budget.minDollars:
+        violations.append(
+            f"estimatedCostDollars was ${proposal.estimatedCostDollars:g}, below the minimum of ${budget.minDollars:g}"
+        )
+    if budget.maxDollars is not None and (
+        proposal.estimatedCostDollars > budget.maxDollars
+        or budget.maxExclusive and proposal.estimatedCostDollars == budget.maxDollars
+    ):
+        comparator = "exclusive maximum" if budget.maxExclusive else "maximum"
+        violations.append(
+            f"estimatedCostDollars was ${proposal.estimatedCostDollars:g}, "
+            f"outside the {comparator} of ${budget.maxDollars:g}"
+        )
+    return "; ".join(violations)
+
+
 def generate_preview(preferences: NormalizedQuestPreferences,
                      resolver: Optional[DestinationResolver] = None, timings=None, previous_quest=None):
     from backend.quests.destination_resolver import VerifiedDestinationSelector, NoEligibleDestination
@@ -471,51 +573,33 @@ def generate_preview(preferences: NormalizedQuestPreferences,
             raise HTTPException(503, "Destination discovery temporarily unavailable") from None
         except (ValidationError, TypeError):
             raise HTTPException(502, "Destination selector returned an invalid result") from None
+    selected_candidates = selected
     with record_timing(timings, "gemini"):
-        if previous_quest is not None:
-            proposal = call_gemini(preferences, selected, previous_quest=previous_quest)
-        else:
-            proposal = (call_gemini(preferences, selected) if selected is not None
-                        else call_gemini(preferences))
+        proposal = call_gemini(preferences, selected_candidates, previous_quest=previous_quest)
+    proposal, selected = _apply_selected_destination(proposal, selected_candidates, preferences)
+    estimate_feedback = _estimate_constraint_feedback(preferences, proposal)
+    if estimate_feedback:
+        with record_timing(timings, "gemini"):
+            proposal = call_gemini(
+                preferences,
+                selected_candidates,
+                previous_quest=previous_quest,
+                validation_feedback=estimate_feedback,
+            )
+        proposal, selected = _apply_selected_destination(proposal, selected_candidates, preferences)
+        estimate_feedback = _estimate_constraint_feedback(preferences, proposal)
+        if estimate_feedback:
+            raise HTTPException(
+                502,
+                "Gemini could not produce an activity within the requested time/budget limits "
+                "after one correction. Try a wider limit or different preferences.",
+            )
+
     if previous_quest is not None:
         normalize = lambda text: " ".join(text.casefold().split())
         if (normalize(proposal.description) == normalize(previous_quest.description)
                 and [normalize(step) for step in proposal.steps] == [normalize(step) for step in previous_quest.steps]):
             raise HTTPException(502, "Generated quest repeated your current activity. Try generating another again.")
-    if selected is not None:
-        if isinstance(selected, list):
-            candidate_indexes = proposal.routeCandidateIndexes
-            if (not candidate_indexes or any(index >= len(selected) for index in candidate_indexes)):
-                raise HTTPException(502, "Generated quest selected invalid route places")
-            selected = [selected[index] for index in candidate_indexes]
-            proposal = proposal.model_copy(update={"routeCandidateIndexes": []})
-        # Even an injected/test provider cannot overwrite canonical venue fields.
-        primary = selected[0] if isinstance(selected, list) else selected
-        route_count = len(selected) if isinstance(selected, list) else 1
-        if (len(proposal.stepDestinationIndexes) != len(proposal.steps)
-                or any(index >= route_count for index in proposal.stepDestinationIndexes)
-                or proposal.stepDestinationIndexes != sorted(proposal.stepDestinationIndexes)
-                or set(proposal.stepDestinationIndexes) != set(range(route_count))):
-            raise HTTPException(502, "Generated quest steps do not match its verified route")
-        if isinstance(selected, list):
-            from backend.quest_route_ordering import order_new_quest
-            try:
-                proposal, selected = order_new_quest(
-                    proposal, selected, getattr(preferences.location, "coordinates", None),
-                )
-            except ValueError:
-                raise HTTPException(502, "Generated quest has invalid activity dependencies or route mappings. Try again.") from None
-            primary = selected[0]
-        proposal = proposal.model_copy(update={"locationName": primary.locationName,
-                                               "locationAddress": primary.locationAddress})
-    minutes, cost = proposal.estimatedMinutes, proposal.estimatedCostDollars
-    time, budget = preferences.time, preferences.budget
-    if (time.minMinutes is not None and minutes < time.minMinutes
-            or time.maxMinutes is not None and minutes > time.maxMinutes
-            or cost < budget.minDollars
-            or budget.maxDollars is not None and (
-                cost > budget.maxDollars or budget.maxExclusive and cost == budget.maxDollars)):
-        raise HTTPException(502, "Generated quest did not meet the activity time or budget limits. Try again.")
 
     destination, destinations, distance = None, [], None
     if selected is not None:

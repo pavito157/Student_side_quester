@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useUser, SignInButton } from '@clerk/clerk-react'
 import { getFirebaseIdToken } from '../../../services/firebaseSession'
-import { createGlobalQuest, getGlobalQuests, type GlobalQuestFeed, type GlobalQuest } from '../../../services/globalQuests'
+import { createGlobalQuest, getGlobalQuests, getPublicGlobalQuests,
+  type GlobalQuestFeed, type GlobalQuest, type PublicGlobalQuest } from '../../../services/globalQuests'
 import { navigateTo } from '../../../services/navigation'
 import WhereButton from '../../quest-generation/inputs/buttons/WhereButton'
 import OrganizationQuestBoard from '../../organization-quests/OrganizationQuestBoard'
+import GlobalQuestMap from './GlobalQuestMap'
 import OrganizationAdmin from './OrganizationAdmin'
 import type { ActiveSidequest } from '../../../types/sidequest'
 
@@ -22,6 +24,8 @@ export default function GlobalQuests({ activeQuests = [], onAcceptOrganizationQu
   const uid = user?.id
   const [feed, setFeed] = useState<GlobalQuestFeed | null>(null)
   const [feedUid, setFeedUid] = useState<string>()
+  const [mapQuests, setMapQuests] = useState<PublicGlobalQuest[] | null>(null)
+  const [mapError, setMapError] = useState('')
   const [attempt, setAttempt] = useState(0)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -44,6 +48,22 @@ export default function GlobalQuests({ activeQuests = [], onAcceptOrganizationQu
       .catch((reason) => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : 'Could not load campus events.') })
     return () => controller.abort()
   }, [uid, attempt])
+  useEffect(() => {
+    const controller = new AbortController()
+    getPublicGlobalQuests(controller.signal)
+      .then((quests) => {
+        if (!controller.signal.aborted) {
+          setMapQuests(quests)
+          setMapError('')
+        }
+      })
+      .catch((reason: unknown) => {
+        if (!controller.signal.aborted) {
+          setMapError(reason instanceof Error ? reason.message : 'Could not load event locations.')
+        }
+      })
+    return () => controller.abort()
+  }, [attempt])
   const currentFeed = feedUid === uid ? feed : null
   async function accept(event: GlobalQuest) {
     if (!uid || lock.current) return
@@ -84,7 +104,7 @@ export default function GlobalQuests({ activeQuests = [], onAcceptOrganizationQu
     <h2 id="global-quests-title" className="mt-1 text-xl font-bold">Campus quest board</h2>
     <p className="mt-2 text-sm text-muted">Events and activities from campus organizations and sponsors. Find something worth showing up for.</p>
     <button type="button" className="hud-button mt-4 px-3 py-2 text-sm" disabled={Boolean(busy)} onClick={() => setAttempt((value) => value + 1)}>Refresh board</button>
-    {!uid ? <div className="mt-4"><SignInButton mode="modal"><button className="hud-button px-4 py-2 font-semibold">Sign in to see campus events</button></SignInButton></div> : <>
+    {!uid ? <div className="mt-4"><SignInButton mode="modal"><button className="hud-button px-4 py-2 font-semibold">Sign in to add event quests</button></SignInButton></div> : <>
       {!currentFeed && !error && <p role="status" className="mt-4 text-sm text-muted">Loading campus events…</p>}
       {currentFeed?.quests.length === 0 && <p className="mt-4 text-sm text-muted">No upcoming events yet. Check back soon for your next campus adventure.</p>}
       <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -111,6 +131,13 @@ export default function GlobalQuests({ activeQuests = [], onAcceptOrganizationQu
       </div>
       <p className="mt-3 text-xs text-muted">Event quests use one of your three slots. Everyone receives the same event tasks; check in at the venue during its scheduled time.</p>
     </>}
+    <div className="mt-5">
+      <h3 className="text-sm font-bold">Explore event locations</h3>
+      <p className="mt-1 text-xs text-muted">Select an orange XP marker to see event details and directions.</p>
+      {mapQuests === null && !mapError && <p role="status" className="mt-3 text-sm text-muted">Loading event locations…</p>}
+      {mapError && <p role="alert" className="mt-3 text-sm" style={{ color: 'var(--color-error)' }}>Event locations could not load: {mapError}</p>}
+      {mapQuests && <GlobalQuestMap quests={mapQuests} />}
+    </div>
     <OrganizationQuestBoard userId={uid ?? null} activeQuests={activeQuests}
       onAccept={onAcceptOrganizationQuest} refreshKey={attempt} />
     {uid && <>

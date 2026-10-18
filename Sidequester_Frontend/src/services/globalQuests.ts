@@ -5,6 +5,10 @@ export type GlobalQuest = {
   verificationMode: 'gps' | 'honor'; graceMinutes: number; completed: boolean
   source?: 'uf-calendar' | null; sourceUrl?: string | null
 }
+export type PublicGlobalQuest = Pick<GlobalQuest,
+  'id' | 'organizationName' | 'title' | 'description' | 'locationName'
+  | 'latitude' | 'longitude' | 'startsAt' | 'endsAt' | 'xpReward' | 'graceMinutes'
+>
 export type GlobalQuestFeed = {
   adminRole: 'explicit_admin' | 'regular_admin' | 'member'
   quests: GlobalQuest[]
@@ -16,10 +20,13 @@ export type NewGlobalQuest = {
   latitude: number; longitude: number; startsAt: string; endsAt: string
 }
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000').replace(/\/$/, '')
-async function request(token: string, path: string, method: string, body?: unknown, signal?: AbortSignal) {
+async function request(token: string | null, path: string, method: string, body?: unknown, signal?: AbortSignal) {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     method, signal, credentials: 'omit',
-    headers: { Authorization: `Bearer ${token}`, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+    },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   })
   const data = await response.json().catch(() => null)
@@ -32,11 +39,30 @@ export async function getGlobalQuests(token: string, signal?: AbortSignal): Prom
   if (!['explicit_admin','regular_admin','member'].includes(data.adminRole)
     || !Array.isArray(data.quests) || !Array.isArray(data.organizations) || !data.defaults
     || !data.quests.every((quest: GlobalQuest) => typeof quest.id === 'string'
-      && typeof quest.title === 'string' && Number.isInteger(quest.xpReward)
+      && typeof quest.title === 'string'
+      && typeof quest.locationName === 'string'
+      && typeof quest.latitude === 'number' && Number.isFinite(quest.latitude) && Math.abs(quest.latitude) <= 90
+      && typeof quest.longitude === 'number' && Number.isFinite(quest.longitude) && Math.abs(quest.longitude) <= 180
+      && Number.isInteger(quest.xpReward)
       && Number.isFinite(Date.parse(quest.startsAt)) && Number.isFinite(Date.parse(quest.endsAt)))) {
     throw new Error('Invalid global quest feed.')
   }
   return data
+}
+export async function getPublicGlobalQuests(signal?: AbortSignal): Promise<PublicGlobalQuest[]> {
+  const data = await request(null, '/global-quests/public', 'GET', undefined, signal)
+  if (!Array.isArray(data) || !data.every((quest: PublicGlobalQuest) =>
+    typeof quest.id === 'string' && typeof quest.organizationName === 'string'
+      && typeof quest.title === 'string' && typeof quest.description === 'string'
+      && typeof quest.locationName === 'string'
+      && typeof quest.latitude === 'number' && Number.isFinite(quest.latitude) && Math.abs(quest.latitude) <= 90
+      && typeof quest.longitude === 'number' && Number.isFinite(quest.longitude) && Math.abs(quest.longitude) <= 180
+      && Number.isInteger(quest.xpReward)
+      && Number.isFinite(Date.parse(quest.startsAt)) && Number.isFinite(Date.parse(quest.endsAt))
+      && Number.isInteger(quest.graceMinutes) && quest.graceMinutes >= 0 && quest.graceMinutes <= 60)) {
+    throw new Error('Invalid public global quest feed.')
+  }
+  return data as PublicGlobalQuest[]
 }
 export async function createGlobalQuest(token: string, payload: NewGlobalQuest) {
   return request(token, '/global-quests', 'POST', payload)

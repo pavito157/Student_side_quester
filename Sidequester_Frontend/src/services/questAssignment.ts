@@ -138,10 +138,49 @@ export type OrganizationQuestBoardItem = {
   summary: string
   details: string
   timeLabel: string
+  mapLocation: {
+    name: string
+    latitude: number
+    longitude: number
+  } | null
+  mapLocationStatus: 'available' | 'missing' | 'invalid'
+  xpPotential: number
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isOrganizationQuestBoardItem(value: unknown): value is OrganizationQuestBoardItem {
+  if (!isRecord(value)) return false
+  const location = value.mapLocation
+  const hasValidLocation = location === null || (
+    isRecord(location)
+    && typeof location.name === 'string' && location.name.trim().length > 0
+    && typeof location.latitude === 'number' && Number.isFinite(location.latitude)
+    && Math.abs(location.latitude) <= 90
+    && typeof location.longitude === 'number' && Number.isFinite(location.longitude)
+    && Math.abs(location.longitude) <= 180
+  )
+  const hasValidLocationStatus = value.mapLocationStatus === 'available'
+    ? location !== null
+    : (value.mapLocationStatus === 'missing' || value.mapLocationStatus === 'invalid')
+      && location === null
+
+  return typeof value.organizationId === 'string' && value.organizationId.trim().length > 0
+    && !value.organizationId.includes('/')
+    && typeof value.organizationName === 'string' && value.organizationName.trim().length > 0
+    && typeof value.questId === 'string' && value.questId.trim().length > 0
+    && !value.questId.includes('/')
+    && typeof value.title === 'string' && value.title.trim().length > 0
+    && typeof value.summary === 'string' && value.summary.trim().length > 0
+    && typeof value.details === 'string' && value.details.trim().length > 0
+    && typeof value.timeLabel === 'string' && value.timeLabel.trim().length > 0
+    && hasValidLocation
+    && hasValidLocationStatus
+    && typeof value.xpPotential === 'number'
+    && Number.isSafeInteger(value.xpPotential)
+    && value.xpPotential >= 5 && value.xpPotential <= 50
 }
 
 function isPreview(value: unknown): value is QuestPreviewResponse {
@@ -345,16 +384,7 @@ export async function getOrganizationQuestBoard(
 ): Promise<OrganizationQuestBoardItem[]> {
   const result = await requestQuest('/organization-quests', null, undefined, options, 'GET')
   if (!Array.isArray(result)
-      || !result.every((item) => isRecord(item)
-        && typeof item.organizationId === 'string' && item.organizationId.trim().length > 0
-        && !item.organizationId.includes('/')
-        && typeof item.organizationName === 'string' && item.organizationName.trim().length > 0
-        && typeof item.questId === 'string' && item.questId.trim().length > 0
-        && !item.questId.includes('/')
-        && typeof item.title === 'string' && item.title.trim().length > 0
-        && typeof item.summary === 'string' && item.summary.trim().length > 0
-        && typeof item.details === 'string' && item.details.trim().length > 0
-        && typeof item.timeLabel === 'string' && item.timeLabel.trim().length > 0)
+      || !result.every(isOrganizationQuestBoardItem)
       || (Array.isArray(result) && new Set(result.map((item) => isRecord(item)
         ? `${item.organizationId}/${item.questId}` : '')).size !== result.length)) {
     throw new Error('The backend returned an invalid organization quest board.')

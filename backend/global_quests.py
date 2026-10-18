@@ -78,6 +78,22 @@ class GlobalEvent(CreateEvent, EventPolicy):
     questTemplate: Optional[EventInstructions] = None
 
 
+class PublicGlobalEvent(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    organizationName: str
+    title: str
+    description: str
+    locationName: str
+    latitude: float = Field(strict=True, ge=-90, le=90, allow_inf_nan=False)
+    longitude: float = Field(strict=True, ge=-180, le=180, allow_inf_nan=False)
+    startsAt: AwareDatetime
+    endsAt: AwareDatetime
+    xpReward: int = Field(strict=True, ge=1, le=500)
+    graceMinutes: int = Field(strict=True, ge=0, le=60)
+
+
 class CheckIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     latitude: Optional[float] = Field(default=None, strict=True, ge=-90, le=90, allow_inf_nan=False)
@@ -182,6 +198,46 @@ def check_in(db, uid, event_id, position, require_assignment=False):
         raise HTTPException(503, "Attendance database is busy. Retry safely; XP can only be awarded once.") from None
 
 
+def _upcoming_event_snapshots(db, now):
+    return (
+        db.collection(EVENTS)
+        .where("endsAt", ">=", now - timedelta(minutes=60))
+        .order_by("endsAt")
+        .stream()
+    )
+
+
+@router.get("/global-quests/public", response_model=list[PublicGlobalEvent])
+def list_public_events(db=Depends(get_db)):
+    """Return only public event/map details; never expose attendance or admin data."""
+    try:
+        now = utc_now()
+        events = []
+        for snapshot in _upcoming_event_snapshots(db, now):
+            event = GlobalEvent.model_validate(snapshot.to_dict())
+            if event.status != "published" or event.endsAt + timedelta(minutes=event.graceMinutes) < now:
+                continue
+            events.append(PublicGlobalEvent(
+                id=event.id,
+                organizationName=event.organizationName,
+                title=event.title,
+                description=event.description,
+                locationName=event.locationName,
+                latitude=event.latitude,
+                longitude=event.longitude,
+                startsAt=event.startsAt,
+                endsAt=event.endsAt,
+                xpReward=event.xpReward,
+                graceMinutes=event.graceMinutes,
+            ))
+            if len(events) >= 50:
+                break
+        events.sort(key=lambda event: event.startsAt)
+        return events
+    except (GoogleAPICallError, RetryError):
+        raise HTTPException(503, "Global quests are temporarily unavailable.") from None
+
+
 @router.get("/global-quests")
 def list_events(uid: str = Depends(current_uid), db=Depends(get_db)):
     try:
@@ -189,9 +245,8 @@ def list_events(uid: str = Depends(current_uid), db=Depends(get_db)):
         organizations, role = publishing_organizations(db, uid)
         now = utc_now()
         # Include grace-window events without a composite index.
-        snapshots = db.collection(EVENTS).where("endsAt", ">=", now - timedelta(minutes=60)).order_by("endsAt").stream()
         events = []
-        for snapshot in snapshots:
+        for snapshot in _upcoming_event_snapshots(db, now):
             event = GlobalEvent.model_validate(snapshot.to_dict())
             if event.status != "published" or event.endsAt + timedelta(minutes=event.graceMinutes) < now:
                 continue

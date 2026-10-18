@@ -43,6 +43,45 @@ test('feed rejects malformed data rather than rendering incorrect roles',async()
   const f=await fixture(response({quests:[],organizations:'admin',defaults:{}}))
   await assert.rejects(f.api.getGlobalQuests('token'),/Invalid/)
 })
+test('feed rejects event coordinates outside valid map bounds',async()=>{
+  const f=await fixture(response({
+    adminRole:'member',
+    organizations:[],
+    defaults:{},
+    quests:[{
+      id:'event',
+      title:'Campus event',
+      locationName:'Campus',
+      latitude:91,
+      longitude:-82,
+      xpReward:25,
+      startsAt:'2026-10-18T00:00:00Z',
+      endsAt:'2026-10-18T01:00:00Z',
+    }],
+  }))
+  await assert.rejects(f.api.getGlobalQuests('token'),/Invalid/)
+})
+test('public event map feed is read without sending an auth token',async()=>{
+  const f=await fixture(response([]))
+  assert.deepEqual(await f.api.getPublicGlobalQuests(),[])
+  assert.equal(f.calls[0][0],'http://localhost:8000/global-quests/public')
+  assert.equal(f.calls[0][1].headers.Authorization,undefined)
+})
+
+test('single campus event map uses GlobalQuests coordinates and marks current location',async()=>{
+  const component=await readFile(new URL('../src/features/quests/detail/GlobalQuestMap.tsx',import.meta.url),'utf8')
+  const board=await readFile(new URL('../src/features/quests/detail/GlobalQuests.tsx',import.meta.url),'utf8')
+  const activities=await readFile(new URL('../src/features/organization-quests/OrganizationQuestBoard.tsx',import.meta.url),'utf8')
+  assert.match(board,/GlobalQuestMap quests=\{mapQuests\}/)
+  assert.ok(board.indexOf('<GlobalQuestMap quests={mapQuests} />') > board.indexOf('{currentFeed?.quests.map'))
+  assert.equal((board.match(/<GlobalQuestMap/g) ?? []).length,1)
+  assert.match(component,/position: \{ lat: quest\.latitude, lng: quest\.longitude \}/)
+  assert.match(component,/quest\.xpReward/)
+  assert.match(component,/quest\.locationName/)
+  assert.match(component,/navigator\.geolocation\.getCurrentPosition/)
+  assert.match(component,/border-top:10px solid #e88932/)
+  assert.doesNotMatch(activities,/OrganizationQuestMap/)
+})
 
 async function view(organizations, signedIn=true, activities=null, adminRole='regular_admin', events=[], activeQuests=[]) {
   const file = activities === null ? 'GlobalQuests' : 'OrganizationQuestBoard'
@@ -67,7 +106,7 @@ async function view(organizations, signedIn=true, activities=null, adminRole='re
     if(name.endsWith('/colors'))return synthetic({colors:{}})
     if(name.endsWith('/firebaseSession'))return synthetic({getFirebaseIdToken:async()=> 'token'})
     if(name.endsWith('/OrganizationAdmin'))return synthetic({default:'OrganizationAdmin'})
-    if(name.endsWith('/globalQuests'))return synthetic({getGlobalQuests:async()=>({quests:events,organizations,adminRole,defaults:{xpReward:25}}),createGlobalQuest:async()=>{},checkInGlobalQuest:async()=>{}})
+    if(name.endsWith('/globalQuests'))return synthetic({getGlobalQuests:async()=>({quests:events,organizations,adminRole,defaults:{xpReward:25}}),getPublicGlobalQuests:async()=>[],createGlobalQuest:async()=>{},checkInGlobalQuest:async()=>{}})
     return synthetic({default:()=>null})
   });await mod.evaluate();const props = activities === null ? {activeQuests,onAcceptGlobalEvent:async()=>{},onAcceptOrganizationQuest:async()=>{}} : {userId:signedIn?'admin':null,activeQuests:[],onAccept:async()=>{}}
   cursor=0;mod.namespace.default(props);effects.forEach(fn=>fn());await new Promise(resolve=>setImmediate(resolve));cursor=0
@@ -90,8 +129,11 @@ test('event creation shows a fixed reward without an XP input', async () => {
 })
 
 
-test('empty organization activity feed produces no duplicate board or empty label', async () => {
-  assert.equal(await view([],true,[]), 'null')
+test('empty organization activity feed stays separate from the single event map', async () => {
+  const tree = await view([],true,[])
+  assert.match(tree, /No organization activities are published yet/)
+  assert.doesNotMatch(tree, /Organization quest map/)
+  assert.doesNotMatch(tree, /Organization quest board/)
 })
 
 test('published organization activities remain available within the unified board', async () => {

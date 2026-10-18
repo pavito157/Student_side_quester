@@ -119,8 +119,9 @@ python -m uvicorn main:app --host 127.0.0.1 --port 8000 --env-file .env
 ```
 
 Keep the frontend `VITE_API_BASE_URL` pointing to this backend. Restart the backend
-after environment changes. CORS currently permits localhost/127.0.0.1 port 5173;
-configure `FRONTEND_ORIGINS` for other origins.
+after environment changes. Default CORS permits localhost/127.0.0.1 on Vite ports
+5173–5175. An explicit `FRONTEND_ORIGINS` setting replaces those defaults; add
+the active dev-server origin there if it uses a different port.
 
 ## Frontend request and helper
 
@@ -531,7 +532,7 @@ The teammate additions now reuse the existing architecture:
   same completion service. Frontend teammates can import the optional button
   without building another authentication or GPS flow.
 - One CORS layer uses `FRONTEND_ORIGINS` for both API preflights and the Clerk
-  bridge. Defaults include localhost and 127.0.0.1 on ports 5173 and 5174. An
+  bridge. Defaults include localhost and 127.0.0.1 on ports 5173 through 5175. An
   explicit environment setting replaces those defaults; include the actual
   frontend origin and restart FastAPI after changing it. Untrusted origins stay
   blocked; `Server-Timing` remains exposed.

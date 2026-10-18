@@ -53,20 +53,18 @@ def individual_leaderboard(uid: str = Depends(current_uid), db=Depends(get_db)):
     del uid
     try:
         entries = []
-        skipped_users = 0
         for snapshot in _stream(db.collection("Users")):
             record = _record(snapshot)
             username = _user_name(record)
             xp = _user_xp(record)
             if username is None:
-                skipped_users += 1
                 continue
             entries.append({"userId": snapshot.id, "username": username, "xp": xp})
     except LeaderboardDataError as error:
         raise HTTPException(503, str(error)) from None
 
     entries.sort(key=lambda entry: (-entry["xp"], entry["username"].casefold(), entry["userId"]))
-    return {"leaderboard": entries, "skippedUsers": skipped_users}
+    return {"leaderboard": entries}
 
 
 @router.get("/leaderboard/dorms")
@@ -84,7 +82,6 @@ def dorm_leaderboard(uid: str = Depends(current_uid), db=Depends(get_db)):
             for dorm_id, name in DORM_CATALOG
         }
 
-        unassigned_users = 0
         for snapshot in _stream(db.collection("Users")):
             record = _record(snapshot)
             xp = _user_xp(record)
@@ -95,7 +92,6 @@ def dorm_leaderboard(uid: str = Depends(current_uid), db=Depends(get_db)):
                 or "/" in dorm_id
                 or dorm_id not in dorms
             ):
-                unassigned_users += 1
                 continue
             dorms[dorm_id]["xp"] += xp
             dorms[dorm_id]["memberCount"] += 1
@@ -106,4 +102,4 @@ def dorm_leaderboard(uid: str = Depends(current_uid), db=Depends(get_db)):
         dorms.values(),
         key=lambda entry: (-entry["xp"], entry["dormName"].casefold(), entry["dormId"]),
     )
-    return {"leaderboard": entries, "unassignedUsers": unassigned_users}
+    return {"leaderboard": entries}

@@ -16,7 +16,7 @@ type BoardData = LeaderboardData | DormLeaderboardData
 type LoadedBoard = {
   key: string
   data: BoardData
-  error: string
+  error: boolean
 }
 
 type RankedRowProps = {
@@ -100,18 +100,14 @@ function LeaderboardPage() {
         const data: BoardData = board === 'individual'
           ? await getLeaderboardEntries(token)
           : await getDormLeaderboardEntries(token)
-        if (isCurrent) setLoadedBoard({ key: requestKey, data, error: '' })
-      } catch (loadError: unknown) {
+        if (isCurrent) setLoadedBoard({ key: requestKey, data, error: false })
+      } catch {
         if (isCurrent) {
-          const emptyData: BoardData = board === 'individual'
-            ? { entries: [], skippedUsers: 0 }
-            : { entries: [], unassignedUsers: 0 }
+          const emptyData: BoardData = { entries: [] }
           setLoadedBoard({
             key: requestKey,
             data: emptyData,
-            error: loadError instanceof Error
-              ? loadError.message
-              : 'Could not load the leaderboard.',
+            error: true,
           })
         }
       }
@@ -125,21 +121,21 @@ function LeaderboardPage() {
 
   const hasLoadedBoard = loadedBoard?.key === requestKey
   const isLoading = isLoaded && isSignedIn && !hasLoadedBoard
-  const error = hasLoadedBoard ? loadedBoard.error : ''
+  const error = hasLoadedBoard && loadedBoard.error
   const data = hasLoadedBoard ? loadedBoard.data : null
-  const individualData = board === 'individual' && data && 'skippedUsers' in data ? data : null
-  const dormData = board === 'dorms' && data && 'unassignedUsers' in data ? data : null
-  const rows = individualData?.entries.map((entry) => ({
-    id: entry.userId,
-    label: entry.username,
-    detail: 'Student',
-    xp: entry.xp,
-  })) ?? dormData?.entries.map((entry) => ({
-    id: entry.dormId,
-    label: entry.dormName,
-    detail: `${entry.memberCount.toLocaleString()} ${entry.memberCount === 1 ? 'member' : 'members'}`,
-    xp: entry.xp,
-  })) ?? []
+  const rows = data?.entries.map((entry) => 'userId' in entry
+    ? {
+      id: entry.userId,
+      label: entry.username,
+      detail: 'Student',
+      xp: entry.xp,
+    }
+    : {
+      id: entry.dormId,
+      label: entry.dormName,
+      detail: `${entry.memberCount.toLocaleString()} ${entry.memberCount === 1 ? 'member' : 'members'}`,
+      xp: entry.xp,
+    }) ?? []
   const highestXp = Math.max(1, ...rows.map(({ xp }) => xp))
 
   return (
@@ -232,49 +228,27 @@ function LeaderboardPage() {
                   </p>
                 ) : error ? (
                   <p role="alert" className="p-6 text-center" style={{ color: colors.error }}>
-                    Could not load the leaderboard. Check that the backend is running and
-                    `VITE_API_BASE_URL` points to it.
-                    <span className="mt-2 block text-sm">{error}</span>
+                    Could not load the leaderboard right now. Please try again later.
                   </p>
                 ) : rows.length === 0 ? (
                   <p className="p-6 text-center" style={{ color: colors.muted }}>
                     {board === 'individual'
-                      ? 'No student profiles were returned by the leaderboard service.'
-                      : 'No UF dorms are configured in the backend dorm catalog yet.'}
+                      ? 'No student rankings are available yet.'
+                      : 'No residence hall rankings are available yet.'}
                   </p>
                 ) : (
-                  <>
-                    {board === 'individual' && individualData && individualData.skippedUsers > 0 && (
-                      <p
-                        role="status"
-                        className="border-b px-4 py-3 text-sm sm:px-6"
-                        style={{ borderColor: colors.border, color: colors.warning }}
-                      >
-                        {individualData.skippedUsers} profile{individualData.skippedUsers === 1 ? ' was' : 's were'} omitted because no username is set.
-                      </p>
-                    )}
-                    {board === 'dorms' && dormData && dormData.unassignedUsers > 0 && (
-                      <p
-                        role="status"
-                        className="border-b px-4 py-3 text-sm sm:px-6"
-                        style={{ borderColor: colors.border, color: colors.warning }}
-                      >
-                        {dormData.unassignedUsers} student{dormData.unassignedUsers === 1 ? ' has' : 's have'} no valid dorm assignment and {dormData.unassignedUsers === 1 ? 'was' : 'were'} not counted.
-                      </p>
-                    )}
-                    <ol>
-                      {rows.map(({ id, label, detail, xp }, index) => (
-                        <RankedRow
-                          key={id}
-                          place={index + 1}
-                          label={label}
-                          detail={detail}
-                          xp={xp}
-                          highestXp={highestXp}
-                        />
-                      ))}
-                    </ol>
-                  </>
+                  <ol>
+                    {rows.map(({ id, label, detail, xp }, index) => (
+                      <RankedRow
+                        key={id}
+                        place={index + 1}
+                        label={label}
+                        detail={detail}
+                        xp={xp}
+                        highestXp={highestXp}
+                      />
+                    ))}
+                  </ol>
                 )}
               </>
             )}

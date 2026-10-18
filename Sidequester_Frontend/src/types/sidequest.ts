@@ -61,6 +61,8 @@ export type SavedSidequestRequest = {
 
 export type ActiveSidequest = {
   id: string
+  sourceOrganizationId?: string | null
+  sourceOrganizationQuestId?: string | null
   title: string
   description: string
   steps: string[]

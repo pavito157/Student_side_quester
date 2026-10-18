@@ -239,6 +239,8 @@ class AssignQuestRequest(ContractModel):
 
 class AssignedQuest(ContractModel):
     id: DocumentId
+    sourceOrganizationId: Optional[DocumentId] = None
+    sourceOrganizationQuestId: Optional[DocumentId] = None
     title: str = Field(min_length=1, max_length=160)
     description: str = Field(min_length=1, max_length=4000)
     steps: List[StepText] = Field(min_length=1, max_length=MAX_QUEST_STEPS)
@@ -265,6 +267,8 @@ class AssignedQuest(ContractModel):
     def active_quest(self):
         if not self.isActive:
             raise ValueError("An assigned quest must be active")
+        if (self.sourceOrganizationId is None) != (self.sourceOrganizationQuestId is None):
+            raise ValueError("Organization quest provenance must include both IDs")
         if self.destinations:
             first = self.destinations[0]
             if (first.locationName != self.locationName or first.placeId != self.placeId

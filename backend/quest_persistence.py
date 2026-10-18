@@ -205,7 +205,19 @@ def _check_capacity(active):
         raise HTTPException(429, "You already have three active quests. Complete or abandon one to make room.")
 
 
-def save_verified_assignment(db, uid, preview, policy, user_request: Optional[GenerateQuestRequest] = None, *, source_quest_id=None):
+def _check_organization_duplicate(active, organization_id, organization_quest_id):
+    if any(
+        item.quest.sourceOrganizationId == organization_id
+        and item.quest.sourceOrganizationQuestId == organization_quest_id
+        for item in active
+    ):
+        raise HTTPException(409, "You already have this organization quest in your active sidequests.")
+
+
+def save_verified_assignment(
+    db, uid, preview, policy, user_request: Optional[GenerateQuestRequest] = None, *,
+    source_quest_id=None, source_organization_id=None, source_organization_quest_id=None,
+):
     """Persist server-verified content only. UID must come from the token."""
     _check_uid(uid)
     try:
@@ -216,9 +228,13 @@ def save_verified_assignment(db, uid, preview, policy, user_request: Optional[Ge
         raise HTTPException(503, "Destination resolver is required before saving assignments")
 
     destination, proposed = preview.destination, preview.quest
+    if (source_organization_id is None) != (source_organization_quest_id is None):
+        raise HTTPException(400, "Organization quest provenance is incomplete")
     quest_id = uuid.uuid4().hex
     quest = AssignedQuest(
         id=quest_id, title=proposed.title, description=proposed.description, steps=proposed.steps,
+        sourceOrganizationId=source_organization_id,
+        sourceOrganizationQuestId=source_organization_quest_id,
         stepProofMethods=proposed.stepProofMethods,
         stepDestinationIndexes=proposed.stepDestinationIndexes,
         verifiedPhotoSteps=[], skippedPhotoSteps=[],
@@ -245,6 +261,8 @@ def save_verified_assignment(db, uid, preview, policy, user_request: Optional[Ge
         active = _read_active_list(db, transaction, uid, user_snapshot.to_dict())
         if source_quest_id is not None and not any(item.quest.id == source_quest_id for item in active):
             raise HTTPException(409, "This quest is no longer active. Open one of your active quests and try again.")
+        if source_organization_quest_id is not None:
+            _check_organization_duplicate(active, source_organization_id, source_organization_quest_id)
         _check_capacity(active)
         # Reading the same user document serializes competing creators; all
         # reads precede writes. A retry checks capacity against the committed state.

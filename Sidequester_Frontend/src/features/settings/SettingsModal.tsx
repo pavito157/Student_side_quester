@@ -8,7 +8,13 @@ import {
 } from '@clerk/clerk-react'
 import { colors } from '../../constants/colors'
 import { BackIcon, CloseIcon } from '../../components/ui/icons'
-import { PixelLeafIcon } from '../../components/decor/AdventureDecor'
+import {
+  PixelLanternIcon,
+  PixelHangingVineIcon,
+  PixelBranchIcon,
+  PixelLeafIcon,
+  PixelMushroomIcon,
+} from '../../components/decor/AdventureDecor'
 import LocationPrivacySettings from './LocationPrivacySettings'
 import PreferencesEditor from './PreferencesEditor'
 import DormSettings from './DormSettings'
@@ -73,6 +79,11 @@ function SettingsModal({
       }}
     >
       <div className="journal-atmosphere" aria-hidden="true">
+        <PixelHangingVineIcon className="modal-vine modal-vine-left journal-vine" />
+        <PixelHangingVineIcon className="modal-vine modal-vine-right journal-vine" />
+        <PixelBranchIcon className="modal-branch journal-branch" />
+        <PixelLanternIcon className="journal-lantern" />
+        <PixelMushroomIcon className="journal-mushroom" />
         <PixelLeafIcon className="journal-leaf journal-leaf-one" />
         <PixelLeafIcon className="journal-leaf journal-leaf-two" />
         <PixelLeafIcon className="journal-leaf journal-leaf-three" />

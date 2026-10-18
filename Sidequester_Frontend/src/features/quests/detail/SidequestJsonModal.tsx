@@ -1,4 +1,9 @@
 import { colors } from '../../../constants/colors'
+import {
+  PixelBranchIcon,
+  PixelHangingVineIcon,
+  PixelLanternIcon,
+} from '../../../components/decor/AdventureDecor'
 import type { SavedQuestResponse } from '../../../services/questAssignment'
 
 interface SidequestJsonModalProps {
@@ -44,20 +49,23 @@ function SidequestJsonModal({
         aria-modal="true"
         aria-labelledby="sidequest-json-title"
         aria-busy={isLoading}
-        className="rpg-dialog max-h-[min(85vh,48rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border p-5 sm:p-6"
+        className="quest-json-modal rpg-dialog max-h-[min(85vh,48rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border p-5 sm:p-6"
         style={{
           backgroundColor: colors.surface,
           borderColor: colors.border,
           color: colors.foreground,
         }}
       >
+        <PixelHangingVineIcon className="quest-json-vine quest-json-vine-left" />
+        <PixelHangingVineIcon className="quest-json-vine quest-json-vine-right" />
+        <PixelBranchIcon className="modal-branch quest-json-branch" />
         <div className="flex items-start justify-between gap-4">
           <div>
             <p
-              className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em]"
+              className="quest-json-kicker inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em]"
               style={{ color: colors.secondary }}
             >
-              <span aria-hidden="true" className="size-1.5 rounded-full bg-secondary shadow-[0_0_10px_rgb(250_70_22_/_80%)]" />
+              <PixelLanternIcon className="quest-json-lantern" />
               Request preview
             </p>
             <h2 id="sidequest-json-title" className="mt-1 text-xl font-semibold">

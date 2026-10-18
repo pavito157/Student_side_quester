@@ -1,5 +1,10 @@
 import { SignInButton } from '@clerk/clerk-react'
 import { useEffect, useRef, useState } from 'react'
+import {
+  PixelBranchIcon,
+  PixelCompassIcon,
+  PixelHangingVineIcon,
+} from '../../components/decor/AdventureDecor'
 import { colors } from '../../constants/colors'
 import {
   getOrganizationQuestBoard,
@@ -228,14 +233,18 @@ function OrganizationQuestBoard({
           setSelectedQuest(null)
         }}
         onClose={() => setSelectedQuest(null)}
-        className="w-[min(92vw,36rem)] rounded-2xl border p-0 shadow-2xl backdrop:bg-black/65"
+        className="organization-quest-dialog rpg-dialog w-[min(92vw,36rem)] rounded-2xl border p-0 shadow-2xl backdrop:bg-black/65"
         style={{ borderColor: colors.border, color: colors.foreground, backgroundColor: colors.surface }}
       >
         {selectedQuest && (
-          <div className="p-5 sm:p-6">
+          <div className="organization-quest-content p-5 sm:p-6">
+            <PixelHangingVineIcon className="quest-dialog-vine quest-dialog-vine-left" />
+            <PixelHangingVineIcon className="quest-dialog-vine quest-dialog-vine-right" />
+            <PixelBranchIcon className="modal-branch quest-dialog-branch" />
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-wide" style={{ color: colors.secondary }}>
+                <p className="organization-quest-kicker text-xs font-bold uppercase tracking-wide" style={{ color: colors.secondary }}>
+                  <PixelCompassIcon className="organization-quest-compass" />
                   {selectedQuest.organizationName}
                 </p>
                 <h4 id="organization-quest-popup-title" className="mt-2 break-words text-xl font-black">

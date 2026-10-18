@@ -1,7 +1,13 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { colors } from '../../../constants/colors'
 import { BackIcon, CloseIcon } from '../../../components/ui/icons'
-import { PixelLeafIcon } from '../../../components/decor/AdventureDecor'
+import {
+  PixelBranchIcon,
+  PixelHangingVineIcon,
+  PixelLeafIcon,
+  PixelMushroomIcon,
+  PixelTrailSignIcon,
+} from '../../../components/decor/AdventureDecor'
 
 interface SidebarModalProps {
   isOpen: boolean
@@ -71,6 +77,8 @@ function SidebarModal({
       }}
     >
       <div className="trail-map-atmosphere" aria-hidden="true">
+        <PixelTrailSignIcon className="trail-map-sign" />
+        <PixelMushroomIcon className="trail-map-mushroom" />
         <PixelLeafIcon className="trail-map-leaf trail-map-leaf-one" />
         <PixelLeafIcon className="trail-map-leaf trail-map-leaf-two" />
         <PixelLeafIcon className="trail-map-leaf trail-map-leaf-three" />
@@ -82,10 +90,13 @@ function SidebarModal({
         <span className="trail-map-firefly trail-map-firefly-three" />
       </div>
       <section className="trail-map-shell flex h-full min-h-0 flex-col">
+        <PixelBranchIcon className="modal-branch trail-map-branch" />
         <header
           className="trail-map-header flex shrink-0 items-center justify-between border-b px-5 py-4"
           style={{ borderColor: colors.border }}
         >
+          <PixelHangingVineIcon className="trail-map-vine trail-map-vine-left" />
+          <PixelHangingVineIcon className="trail-map-vine trail-map-vine-right" />
           <div className="flex min-w-0 items-center gap-3">
             {onBack && (
               <button

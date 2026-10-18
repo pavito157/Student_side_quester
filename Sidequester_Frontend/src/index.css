@@ -155,6 +155,9 @@ input, textarea, select { accent-color: var(--color-secondary); }
 .header-leaf-six { right: 29%; top: 64%; width: 18px; height: 18px; animation-delay: -2.8s; }
 .header-leaf-seven { right: 14%; top: 14%; width: 26px; height: 26px; animation-delay: -.4s; }
 .header-leaf-eight { right: 5%; top: 62%; width: 20px; height: 20px; animation-delay: -2s; }
+.header-vine { position: absolute; top: 0; left: 0; width: 30px; height: 62px; opacity: .82; filter: drop-shadow(2px 2px 0 rgb(57 54 29 / 25%)); transform-origin: top center; animation: vine-sway 4.2s ease-in-out infinite; }
+.header-vine-right { right: 0; left: auto; transform: scaleX(-1); animation-name: vine-sway-right; animation-delay: -2.1s; }
+.header-trail-sign { position: absolute; left: 21%; bottom: 2px; width: 32px; height: 32px; filter: drop-shadow(2px 3px 0 rgb(77 53 29 / 30%)); animation: header-sign-sway 3.8s steps(4, end) infinite; }
 .brand-title { display: flex; align-items: center; gap: .35rem; color: #3f2a18 !important; font-family: Georgia, "Times New Roman", serif; font-size: clamp(1.05rem, 2.4vw, 1.65rem); font-weight: 800; letter-spacing: -.045em; text-shadow: 0 1px 0 rgb(255 243 211 / 65%); }
 .brand-icon { width: 1.35rem; height: 1.35rem; flex-shrink: 0; border: 2px solid #704a28; border-radius: .2rem; box-shadow: 2px 2px 0 rgb(72 47 27 / 40%); image-rendering: pixelated; animation: brand-bob 2.4s steps(4, end) infinite; }
 .brand-sparkle { width: 1.2rem; height: 1.2rem; flex-shrink: 0; filter: drop-shadow(1px 2px 0 rgb(77 53 29 / 30%)); animation: brand-twinkle 3s ease-in-out infinite; }
@@ -170,8 +173,45 @@ input, textarea, select { accent-color: var(--color-secondary); }
 @keyframes brand-launch { 0% { transform: translateY(0); } 45% { transform: translateY(-6px) rotate(-12deg); } 100% { transform: translateY(0) rotate(0); } }
 @keyframes brand-twinkle { 0%, 100% { transform: scale(.8) rotate(-12deg); opacity: .65; } 50% { transform: scale(1.2) rotate(12deg); opacity: 1; } }
 @keyframes icon-hop { 0%, 100% { transform: translateY(0); } 35% { transform: translateY(-3px) rotate(-5deg); } 70% { transform: translateY(1px) rotate(5deg); } }
+@keyframes header-sign-sway { 0%, 100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-2px) rotate(1deg); } }
+@keyframes vine-sway { 0%, 100% { transform: rotate(-1deg); } 50% { transform: rotate(2deg) translateY(2px); } }
+@keyframes vine-sway-right { 0%, 100% { transform: scaleX(-1) rotate(-1deg); } 50% { transform: scaleX(-1) rotate(2deg) translateY(2px); } }
+@keyframes vine-rustle { 0%, 100% { rotate: 0deg; } 25% { rotate: -8deg; } 55% { rotate: 6deg; } 78% { rotate: -3deg; } }
+.hud-button:active:not(:disabled) { translate: 1px 2px; box-shadow: inset 0 2px 2px rgb(73 48 27 / 24%), 0 0 0 rgb(73 48 27 / 20%); }
 .rpg-dialog { color: var(--color-foreground); border: 1px solid #c6cfc5 !important; background: #fff !important; box-shadow: 5px 7px 0 rgb(31 45 36 / 16%), 0 12px 48px rgb(31 45 36 / 14%) !important; animation: modal-arrive 220ms ease-out both; }
 .rpg-dialog::backdrop { background: rgb(27 43 34 / 32%); backdrop-filter: blur(3px); }
+.organization-quest-dialog.rpg-dialog { position: relative; isolation: isolate; max-height: min(88dvh, 48rem); overflow: auto; border: 5px solid #35492d !important; border-radius: 5px !important; background-color: #ead7a8 !important; background-image: repeating-linear-gradient(0deg, transparent 0 23px, rgb(102 119 74 / 10%) 24px 25px), linear-gradient(135deg, #f6e7bd, #ddc18b) !important; box-shadow: inset 0 0 0 3px #f6e8bd, inset 0 0 0 5px #9c7644, 6px 7px 0 rgb(44 50 30 / 55%), 0 22px 52px rgb(22 34 25 / 35%) !important; animation: quest-board-arrive 360ms steps(5, end) both; }
+.organization-quest-dialog.rpg-dialog::backdrop { background: rgb(22 36 25 / 68%); backdrop-filter: blur(3px) saturate(.82); }
+.organization-quest-content { position: relative; isolation: isolate; }
+.organization-quest-content::before { position: absolute; z-index: 0; inset: .55rem; border: 1px dashed rgb(112 81 46 / 48%); content: ""; pointer-events: none; }
+.organization-quest-content > :not(.quest-dialog-vine):not(.modal-branch) { position: relative; z-index: 1; }
+.organization-quest-content > .quest-dialog-vine { z-index: 0; width: 30px; height: 58px; opacity: .76; }
+.organization-quest-content > .quest-dialog-vine-left { top: -.7rem; left: -.45rem; }
+.organization-quest-content > .quest-dialog-vine-right { top: -.7rem; right: -.45rem; }
+.organization-quest-kicker { display: flex; align-items: center; gap: .5rem; color: #4b6a3a !important; }
+.organization-quest-compass { width: 25px; height: 25px; flex: none; filter: drop-shadow(1px 2px 0 rgb(71 53 31 / 25%)); animation: quest-compass-tick 4s steps(4, end) infinite; }
+.organization-quest-dialog h4 { color: #34271b; font-family: Georgia, "Times New Roman", serif; text-shadow: 1px 1px 0 rgb(255 247 220 / 72%); }
+.organization-quest-dialog button[aria-label="Close quest details"] { border-radius: 3px !important; background: linear-gradient(#f4e4ba, #d8bd88); box-shadow: 2px 2px 0 rgb(73 55 33 / 32%); }
+.quest-json-modal.rpg-dialog { position: relative; isolation: isolate; border: 5px solid #344b32 !important; border-radius: 5px !important; background-color: #ead9b1 !important; background-image: repeating-linear-gradient(0deg, transparent 0 27px, rgb(86 114 69 / 9%) 28px), repeating-linear-gradient(90deg, transparent 0 31px, rgb(107 81 48 / 6%) 32px), linear-gradient(145deg, #f2e6c8, #dfc795) !important; box-shadow: inset 0 0 0 3px #f8edcf, inset 0 0 0 5px #967344, 7px 8px 0 rgb(36 51 34 / 52%), 0 20px 56px rgb(15 28 21 / 42%) !important; animation: pixel-panel-arrive 340ms steps(5, end) both; }
+.quest-json-modal.rpg-dialog::before { position: absolute; z-index: 0; inset: .55rem; border: 1px dashed rgb(104 80 48 / 45%); content: ""; pointer-events: none; }
+.quest-json-modal.rpg-dialog > :not(.quest-json-vine):not(.modal-branch) { position: relative; z-index: 1; }
+.quest-json-modal.rpg-dialog > .quest-json-vine { z-index: 0; width: 27px; height: 54px; opacity: .72; }
+.quest-json-modal.rpg-dialog > .quest-json-vine-left { top: -.1rem; left: .15rem; }
+.quest-json-modal.rpg-dialog > .quest-json-vine-right { top: -.1rem; right: .15rem; }
+.quest-json-modal.rpg-dialog > .modal-branch { z-index: 0; }
+.quest-json-kicker { color: #55733e !important; font-family: Georgia, "Times New Roman", serif; }
+.quest-json-lantern { width: 20px; height: 27px; flex: none; filter: drop-shadow(1px 2px 0 rgb(69 49 31 / 24%)); animation: sprite-lantern-glow 2.6s steps(3, end) infinite; }
+.quest-json-modal h2 { color: #352a1f; font-family: Georgia, "Times New Roman", serif; text-shadow: 1px 1px 0 #fff3d2; }
+.quest-json-modal button { border-radius: 4px !important; box-shadow: 2px 2px 0 rgb(77 58 36 / 22%); transition: transform 160ms steps(2, end), box-shadow 160ms ease, filter 160ms ease; }
+.quest-json-modal button:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-2px); box-shadow: 3px 4px 0 rgb(77 58 36 / 25%); }
+.quest-json-modal button:active:not(:disabled) { transform: translateY(1px); box-shadow: 1px 1px 0 rgb(77 58 36 / 22%); }
+.settings-journal button:active:not(:disabled),
+.trail-map-panel button:active:not(:disabled),
+.organization-quest-dialog button:active:not(:disabled),
+.quest-json-modal button:active:not(:disabled) { transform: translate(2px, 2px) scale(.97) !important; filter: saturate(1.16) brightness(.96); transition-duration: 70ms; }
+@keyframes quest-board-arrive { from { opacity: 0; transform: translateY(12px) scale(.96); } 70% { opacity: 1; transform: translateY(-2px) scale(1.01); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes pixel-panel-arrive { from { opacity: 0; transform: translateY(8px) scale(.97); clip-path: inset(5% 0 5%); } to { opacity: 1; transform: translateY(0) scale(1); clip-path: inset(0); } }
+@keyframes quest-compass-tick { 0%, 85%, 100% { transform: rotate(0); } 90% { transform: rotate(12deg) scale(1.08); } 95% { transform: rotate(-8deg); } }
 .sidebar-modal { position: fixed; box-sizing: border-box; inset: 0 auto 0 0; width: min(27rem, calc(100vw - 1rem)); height: 100dvh; max-width: calc(100vw - 1rem); max-height: 100dvh; margin: 0; padding-bottom: env(safe-area-inset-bottom, 0px); overflow: hidden; border-radius: 0 14px 14px 0; animation: sidebar-enter 480ms cubic-bezier(.16,1,.3,1) both; }
 .sidebar-modal::backdrop { background: transparent; transition: background-color 420ms ease; }
 .sidebar-modal[open]::backdrop { background: rgb(27 43 34 / 32%); }
@@ -183,9 +223,27 @@ input, textarea, select { accent-color: var(--color-secondary); }
 .journal-atmosphere { position: absolute; z-index: 0; inset: 0; overflow: hidden; pointer-events: none; user-select: none; }
 .journal-header, .journal-pages { position: relative; z-index: 1; }
 .journal-header { padding-bottom: 1rem; border-bottom: 2px dashed rgb(133 101 61 / 45%); }
+.modal-vine, .trail-map-vine, .quest-dialog-vine, .quest-json-vine { position: absolute; top: 0; left: 0; width: 34px; height: 68px; opacity: .88; filter: drop-shadow(2px 2px 0 rgb(73 56 34 / 23%)); transform-origin: top center; pointer-events: none; animation: vine-sway 4.5s ease-in-out infinite; }
+.modal-vine-right, .trail-map-vine-right, .quest-dialog-vine-right, .quest-json-vine-right { right: 0; left: auto; transform: scaleX(-1); animation-name: vine-sway-right; animation-delay: -2.25s; }
+.journal-vine { width: 37px; height: 72px; }
+.modal-branch { position: absolute; width: 76px; height: 38px; opacity: .48; filter: drop-shadow(2px 2px 0 rgb(69 53 33 / 20%)); transform-origin: center; pointer-events: none; animation: branch-creep 5.6s ease-in-out infinite; }
+.journal-branch { bottom: .15rem; left: .25rem; width: 82px; height: 41px; opacity: .62; }
+.trail-map-branch { z-index: 2; top: 62%; right: -.15rem; width: 73px; height: 37px; opacity: .62; animation-name: branch-creep-right; animation-delay: -2.8s; }
+.quest-dialog-branch { z-index: 0; right: .2rem; bottom: .05rem; width: 70px; height: 35px; opacity: .62; }
+.quest-json-branch { z-index: 0; bottom: .2rem; left: .2rem; width: 78px; height: 39px; opacity: .62; }
+.settings-journal:has(button:active) .journal-branch,
+.trail-map-panel:has(button:active) .trail-map-branch,
+.organization-quest-dialog:has(button:active) .quest-dialog-branch,
+.quest-json-modal:has(button:active) .quest-json-branch { animation: branch-rustle 380ms steps(4, end); }
+.settings-journal:has(button:active) .journal-vine,
+.trail-map-panel:has(button:active) .trail-map-vine,
+.organization-quest-dialog:has(button:active) .quest-dialog-vine,
+.quest-json-modal:has(button:active) .quest-json-vine { animation: vine-rustle 360ms steps(4, end); }
 .journal-header h2 { color: #49351f; font-family: Georgia, "Times New Roman", serif; text-shadow: 1px 1px 0 #fff4d7; }
 .journal-header > div > p { color: #477044 !important; }
 .journal-pages { min-height: 14rem; }
+.journal-lantern { position: absolute; top: 1rem; right: 1.2rem; width: 28px; height: 38px; opacity: .72; filter: drop-shadow(2px 3px 0 rgb(68 48 30 / 24%)); animation: sprite-lantern-glow 2.8s steps(3, end) infinite; }
+.journal-mushroom { position: absolute; right: .45rem; bottom: .55rem; width: 34px; height: 34px; opacity: .56; filter: drop-shadow(2px 2px 0 rgb(73 49 29 / 20%)); animation: sprite-mushroom-bob 3.2s steps(3, end) infinite; }
 .journal-leaf { position: absolute; width: 34px; height: 34px; opacity: .6; filter: drop-shadow(2px 2px 0 rgb(99 76 41 / 20%)); animation: journal-leaf-drift 7s ease-in-out infinite; }
 .journal-leaf-one { right: 3%; top: 38%; }
 .journal-leaf-two { left: 12%; bottom: 12%; width: 23px; height: 23px; animation-delay: -2.5s; }
@@ -205,6 +263,11 @@ input, textarea, select { accent-color: var(--color-secondary); }
 @keyframes journal-leaf-drift { 0%, 100% { transform: translate(0, 0) rotate(-12deg); } 35% { transform: translate(9px, -8px) rotate(16deg); } 70% { transform: translate(-5px, 4px) rotate(-4deg); } }
 @keyframes firefly-blink { 0%, 100% { opacity: .25; transform: scale(.7); } 45% { opacity: 1; transform: scale(1.35); } 58% { opacity: .65; } }
 @keyframes bookmark-sway { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(3deg); } }
+@keyframes sprite-lantern-glow { 0%, 100% { transform: translateY(0); filter: drop-shadow(2px 3px 0 rgb(68 48 30 / 24%)) drop-shadow(0 0 0 rgb(247 205 98 / 0%)); } 50% { transform: translateY(-2px); filter: drop-shadow(2px 3px 0 rgb(68 48 30 / 24%)) drop-shadow(0 0 7px rgb(247 205 98 / 58%)); } }
+@keyframes sprite-mushroom-bob { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-3px) rotate(2deg); } }
+@keyframes branch-creep { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-2px) rotate(1deg); } }
+@keyframes branch-creep-right { 0%, 100% { transform: scaleX(-1) translateY(0) rotate(-2deg); } 50% { transform: scaleX(-1) translateY(-2px) rotate(1deg); } }
+@keyframes branch-rustle { 0%, 100% { rotate: 0deg; } 25% { rotate: -5deg; } 55% { rotate: 4deg; } 78% { rotate: -2deg; } }
 
 /* Trail map: dark canvas-and-leather frame around a softly animated map interior. */
 .trail-map-panel.rpg-dialog { --color-primary: #526f3c; --color-primary-hover: #405e37; --color-primary-foreground: #fff4d7; position: relative; isolation: isolate; overflow: hidden; border: 5px solid #233e2a !important; border-radius: 0 14px 14px 0 !important; color: #28392b !important; background: #a98557 !important; box-shadow: inset -4px 0 0 rgb(240 222 171 / 56%), inset 0 0 0 2px #72834d, 8px 0 0 #66462d, 13px 0 0 #362d20, 16px 12px 30px rgb(21 34 24 / 32%) !important; }
@@ -229,10 +292,17 @@ input, textarea, select { accent-color: var(--color-secondary); }
 .trail-map-atmosphere { position: absolute; z-index: 0; inset: 0; overflow: hidden; pointer-events: none; user-select: none; background-image: radial-gradient(ellipse at 70% 34%, transparent 0 25%, rgb(97 112 69 / 11%) 25.4% 26%, transparent 26.4% 39%, rgb(97 112 69 / 9%) 39.4% 40%, transparent 40.4%), radial-gradient(ellipse at 24% 77%, transparent 0 18%, rgb(97 112 69 / 9%) 18.4% 19%, transparent 19.4% 34%, rgb(97 112 69 / 8%) 34.4% 35%); background-size: 110% 110%, 105% 105%; animation: map-current 24s ease-in-out infinite alternate; }
 .trail-map-shell { position: relative; z-index: 1; }
 .trail-map-header { position: relative; min-height: 5rem; border-bottom: 4px solid #1c3424 !important; color: #f6eccd; background: repeating-linear-gradient(0deg, transparent 0 9px, rgb(230 211 155 / 9%) 10px 11px), linear-gradient(110deg, #294932, #49653b 55%, #324d31); box-shadow: inset 0 2px 0 rgb(214 225 164 / 35%), 0 4px 0 rgb(26 47 31 / 20%); }
+.trail-map-header > .trail-map-vine { z-index: 0; width: 31px; height: 60px; }
+.trail-map-header > .trail-map-vine-left { left: 1px; }
+.trail-map-header > .trail-map-vine-right { right: 1px; }
+.trail-map-header > div { position: relative; z-index: 1; }
 .trail-map-header h2 { color: #fff1cc; font-family: Georgia, "Times New Roman", serif; text-shadow: 2px 2px 0 #1b3422; }
 .trail-map-header button { border: 2px solid #b5aa79 !important; border-radius: 3px !important; color: #f5e9c4 !important; background: #405b39 !important; box-shadow: 2px 3px 0 #17291d; }
 .trail-map-header button:hover { background: #66804a !important; }
+.trail-map-sign { position: absolute; top: 6.25rem; right: .25rem; width: 34px; height: 34px; opacity: .64; filter: drop-shadow(2px 3px 0 rgb(58 39 24 / 28%)); animation: map-sign-rock 4s steps(4, end) infinite; }
+.trail-map-mushroom { position: absolute; bottom: .5rem; left: .35rem; width: 32px; height: 32px; opacity: .5; filter: drop-shadow(2px 2px 0 rgb(58 39 24 / 24%)); animation: sprite-mushroom-bob 3.7s steps(3, end) infinite reverse; }
 .trail-map-content { position: relative; background-color: #a98557; background-image: repeating-linear-gradient(0deg, transparent 0 37px, rgb(66 44 28 / 13%) 38px, transparent 40px 76px), repeating-linear-gradient(91deg, transparent 0 137px, rgb(70 47 28 / 12%) 138px, transparent 142px), radial-gradient(ellipse at 18% 12%, rgb(236 210 154 / 30%), transparent 55%), linear-gradient(108deg, #b39261, #a48153 46%, #b29363); background-size: auto, auto, 100% 100%, 100% 100%; scrollbar-color: #77874e #9a754b; }
+@keyframes map-sign-rock { 0%, 100% { transform: rotate(-1deg); } 50% { transform: rotate(1deg) translateY(-2px); } }
 .trail-map-stamp { position: relative; display: flex; align-items: center; gap: .55rem; width: fit-content; max-width: 100%; margin: 0 auto 1.1rem; padding: .35rem .65rem; border: 1px dashed #6c5232; color: #f3e4bb; background: #536b40; box-shadow: 2px 3px 0 rgb(55 38 23 / 48%), inset 0 1px 0 rgb(242 233 190 / 32%); font: 700 .67rem/1.2 Georgia, "Times New Roman", serif; letter-spacing: .14em; text-shadow: 1px 1px #34472e; transform: rotate(-1deg); animation: stamp-arrive 520ms cubic-bezier(.2,1.4,.5,1) both; }
 .trail-map-stamp-mark { color: #ecc66d; font-size: .95rem; animation: stamp-spark 2.8s ease-in-out infinite; }
 .trail-map-stamp i { width: 7px; height: 7px; flex: none; border: 1px solid #ebcb80; border-radius: 50%; background: #e4bb5c; box-shadow: 0 0 5px #e9c76c; animation: firefly-blink 2.2s ease-in-out infinite; }
@@ -443,8 +513,24 @@ input, textarea, select { accent-color: var(--color-secondary); }
   .trail-map-content .quest-subpanel, .trail-map-content section li::before,
   .trail-map-note, .trail-map-footer::before, .trail-action-leaf,
   .journal-leaf, .journal-firefly, .journal-bookmark,
-  .brand-icon, .brand-sparkle, .hud-button:hover > svg, .hud-button:focus-visible > svg { animation: none; }
+  .header-vine, .modal-vine, .trail-map-vine, .quest-dialog-vine, .quest-json-vine, .modal-branch,
+  .brand-icon, .brand-sparkle, .header-trail-sign, .journal-lantern, .journal-mushroom,
+  .trail-map-sign, .trail-map-mushroom, .organization-quest-compass, .quest-json-lantern,
+  .settings-journal:has(button:active) .journal-vine,
+  .trail-map-panel:has(button:active) .trail-map-vine,
+  .organization-quest-dialog:has(button:active) .quest-dialog-vine,
+  .quest-json-modal:has(button:active) .quest-json-vine,
+  .settings-journal:has(button:active) .journal-branch,
+  .trail-map-panel:has(button:active) .trail-map-branch,
+  .organization-quest-dialog:has(button:active) .quest-dialog-branch,
+  .quest-json-modal:has(button:active) .quest-json-branch { animation: none !important; }
+  .hud-button:hover > svg, .hud-button:focus-visible > svg { animation: none; }
   .trail-map-action:hover, .trail-map-action:active { transform: none; }
+  .settings-journal button:active:not(:disabled), .trail-map-panel button:active:not(:disabled),
+  .organization-quest-dialog button:active:not(:disabled), .quest-json-modal button:active:not(:disabled) {
+    transform: none !important;
+    filter: none;
+  }
   .trail-map-content .quest-tag:hover, .trail-map-content .quest-subpanel:hover,
   .trail-map-content button:hover, .trail-map-content button:active { transform: none; filter: none; }
   button:not(:disabled):hover, button:not(:disabled):active { translate: none; }

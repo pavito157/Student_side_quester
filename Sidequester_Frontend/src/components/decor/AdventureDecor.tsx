@@ -20,6 +20,86 @@ export function PixelLeafIcon({ className = '' }: { className?: string }) {
   </svg>
 }
 
+export function PixelTrailSignIcon({ className = '' }: { className?: string }) {
+  return <svg aria-hidden="true" viewBox="0 0 32 32" className={className} shapeRendering="crispEdges">
+    <path d="M14 19h5v13h-5z" fill="#38291c" />
+    <path d="M15 20h3v12h-3z" fill="#95643a" />
+    <path d="M3 4h26v16H3z" fill="#3b2a1d" />
+    <path d="M5 6h22v12H5z" fill="#b77a42" />
+    <path d="M7 8h18v8H7z" fill="#e3bd76" />
+    <path d="M8 9h7v2H8zm11 0h5v2h-5zm-7 4h10v2H12z" fill="#547344" />
+    <path d="M3 4h4v2H5v3H3zm22 0h4v5h-2V6h-2zM3 15h2v3h4v2H3zm22 3h2v-3h2v5h-4z" fill="#70462b" />
+  </svg>
+}
+
+export function PixelLanternIcon({ className = '' }: { className?: string }) {
+  return <svg aria-hidden="true" viewBox="0 0 24 32" className={className} shapeRendering="crispEdges">
+    <path d="M9 1h6v2h3v4h-2V5H8v2H6V3h3z" fill="#45311f" />
+    <path d="M10 3h4v2h-4z" fill="#d9bc78" />
+    <path d="M5 7h14v2h2v15h-2v3H5v-3H3V9h2z" fill="#3c2c20" />
+    <path d="M6 10h12v12H6z" fill="#c08a43" />
+    <path d="M8 11h8v10H8z" fill="#f3d878" />
+    <path d="M11 13h2v2h2v4h-2v2h-2v-2H9v-4h2z" fill="#fff2b2" />
+    <path d="M5 24h14v2H5z" fill="#8a5b32" />
+    <path d="M2 12h2v6H2zm18 0h2v6h-2z" fill="#d6b56d" />
+  </svg>
+}
+
+export function PixelMushroomIcon({ className = '' }: { className?: string }) {
+  return <svg aria-hidden="true" viewBox="0 0 32 32" className={className} shapeRendering="crispEdges">
+    <path d="M14 17h5v4h3v7h-3v2h-7v-2h-3v-7h3v-4z" fill="#f0d7a0" />
+    <path d="M14 20h5v3h3v5h-3v2h-7v-2h-3v-5h3v-3z" fill="#d7b77b" />
+    <path d="M6 12V9h3V6h4V3h7v3h4v3h3v3h2v6H3v-6h3z" fill="#593b2a" />
+    <path d="M7 12V9h4V6h4V4h5v3h4v3h3v3h2v3H4v-3h3z" fill="#b95f3b" />
+    <path d="M11 8h3v3h-3zm9 2h3v3h-3zM7 13h3v2H7z" fill="#f2cf79" />
+    <path d="M13 19h2v2h-2zm0 6h2v3h-2z" fill="#fff0c5" />
+  </svg>
+}
+
+export function PixelHangingVineIcon({ className = '' }: { className?: string }) {
+  return <svg aria-hidden="true" viewBox="0 0 32 64" className={className} shapeRendering="crispEdges">
+    <path d="M5 0h4v8h3v5h5v4h6v4h4v6h-4v-3h-7v-4h-6v-5H7v-7H5z" fill="#284d32" />
+    <path d="M8 1h2v7h3v5h5v4h6v4h3v3h-2v-2h-7v-4h-6v-5h-4V8H8z" fill="#63934b" />
+    <path d="M8 6h3v3h-3zm4 5h3v3h-3zm5 4h3v3h-3zm5 4h3v3h-3z" fill="#9fbd60" />
+    <path d="M3 13h5v2h3v4h-3v3H5v-3H2v-4h1z" fill="#35643b" />
+    <path d="M4 15h3v2h2v1H7v2H5v-2H3v-2h1z" fill="#81ac50" />
+    <path d="M18 25h5v2h3v4h-3v3h-4v-3h-3v-4h2z" fill="#35643b" />
+    <path d="M19 27h3v2h2v1h-2v2h-2v-2h-2v-2h1z" fill="#a8c45e" />
+    <path d="M7 31h5v2h3v4h-3v3H8v-3H5v-4h2z" fill="#35643b" />
+    <path d="M8 33h3v2h2v1h-2v2H9v-2H7v-2h1z" fill="#81ac50" />
+    <path d="M23 40h5v2h3v4h-3v3h-4v-3h-3v-4h2z" fill="#35643b" />
+    <path d="M24 42h3v2h2v1h-2v2h-2v-2h-2v-2h1z" fill="#a8c45e" />
+    <path d="M13 48h5v2h3v4h-3v3h-4v-3h-3v-4h2z" fill="#35643b" />
+    <path d="M14 50h3v2h2v1h-2v2h-2v-2h-2v-2h1z" fill="#81ac50" />
+  </svg>
+}
+
+export function PixelBranchIcon({ className = '' }: { className?: string }) {
+  return <svg aria-hidden="true" viewBox="0 0 64 32" className={className} shapeRendering="crispEdges">
+    <path d="M2 23h7v-4h8v-4h9v-3h8V8h9V5h9V2h7v4h-7v3h-9v4h-9v4h-8v3h-9v4h-8v4H2z" fill="#284a31" />
+    <path d="M4 23h5v-4h8v-4h9v-3h8V8h9V5h9V3h5v2h-7v3h-9v4h-9v4h-8v3h-9v4h-8v4H4z" fill="#78974a" />
+    <path d="M10 18h6v-4h5v-3h5v4h-4v4h-7v3h-5z" fill="#38643b" />
+    <path d="M13 13h3v-4h4V6h6v4h-4v3h-4v3h-5z" fill="#9ab857" />
+    <path d="M26 11h5V7h4V4h6v4h-4v4h-6v3h-5z" fill="#4b7940" />
+    <path d="M29 7h4V4h5V1h6v4h-4v3h-5v3h-6z" fill="#b7cb65" />
+    <path d="M43 5h5V2h4V0h7v4h-5v3h-5v3h-6z" fill="#5c8b43" />
+    <path d="M47 2h5V0h5v3h-4v3h-6z" fill="#bdd36c" />
+    <path d="M49 13h5v-3h4v-3h5v5h-4v3h-5v3h-5z" fill="#47733b" />
+    <path d="M53 10h4V8h4v3h-3v3h-5z" fill="#a6c65d" />
+  </svg>
+}
+
+export function PixelCompassIcon({ className = '' }: { className?: string }) {
+  return <svg aria-hidden="true" viewBox="0 0 32 32" className={className} shapeRendering="crispEdges">
+    <path d="M12 1h8v2h5v3h3v5h2v8h-2v5h-3v5h-5v2h-8v-2H7v-3H4v-5H2v-8h2V8h3V3h5z" fill="#443222" />
+    <path d="M12 4h8v2h4v4h2v8h-2v4h-4v4h-8v-2H8v-4H6v-8h2v-4h4z" fill="#d6b66c" />
+    <path d="M12 7h8v2h3v4h2v6h-2v4h-3v2h-8v-2H9v-4H7v-6h2v-4h3z" fill="#f2e3ba" />
+    <path d="M16 8h2v7h5v2h-5v7h-2v-7h-5v-2h5z" fill="#607a43" />
+    <path d="M16 10h2v6h-2zm-2 6h2v2h-2z" fill="#bd5c39" />
+    <path d="M15 1h2v3h-2zm0 27h2v3h-2zM2 15h3v2H2zm25 0h3v2h-3z" fill="#fff0bd" />
+  </svg>
+}
+
 export function AccentStrokes() {
   return <svg aria-hidden="true" viewBox="0 0 56 52" className="accent-strokes" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
     <path d="m9 20 8-15m7 24 20-12M31 42h18" />

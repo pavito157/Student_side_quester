@@ -51,6 +51,27 @@ class DestinationSelectionTests(unittest.TestCase):
         self.assertEqual(result.destination.placeId, 'test-depot')
         self.assertTrue(result.destinationVerified)
 
+    def test_place_discovery_prioritizes_vibe_and_does_not_search_goals(self):
+        preferences = GenerateQuestRequest.model_validate({
+            'location': 'Anywhere', 'time': {'selection': '60'}, 'budget': {'selection': '0'},
+            'preferences': 'likes watercolor painting',
+            'goals': ['practice advanced painting'],
+            'vibePreferences': 'playful, curious outings',
+        }).normalize()
+        self.selector._eligible_places(preferences)
+        user_searches = [
+            call.args[0] for call in self.search.call_args_list
+            if call.args[0].endswith(' places and experiences')
+        ]
+        self.assertEqual(len(user_searches), 1)
+        self.assertIn('playful, curious outings', user_searches[0])
+        self.assertIn('likes watercolor painting', user_searches[0])
+        self.assertNotIn('practice advanced painting', user_searches[0])
+        self.assertLess(
+            user_searches[0].index('playful, curious outings'),
+            user_searches[0].index('likes watercolor painting'),
+        )
+
     def test_multi_quest_selects_and_verifies_ordered_unique_stops(self):
         second = {
             **self.place,

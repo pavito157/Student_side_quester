@@ -221,13 +221,12 @@ class VerifiedDestinationSelector:
         key = os.environ.get("GOOGLE_PLACES_API_KEY", "").strip()
         if not key:
             raise DestinationResolutionError(unavailable=True)
-        user_query = " ".join([
-            preferences.preferences,
-            *preferences.goals,
+        user_query = " ".join(filter(None, [
             preferences.vibe.preferences if preferences.vibe else "",
-        ]).strip()[:180]
+            preferences.preferences,
+        ])).strip()[:180]
         if not user_query:
-            user_query = "local culture, nature, arts, and recreation"
+            user_query = "fun local exploration, culture, nature, arts, and recreation"
         surprise_query = random.choice([
             "independent art spaces and creative places",
             "local history and unusual public landmarks",

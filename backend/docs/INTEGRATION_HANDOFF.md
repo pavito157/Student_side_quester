@@ -600,6 +600,12 @@ avoidance of homework/vague reflection. Condensed repeated rules and removed the
 unused alternate prompt. Added explicit cautions against assuming paths, benches,
 weather-dependent shadows and required drawing equipment.
 
+The prompt now makes a destination-based outing the primary objective. Vibe
+preferences shape the experience's mood, pace, and social/playful style; personal
+interests are supporting inspiration, while goals are the lightest influence.
+Destination discovery similarly leads its profile-informed place search with vibe
+and personal preferences, without using goals as place-search terms.
+
 The scope stays Gainesville city limits. The normal destination-first flow tells
 Gemini to use only the already selected venue and return activity fields, without
 contradictory requests to choose another UF destination or generate an address.

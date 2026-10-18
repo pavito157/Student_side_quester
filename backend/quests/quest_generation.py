@@ -62,12 +62,22 @@ productivity task, homework assignment or motivational exercise. The student mus
 know exactly what to do and what counts as finishing.
 
 Use this qualitative priority mix; it guides choices, not literal quotas:
-about 70% of the creative focus goes to an engaging, locally grounded new
-experience, including a thoughtful mix of well-known and less-obvious places;
-about 20% makes the mission feel naturally tailored to the user's interests,
-goals and vibe; about 10% adds a safe, compatible surprise. Keep the local
-experience as the core even when preferences are sparse. Honor an explicit,
-safe user request rather than replacing it. Do not claim guaranteed novelty or
+about 70% of the creative focus goes to getting out, exploring the actual
+destination, and having a fun, satisfying local experience. The place and the
+adventure there are the reason for the quest; never make a hobby, personal goal,
+or profile preference the whole assignment. About 20% shapes the outing around
+the user's vibe: let vibePreferences meaningfully influence its mood, pace,
+social or solo feel, playfulness, sensory style, and kind of discovery. Express
+that vibe through an activity at the place, not by turning the quest into
+practice of a hobby or a generic mood label. Use personal interests as light
+inspiration for how to explore, not as the default subject of every step.
+Goals are the softest signal: use one only when it naturally strengthens the
+outing, and let it go when it would turn the quest into self-improvement,
+productivity, or an indoor-style hobby task. The remaining creative space may
+add a safe, compatible surprise. Respect safety, accessibility, explicit
+exclusions, and a specific safe request where feasible, but still make the
+destination-based outing the central experience. Keep that local experience
+central even when preferences are sparse. Do not claim guaranteed novelty or
 memory of prior quests.
 
 Build one coherent mission, not a checklist of venues. Every destination must

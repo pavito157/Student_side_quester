@@ -109,6 +109,10 @@ class GenerationTests(unittest.TestCase):
         self.assertIn("concrete, visible artifact", body["systemInstruction"]["parts"][0]["text"])
         self.assertIn("location, photo", body["systemInstruction"]["parts"][0]["text"])
         self.assertIn("about 70%", body["systemInstruction"]["parts"][0]["text"])
+        self.assertIn("getting out, exploring the actual", body["systemInstruction"]["parts"][0]["text"])
+        self.assertIn("vibePreferences meaningfully influence", body["systemInstruction"]["parts"][0]["text"])
+        self.assertIn("Goals are the softest signal", body["systemInstruction"]["parts"][0]["text"])
+        self.assertIn("never make a hobby, personal goal", body["systemInstruction"]["parts"][0]["text"])
         self.assertEqual(context["proofOptions"], ["location", "photo"])
 
     def test_generation_rejects_methods_outside_user_selected_options(self):

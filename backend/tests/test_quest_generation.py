@@ -10,8 +10,9 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from backend import firebase_helpers, quest_generation as generation
-from backend.quest_contracts import GenerateQuestRequest, GeneratedQuestProposal, ResolvedDestination, SelectedDestination
+from backend.auth import firebase_helpers
+from backend.quests import quest_generation as generation
+from backend.quests.quest_contracts import GenerateQuestRequest, GeneratedQuestProposal, ResolvedDestination, SelectedDestination
 from main import app
 
 HTTP_CLIENT = httpx.Client

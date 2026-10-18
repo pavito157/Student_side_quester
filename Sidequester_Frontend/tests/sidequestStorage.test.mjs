@@ -39,7 +39,11 @@ async function fixture() {
     },
   } } })
   const mod = new vm.SourceTextModule(compiled, { context })
-  await mod.link((name) => {
+  await mod.link(async (name) => {
+    if (name.endsWith('/types/sidequest')) {
+      const types = await readFile(new URL('../src/types/sidequest.ts', import.meta.url), 'utf8')
+      return new vm.SourceTextModule(ts.transpileModule(types,{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText,{context})
+    }
     let exports
     if (name === 'firebase/firestore') exports = {
       collection: (...args) => { state.refs.push(args.slice(1)); return args.slice(1) },
@@ -47,6 +51,10 @@ async function fixture() {
       onSnapshot: (ref, callback) => { state.callbacks.push(callback); return () => {} }, Timestamp,
     }
     else if (name.endsWith('FirebaseConfig')) exports = { db: {} }
+    else if (name.endsWith('/types/sidequest')) exports = {
+      MAX_QUEST_STEPS: 10,
+      MAX_QUEST_STOPS: 10,
+    }
     else exports = {
       MAX_QUEST_REPLACEMENTS: 3,
       requestQuestCompletion: async (...args) => {

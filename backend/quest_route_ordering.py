@@ -6,8 +6,8 @@ assumed. Without an origin, retain the proposed activity order.
 """
 from functools import lru_cache
 
-from .quest_contracts import GeneratedQuestProposal, MAX_QUEST_DESTINATIONS
-from .quest_validation import calculate_distance
+from backend.quests.quest_contracts import GeneratedQuestProposal, MAX_QUEST_DESTINATIONS
+from backend.quests.quest_validation import calculate_distance
 
 
 def geographic_order(stops, origin, dependencies=()):

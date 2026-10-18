@@ -76,7 +76,7 @@ async function fixture() {
     await module.evaluate()
     return module
   }
-  const module = await load('componenets/main-ui/QuestFilterButtons.tsx')
+  const module = await load('features/quest-generation/QuestFilterButtons.tsx')
   f.unmount = () => { for (const slot of slots) slot?.cleanup?.(); slots = [] }
   f.render = () => {
     const wrapped = module.namespace.default({

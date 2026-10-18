@@ -2,11 +2,11 @@
 
 Generated assignments live at Users/{uid}/sidequests/{questId}. This helper
 requires fresh reported GPS and delegates all state, reward, user XP and dorm XP
-checks/writes to backend.quest_completion; it does not run a separate transaction.
+checks/writes to backend.quests.quest_completion; it does not run a separate transaction.
 """
 
-from backend.firebase_helpers import get_db
-from backend.quest_completion import complete_quest
+from backend.auth.firebase_helpers import get_db
+from backend.quests.quest_completion import complete_quest
 
 
 def complete_assigned_quest(

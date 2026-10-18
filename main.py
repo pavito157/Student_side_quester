@@ -1,22 +1,23 @@
 from dotenv import load_dotenv
 load_dotenv()
 from contextlib import asynccontextmanager
-from dotenv import load_dotenv
-load_dotenv()
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from google.api_core.exceptions import GoogleAPICallError
 
-from backend.firebase_helpers import current_uid, get_db
+from backend.auth.firebase_helpers import current_uid, get_db
 
-from backend.auth_routes import frontend_origins, router as auth_router
-from backend.dorm_routes import router as dorm_router
-from backend.leaderboard_routes import router as leaderboard_router
-from backend.quest_assignment_routes import router as quest_assignment_router
-from backend.quest_routes import router as quest_router
-from backend.request_timing import measure_quest_request
-from backend.quest_generation import close_gemini_http_client
+from backend.global_quests import router as global_quest_router
+from backend.organization_access import router as organization_access_router
+from backend.api.auth_routes import frontend_origins, router as auth_router
+from backend.api.dorm_routes import router as dorm_router
+from backend.api.leaderboard_routes import router as leaderboard_router
+from backend.api.quest_assignment_routes import router as quest_assignment_router
+from backend.api.organization_quest_routes import router as organization_quest_router
+from backend.api.quest_routes import router as quest_router
+from backend.core.request_timing import measure_quest_request
+from backend.quests.quest_generation import close_gemini_http_client
 
 
 @asynccontextmanager
@@ -35,8 +36,11 @@ app.add_middleware(CORSMiddleware, allow_origins=frontend_origins(),
 app.middleware("http")(measure_quest_request)
 app.include_router(auth_router)
 app.include_router(dorm_router)
+app.include_router(global_quest_router)
+app.include_router(organization_access_router)
 app.include_router(leaderboard_router)
 app.include_router(quest_assignment_router)
+app.include_router(organization_quest_router)
 app.include_router(quest_router)
 
 

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="forest" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#10291f"/>
+      <stop offset="1" stop-color="#24533a"/>
+    </linearGradient>
+    <pattern id="grid" width="44" height="44" patternUnits="userSpaceOnUse">
+      <path d="M44 0H0v44" fill="none" stroke="#d7e7c2" stroke-opacity=".08"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" rx="30" fill="url(#forest)"/>
+  <rect width="1200" height="630" rx="30" fill="url(#grid)"/>
+  <circle cx="940" cy="300" r="250" fill="#77b651" opacity=".12"/>
+  <path d="M747 468c65-70 97 38 147-24s57-100 117-120 104 12 147-51" fill="none" stroke="#78b6ff" stroke-linecap="round" stroke-width="8" stroke-dasharray="1 25"/>
+  <circle cx="1000" cy="280" r="147" fill="#214936" stroke="#fff4d4" stroke-width="12"/>
+  <path d="m1000 140 24 116 116 24-116 24-24 116-24-116-116-24 116-24 24-116Z" fill="#f5c742"/>
+  <path d="m1000 168 20 96 96 16-96 20-20 96-20-96-96-20 96-16 20-96Z" fill="#f27b3d"/>
+  <path d="m1000 168 20 96-20 16V168Z" fill="#fff4d4"/>
+  <circle cx="1000" cy="280" r="17" fill="#17382a" stroke="#fff4d4" stroke-width="8"/>
+  <path d="m1110 75 11 26 26 11-26 11-11 26-11-26-26-11 26-11 11-26Z" fill="#f5c742"/>
+  <text x="96" y="257" fill="#f5c742" font-family="Arial, sans-serif" font-size="26" font-weight="700" letter-spacing="7">YOUR NEXT ADVENTURE STARTS HERE</text>
+  <text x="90" y="355" fill="#fffdf4" font-family="Arial, sans-serif" font-size="88" font-weight="800" letter-spacing="-4">Sidequester</text>
+  <text x="98" y="414" fill="#e3efdd" font-family="Arial, sans-serif" font-size="30">Explore somewhere new. Make an ordinary day a story.</text>
+  <rect x="98" y="466" width="231" height="6" rx="3" fill="#f27b3d"/>
+</svg>

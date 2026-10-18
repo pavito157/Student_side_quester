@@ -3,13 +3,13 @@ from collections import defaultdict
 import unittest
 from unittest.mock import MagicMock, patch
 
-from backend.destination_resolver import VerifiedDestinationSelector
-from backend.quest_contracts import Coordinates, GenerateQuestRequest, GeneratedQuestProposal, RouteDependency, SelectedDestination, StepProofEvidence
-from backend.quest_generation import generate_preview
+from backend.quests.destination_resolver import VerifiedDestinationSelector
+from backend.quests.quest_contracts import Coordinates, GenerateQuestRequest, GeneratedQuestProposal, RouteDependency, SelectedDestination, StepProofEvidence
+from backend.quests.quest_generation import generate_preview
 from backend.quest_route_ordering import geographic_order, order_new_quest
-from backend.quest_validation import calculate_distance
-from backend import quest_completion
-from backend.firebase_helpers import USERS
+from backend.quests.quest_validation import calculate_distance
+from backend.quests import quest_completion
+from backend.auth.firebase_helpers import USERS
 
 
 class RouteOrderingTests(unittest.TestCase):
@@ -90,7 +90,7 @@ class RouteOrderingTests(unittest.TestCase):
             'activeVibe': {'name': 'Music Minded', 'preferences': 'A substantive creative experience'},
         }).normalize()
         with patch.object(VerifiedDestinationSelector, 'select_candidates', return_value=self.stops), \
-                patch('backend.quest_generation.call_gemini', return_value=self.proposal):
+                patch('backend.quests.quest_generation.call_gemini', return_value=self.proposal):
             result = generate_preview(preferences, VerifiedDestinationSelector())
         self.assertEqual(result.destination.placeId, 'Near')
         self.assertEqual([stop.placeId for stop in result.destinations], ['Near', 'East', 'Far east'])

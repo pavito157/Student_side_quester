@@ -109,6 +109,8 @@ export function parseActiveSidequest(id: string, data: Record<string, unknown>, 
   const skippedPhotoSteps = steps && proofMethods
     ? parsePhotoSteps(data.skippedPhotoSteps, steps, proofMethods)
     : null
+  const sourceOrganizationId = data.sourceOrganizationId ?? null
+  const sourceOrganizationQuestId = data.sourceOrganizationQuestId ?? null
   const xpAwardedSoFar = data.xpAwardedSoFar === undefined ? undefined : data.xpAwardedSoFar
   if (data.userId !== userId || data.ownerId !== userId || data.questId !== id
       || typeof data.title !== 'string' || !data.title.trim()
@@ -121,6 +123,9 @@ export function parseActiveSidequest(id: string, data: Record<string, unknown>, 
         && (typeof xpAwardedSoFar !== 'number' || !Number.isSafeInteger(xpAwardedSoFar) || xpAwardedSoFar < 0))
       || typeof data.latitude !== 'number' || !Number.isFinite(data.latitude) || Math.abs(data.latitude) > 90
       || typeof data.longitude !== 'number' || !Number.isFinite(data.longitude) || Math.abs(data.longitude) > 180
+      || (sourceOrganizationId !== null && (typeof sourceOrganizationId !== 'string' || !sourceOrganizationId.trim()))
+      || (sourceOrganizationQuestId !== null && (typeof sourceOrganizationQuestId !== 'string' || !sourceOrganizationQuestId.trim()))
+      || (sourceOrganizationId === null) !== (sourceOrganizationQuestId === null)
       || (data.placeId !== undefined && data.placeId !== null && typeof data.placeId !== 'string')
       || !destinations || !completedStops
       || destinations[0].locationName !== data.locationName
@@ -143,7 +148,8 @@ export function parseActiveSidequest(id: string, data: Record<string, unknown>, 
     throw new Error(`Saved sidequest ${id} has invalid route details.`)
   }
   return {
-    id, title: data.title, description: data.description, steps,
+    id, sourceOrganizationId, sourceOrganizationQuestId,
+    title: data.title, description: data.description, steps,
     stepProofMethods: proofMethods, stepDestinationIndexes, verifiedPhotoSteps, skippedPhotoSteps,
     locationName: data.locationName,
     placeId: typeof data.placeId === 'string' ? data.placeId : null,

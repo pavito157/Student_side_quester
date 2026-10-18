@@ -5,9 +5,9 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 
-from backend import quest_generation as generation
-from backend.destination_resolver import VerifiedDestinationSelector
-from backend.quest_contracts import GenerateQuestRequest, SelectedDestination, StepProofEvidence
+from backend.quests import quest_generation as generation
+from backend.quests.destination_resolver import VerifiedDestinationSelector
+from backend.quests.quest_contracts import GenerateQuestRequest, SelectedDestination, StepProofEvidence
 from backend.tests import test_quest_generation as fixtures
 
 

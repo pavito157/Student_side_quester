@@ -19,10 +19,11 @@ from google.cloud.firestore import Client
 from google.api_core.exceptions import ServiceUnavailable
 from firebase_admin import firestore
 
-from backend import quest_generation as generation, quest_persistence as persistence
-from backend import firebase_helpers
-from backend.quest_completion import CompletionError, complete_quest
-from backend.quest_contracts import GenerateQuestRequest, GeneratedQuestProposal, ResolvedDestination
+from backend.quests import quest_generation as generation
+from backend.quests import quest_persistence as persistence
+from backend.auth import firebase_helpers
+from backend.quests.quest_completion import CompletionError, complete_quest
+from backend.quests.quest_contracts import GenerateQuestRequest, GeneratedQuestProposal, ResolvedDestination
 from main import app
 
 
@@ -596,6 +597,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
             self.provider.return_value = self.proposal.model_copy(update={
                 "steps": ["Perform a small movement sequence at the first stop.", "Find three shapes at the second stop."],
                 "stepProofMethods": ["location", "location"],
+                "stepDestinationIndexes": [0, 1], "routeCandidateIndexes": [0, 1],
             })
             body = {"location": "Origin", "originCoordinates": {"latitude": 29.65, "longitude": -82.34},
                     "time": {"selection": "60"}, "budget": {"selection": "0"}, "multiQuest": True}
@@ -643,6 +645,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
             self.provider.return_value = self.proposal.model_copy(update={
                 "steps": ["Try the first task.", "Try the second task."],
                 "stepProofMethods": ["location", "location"],
+                "stepDestinationIndexes": [0, 1], "routeCandidateIndexes": [0, 1],
             })
             result = client.post("/quests/generate", json={
                 "location": "Origin", "originCoordinates": {"latitude": 29.65, "longitude": -82.34},
@@ -659,7 +662,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
     @contextmanager
     def wired_resolver_client(self):
         """Real routes, resolver, models and DB; only auth/provider I/O is doubled."""
-        from backend import destination_resolver
+        from backend.quests import destination_resolver
         with ExitStack() as stack:
             folder = stack.enter_context(tempfile.TemporaryDirectory())
             boundary = Path(folder) / "synthetic-test-only.geojson"
@@ -686,7 +689,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
             stack.enter_context(patch.object(firebase_helpers.auth, "verify_id_token", return_value={
                 "uid": self.uid, "email": "student@ufl.edu", "email_verified": True,
             }))
-            stack.enter_context(patch("backend.quest_assignment_routes.get_db", return_value=self.db))
+            stack.enter_context(patch("backend.api.quest_assignment_routes.get_db", return_value=self.db))
             app.dependency_overrides[firebase_helpers.get_db] = lambda: self.db
             self.addCleanup(app.dependency_overrides.clear)
             client = stack.enter_context(TestClient(app))
@@ -709,7 +712,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
             self.assertEqual(result.headers["cache-control"], "no-store")
             self.assertIn("resolver;dur=", result.headers["server-timing"])
             saved = result.json()
-            from backend.quest_contracts import AssignQuestResponse
+            from backend.quests.quest_contracts import AssignQuestResponse
             AssignQuestResponse.model_validate(saved)
             self.assertEqual(saved["quest"]["placeId"], "provider-test-place")
             self.assertEqual(saved["assignment"]["userId"], self.uid)
@@ -720,7 +723,8 @@ class PersistenceEmulatorTests(unittest.TestCase):
             self.assertEqual(again.status_code, 201)
             self.assertFalse(again.json()["reusedExisting"])
             self.assertEqual(client.get("/me/quest", headers=headers).json()["quest"], again.json()["quest"])
-            self.assertEqual(lookup.call_count, 2)
+            # Each of the two assignments runs four distinct discovery profiles.
+            self.assertEqual(lookup.call_count, 8)
             self.assertEqual(self.provider.call_count, 2)
             url = f"/quests/{saved['quest']['id']}/complete"
             location = {"latitude": 29.65, "longitude": -82.34, "accuracy": 10}
@@ -768,7 +772,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
                 patch.object(firebase_helpers, "get_firebase_app"), \
                 patch.object(firebase_helpers.auth, "verify_id_token", return_value={
                     "uid": self.uid, "email": "student@ufl.edu", "email_verified": True,
-                }), patch("backend.quest_assignment_routes.get_db", return_value=self.db):
+                }), patch("backend.api.quest_assignment_routes.get_db", return_value=self.db):
             headers = {"Authorization": "Bearer firebase-test-token"}
             body = {"location": "Anywhere", "time": {"selection": "60"}, "budget": {"selection": "0"}}
             first = client.post("/quests/assign", json=body, headers=headers)

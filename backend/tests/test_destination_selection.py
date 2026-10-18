@@ -6,8 +6,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 from fastapi import HTTPException
-from backend import destination_resolver as resolver, quest_generation as generation
-from backend.quest_contracts import (
+from backend.quests import destination_resolver as resolver
+from backend.quests import quest_generation as generation
+from backend.quests.quest_contracts import (
     GenerateQuestRequest, GeneratedQuestProposal, GeneratedQuestResponse, SelectedDestination,
 )
 
@@ -49,6 +50,23 @@ class DestinationSelectionTests(unittest.TestCase):
         self.assertEqual(result.quest.locationAddress, self.place['formattedAddress'])
         self.assertEqual(result.destination.placeId, 'test-depot')
         self.assertTrue(result.destinationVerified)
+
+    def test_place_discovery_prioritizes_vibe_and_does_not_search_goals(self):
+        preferences = GenerateQuestRequest.model_validate({
+            'location': 'Anywhere', 'time': {'selection': '60'}, 'budget': {'selection': '0'},
+            'preferences': 'likes watercolor painting',
+            'goals': ['practice advanced painting'],
+            'vibePreferences': 'playful, curious outings',
+        }).normalize()
+        self.selector._eligible_places(preferences)
+        user_searches = [
+            call.args[0] for call in self.search.call_args_list
+            if call.args[0].startswith('Activity venues matching this intended experience:')
+        ]
+        self.assertEqual(len(user_searches), 1)
+        self.assertIn('playful, curious outings', user_searches[0])
+        self.assertNotIn('likes watercolor painting', user_searches[0])
+        self.assertNotIn('practice advanced painting', user_searches[0])
 
     def test_multi_quest_selects_and_verifies_ordered_unique_stops(self):
         second = {

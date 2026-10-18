@@ -1,7 +1,7 @@
 # SideQuest quest validation and completion
 
 The saved-assignment API, frontend helpers, examples and integration boundary are
-in [TASK5_API.md](TASK5_API.md). `POST /quests/assign` saves a verified assignment
+in [TASK5_API.md](docs/TASK5_API.md). `POST /quests/assign` saves a verified assignment
 and permits up to three independent active quests per user.
 `GET /me/active-quests` returns all of them; each can be viewed, GPS-completed, or
 abandoned independently. `/quests/{quest_id}/another` adds without replacing.
@@ -15,57 +15,48 @@ with multiple actions allowed at each stop. A multi-stop quest occupies one acti
 order and awards its share of XP to both the user and dorm. Public deployments
 should enforce edge rate limits and provider quotas for guest generation.
 
-See [AUTH_SETUP.md](AUTH_SETUP.md) for Clerk-to-Firebase sign-in and
-[TASK4_GEMINI.md](TASK4_GEMINI.md) for backend-only Gemini configuration. The
+See [AUTH_SETUP.md](docs/AUTH_SETUP.md) for Clerk-to-Firebase sign-in and
+[TASK4_GEMINI.md](docs/TASK4_GEMINI.md) for backend-only Gemini configuration. The
 canonical profile collection is `Users`. JSON contracts live in [contracts](contracts/README.md).
+See [ORGANIZATION_QUESTS.md](docs/ORGANIZATION_QUESTS.md) for the public organization
+quest board schema and endpoints.
 
-## What is available
+## Backend modules
 
-The checked-out repository originally contained a React/Vite frontend shell
-(header and sidebar), with no backend application, Firebase helpers, or schema.
-The remote `backend` branch also contained only the initial README and ignore file.
-These modules use the supplied quest router and validation draft, preserving their
-camelCase fields and collection names. No live Firestore schema was available to
-inspect or migrate.
-
-- `quest_validation.py` contains dependency-free Haversine and completion checks.
+- `quests/quest_validation.py` contains dependency-free Haversine and completion checks.
   It can be tested while FastAPI startup is unresolved.
-- `quest_routes.py` contains the supplied GET/completion routes and uses the
-  shared authentication/database helpers in `firebase_helpers.py`.
+- `api/quest_routes.py` contains the GET/completion routes and uses the
+  shared authentication/database helpers in `auth/firebase_helpers.py`.
 - `leaderboard_routes.py` exposes authenticated individual and dorm XP
   leaderboards. Individual balances come from `Users/{uid}` (`xp`, with legacy
   `totalXp` read compatibility). Dorm scores are recomputed from those user
   balances grouped by each profile's `dormId`.
-- `dorm_catalog.py` contains the UF residence list supplied for this feature,
-  including the `Off campus` category. `dorm_routes.py` returns the catalog and
+- `users/dorm_catalog.py` contains the UF residence list supplied for this feature,
+  including the `Off campus` category. `api/dorm_routes.py` returns the catalog and
   lets the authenticated user save their own residence; selection creates the
   corresponding Firestore `dorms/{dormId}` XP record when it does not exist.
-- `quest_completion.py` owns the Firestore completion transaction.
-- `quest_assignment_routes.py` mounts fixed/Gemini previews and saved/current
-  assignment endpoints. `quest_persistence.py` owns atomic assignment creation.
-- `quest_generation.py` owns direct Gemini generation and the resolver interface.
+- `quests/quest_completion.py` owns the Firestore completion transaction.
+- `api/quest_assignment_routes.py` mounts fixed/Gemini previews and saved/current
+  assignment endpoints. `quests/quest_persistence.py` owns atomic assignment creation.
+- `quests/quest_generation.py` owns direct Gemini generation and the resolver interface.
 
-The frontend still needs to switch its leaderboard view to these backend
-endpoints. Quest completion remains a separate transaction and continues to
-update both a user's XP and the stored dorm total.
+Quest completion runs as a separate transaction and updates both a user's XP and
+the stored dorm total.
 
 ## Leaderboards
 
 Both leaderboard endpoints require a valid Firebase ID token:
 
-- `GET /leaderboard` returns `{"leaderboard": [{"userId", "username", "xp"}],
-  "skippedUsers": n}`. A non-empty `username` is preferred; `displayName` is
-  used when username is absent. Profiles without either display name are
-  counted in `skippedUsers`.
+- `GET /leaderboard` returns `{"leaderboard": [{"userId", "username", "xp"}]}`.
+  A non-empty `username` is preferred; `displayName` is used when username is
+  absent. Profiles without either display name are not listed.
 - `GET /leaderboard/dorms` returns
-  `{"leaderboard": [{"dormId", "dormName", "xp", "memberCount"}],
-  "unassignedUsers": n}`. Each score is the sum of the XP balances of users
-  whose stored `dormId` matches a document in `dorms`. Dorms with no members
-  remain on the board with zero XP. Missing, malformed, and unknown dorm IDs
-  are counted in `unassignedUsers`.
+  `{"leaderboard": [{"dormId", "dormName", "xp", "memberCount"}]}`. Each score
+  is the sum of the XP balances of users whose stored `dormId` matches a
+  document in `dorms`. Dorms with no members remain on the board with zero XP.
 
 `xp` is canonical; legacy `totalXp` is read only when `xp` is absent, following
-the shared `backend/xp.py` contract. Invalid XP data or Firestore read failures
+the shared `backend/users/xp.py` contract. Invalid XP data or Firestore read failures
 return HTTP 503 rather than a partial ranking. These endpoints scan the user
 collection on each request; consider a trusted, transactionally maintained
 aggregate or caching strategy if the user base grows substantially.
@@ -118,10 +109,11 @@ The installed Python emitted SDK support warnings; use Python 3.11+ for developm
 
 ## Connect to the teammate's app
 
-Mount this router from the existing application:
+The ASGI app in the repository root already mounts the routers. To mount an
+individual route module in another app:
 
 ```python
-from backend.quest_routes import router
+from backend.api.quest_routes import router
 
 app.include_router(router)
 ```
@@ -129,7 +121,7 @@ app.include_router(router)
 Run imports from the repository root. `get_firebase_app()` reuses an initialized
 default Firebase Admin app, otherwise initializes with Application Default
 Credentials on the first authenticated request. `get_db()` caches its client.
-If teammate helpers become available, import those in `quest_routes.py` instead
+If replacing the shared helpers, update the imports in `backend/api/quest_routes.py` instead
 of keeping two implementations. Neither module initializes credentials or starts
 FastAPI on import.
 
@@ -171,7 +163,7 @@ The service reads these records **inside the transaction**:
 
 Older global `userQuests`/`quests` records remain readable for compatibility; new
 generated assignments use the user subcollection. Active legacy records migrate
-transactionally when retrieved (see [TASK5_API.md](TASK5_API.md)).
+transactionally when retrieved (see [TASK5_API.md](docs/TASK5_API.md)).
 
 The assignment must belong to the caller, refer to this quest, and have status
 `assigned`. The quest must still be active. The user's dorm comes from the stored
@@ -208,6 +200,6 @@ References: [Firebase transactions](https://firebase.google.com/docs/firestore/m
 [Firestore emulator](https://firebase.google.com/docs/emulator-suite/connect_firestore).
 # Gemini integration (Step 4)
 
-See [TASK4_GEMINI.md](TASK4_GEMINI.md) for the authenticated `/quests/generate`
+See [TASK4_GEMINI.md](docs/TASK4_GEMINI.md) for the authenticated `/quests/generate`
 preview, backend-only key setup, catalog requirements, frontend helper, and tests.
 The fixed Step 3 endpoint is preserved. Neither preview saves assignments or XP.

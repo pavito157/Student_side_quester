@@ -6,9 +6,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from google.api_core.exceptions import GoogleAPICallError
 
-from backend import leaderboard_routes
-from backend.firebase_helpers import current_uid, get_db
-from backend.dorm_catalog import DORM_CATALOG
+from backend.api import leaderboard_routes
+from backend.auth.firebase_helpers import current_uid, get_db
+from backend.users.dorm_catalog import DORM_CATALOG
 
 
 class Snapshot:
@@ -39,7 +39,7 @@ class LeaderboardRouteTests(unittest.TestCase):
             Snapshot(document_id, data) for document_id, data in documents
         ]
 
-    def test_individual_board_sorts_users_and_supports_display_name_and_legacy_xp(self):
+    def test_individual_board_sorts_named_users_and_supports_display_name_and_legacy_xp(self):
         self.set_documents("Users", [
             ("user-z", {"username": "Zed", "displayName": "Ignored", "xp": 25}),
             ("user-a", {"displayName": "Ada", "totalXp": 30}),
@@ -54,7 +54,6 @@ class LeaderboardRouteTests(unittest.TestCase):
                 {"userId": "user-a", "username": "Ada", "xp": 30},
                 {"userId": "user-z", "username": "Zed", "xp": 25},
             ],
-            "skippedUsers": 1,
         })
 
     def test_dorm_board_sums_member_balances_and_only_counts_catalog_dorms(self):
@@ -78,7 +77,7 @@ class LeaderboardRouteTests(unittest.TestCase):
         })
         self.assertEqual(by_id["cypress_hall"]["xp"], 0)
         self.assertEqual(by_id["off_campus"]["xp"], 0)
-        self.assertEqual(data["unassignedUsers"], 2)
+        self.assertNotIn("unassignedUsers", data)
 
     def test_dorm_board_includes_all_user_supplied_halls_and_off_campus(self):
         self.set_documents("Users", [])

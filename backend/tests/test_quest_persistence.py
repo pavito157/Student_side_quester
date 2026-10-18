@@ -10,8 +10,9 @@ from unittest.mock import MagicMock, patch
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from backend import firebase_helpers, quest_persistence as persistence
-from backend.quest_contracts import (
+from backend.auth import firebase_helpers
+from backend.quests import quest_persistence as persistence
+from backend.quests.quest_contracts import (
     AssignQuestResponse, GenerateQuestRequest, GeneratedQuestProposal, GeneratedQuestResponse,
     ResolvedDestination,
 )
@@ -204,11 +205,11 @@ class PersistenceRouteTests(unittest.TestCase):
         self.verify = patch.object(firebase_helpers.auth, "verify_id_token", return_value={
             "uid": "user_student", "email": "student@ufl.edu", "email_verified": True,
         }).start()
-        self.db = patch("backend.quest_assignment_routes.get_db", return_value=MagicMock()).start()
-        self.assign = patch("backend.quest_assignment_routes.assign_generated_quest",
+        self.db = patch("backend.api.quest_assignment_routes.get_db", return_value=MagicMock()).start()
+        self.assign = patch("backend.api.quest_assignment_routes.assign_generated_quest",
                             return_value=self.saved).start()
-        self.read = patch("backend.quest_assignment_routes.get_current_assignment", return_value=None).start()
-        self.replace = patch("backend.quest_assignment_routes.replace_generated_quest", return_value=self.saved).start()
+        self.read = patch("backend.api.quest_assignment_routes.get_current_assignment", return_value=None).start()
+        self.replace = patch("backend.api.quest_assignment_routes.replace_generated_quest", return_value=self.saved).start()
         self.headers = {"Authorization": "Bearer firebase-test-token"}
 
     def test_new_assignment_is_201_with_structured_json_and_token_identity(self):
@@ -226,7 +227,7 @@ class PersistenceRouteTests(unittest.TestCase):
         self.verify.assert_called_once_with("firebase-test-token", check_revoked=True)
 
     def test_active_list_is_authenticated_and_uses_token_owner(self):
-        with patch("backend.quest_assignment_routes.get_active_assignments", return_value=[self.saved]) as read:
+        with patch("backend.api.quest_assignment_routes.get_active_assignments", return_value=[self.saved]) as read:
             response = self.client.get("/me/active-quests", headers=self.headers)
             self.assertEqual(response.status_code, 200, response.text)
             self.assertEqual(response.headers["cache-control"], "no-store")

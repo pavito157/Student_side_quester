@@ -7,7 +7,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from backend.quest_contracts import (
+from backend.quests.quest_contracts import (
     AssignQuestRequest, AssignQuestResponse, GenerateQuestRequest,
     GeminiMultiStopDraft, NormalizedQuestPreferences,
 )

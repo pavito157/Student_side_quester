@@ -37,14 +37,12 @@ test('loads individual leaderboard from the backend with Firebase bearer token',
       ok: true,
       json: async () => ({
         leaderboard: [{ userId: 'user_1', username: 'Alex', xp: 42 }],
-        skippedUsers: 1,
-      }),
+          }),
     },
   })
 
   assert.deepEqual(JSON.parse(JSON.stringify(await f.api.getLeaderboardEntries('firebase-id-token'))), {
     entries: [{ userId: 'user_1', username: 'Alex', xp: 42 }],
-    skippedUsers: 1,
   })
   assert.equal(f.requests[0][0], 'https://api.example.test/leaderboard')
   assert.equal(f.requests[0][1].headers.Authorization, 'Bearer firebase-id-token')
@@ -58,14 +56,12 @@ test('loads dorm leaderboard from the backend', async () => {
       ok: true,
       json: async () => ({
         leaderboard: [{ dormId: 'broward', dormName: 'Broward Hall', xp: 120, memberCount: 4 }],
-        unassignedUsers: 2,
-      }),
+          }),
     },
   })
 
   assert.deepEqual(JSON.parse(JSON.stringify(await f.api.getDormLeaderboardEntries('firebase-id-token'))), {
     entries: [{ dormId: 'broward', dormName: 'Broward Hall', xp: 120, memberCount: 4 }],
-    unassignedUsers: 2,
   })
   assert.equal(f.requests[0][0], 'http://127.0.0.1:8000/leaderboard/dorms')
 })

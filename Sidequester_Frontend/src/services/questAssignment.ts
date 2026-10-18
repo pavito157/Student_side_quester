@@ -5,7 +5,8 @@ import {
   type QuestProofMethod,
 } from '../types/sidequest'
 
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000').replace(/\/$/, '')
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL
+  || (import.meta.env.PROD ? '' : 'http://127.0.0.1:8000')).replace(/\/$/, '')
 
 type ActivityTimeFilter = {
   selection: '' | 'any' | '30' | '60' | '120' | 'custom'
@@ -103,6 +104,8 @@ export type GeneratedQuestResponse = Omit<QuestPreviewResponse, 'mode' | 'filter
 export type SavedQuestResponse = {
   quest: Omit<QuestPreviewResponse['quest'], 'stepProofMethods' | 'stepDestinationIndexes'> & {
     id: string
+    sourceOrganizationId?: string | null
+    sourceOrganizationQuestId?: string | null
     placeId: string | null
     latitude: number
     longitude: number
@@ -125,8 +128,57 @@ export type SavedQuestResponse = {
   reusedExisting: boolean
 }
 
+export type OrganizationQuestBoardItem = {
+  organizationId: string
+  organizationName: string
+  questId: string
+  title: string
+  summary: string
+  details: string
+  timeLabel: string
+  mapLocation: {
+    name: string
+    latitude: number
+    longitude: number
+  } | null
+  mapLocationStatus: 'available' | 'missing' | 'invalid'
+  xpPotential: number
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isOrganizationQuestBoardItem(value: unknown): value is OrganizationQuestBoardItem {
+  if (!isRecord(value)) return false
+  const location = value.mapLocation
+  const hasValidLocation = location === null || (
+    isRecord(location)
+    && typeof location.name === 'string' && location.name.trim().length > 0
+    && typeof location.latitude === 'number' && Number.isFinite(location.latitude)
+    && Math.abs(location.latitude) <= 90
+    && typeof location.longitude === 'number' && Number.isFinite(location.longitude)
+    && Math.abs(location.longitude) <= 180
+  )
+  const hasValidLocationStatus = value.mapLocationStatus === 'available'
+    ? location !== null
+    : (value.mapLocationStatus === 'missing' || value.mapLocationStatus === 'invalid')
+      && location === null
+
+  return typeof value.organizationId === 'string' && value.organizationId.trim().length > 0
+    && !value.organizationId.includes('/')
+    && typeof value.organizationName === 'string' && value.organizationName.trim().length > 0
+    && typeof value.questId === 'string' && value.questId.trim().length > 0
+    && !value.questId.includes('/')
+    && typeof value.title === 'string' && value.title.trim().length > 0
+    && typeof value.summary === 'string' && value.summary.trim().length > 0
+    && typeof value.details === 'string' && value.details.trim().length > 0
+    && typeof value.timeLabel === 'string' && value.timeLabel.trim().length > 0
+    && hasValidLocation
+    && hasValidLocationStatus
+    && typeof value.xpPotential === 'number'
+    && Number.isSafeInteger(value.xpPotential)
+    && value.xpPotential >= 5 && value.xpPotential <= 50
 }
 
 function isPreview(value: unknown): value is QuestPreviewResponse {
@@ -176,7 +228,12 @@ function isSavedQuest(value: unknown, expectedUserId: string): value is SavedQue
     ? q.destinations.length : 1
   const savedStepIndexes = q.stepDestinationIndexes
     ?? inferStepDestinationIndexes(q.steps.length, savedStopCount)
+  const sourceOrganizationId = q.sourceOrganizationId ?? null
+  const sourceOrganizationQuestId = q.sourceOrganizationQuestId ?? null
   return typeof q.id === 'string' && q.id.length > 0 && q.id.length <= 128 && !q.id.includes('/')
+    && (sourceOrganizationId === null || typeof sourceOrganizationId === 'string' && sourceOrganizationId.trim().length > 0)
+    && (sourceOrganizationQuestId === null || typeof sourceOrganizationQuestId === 'string' && sourceOrganizationQuestId.trim().length > 0)
+    && ((sourceOrganizationId === null) === (sourceOrganizationQuestId === null))
     && validStepDestinationIndexes(savedStepIndexes, q.steps.length, savedStopCount)
     && (q.placeId === null || (typeof q.placeId === 'string' && q.placeId.trim().length > 0))
     && q.isActive === true
@@ -317,6 +374,43 @@ export async function requestAssignedQuest(
 ): Promise<SavedQuestResponse> {
   const result = await requestQuest('/quests/assign', expectedUserId, payload, options)
   if (!isSavedQuest(result, expectedUserId)) throw new Error('The backend returned an invalid saved assignment.')
+  return result
+}
+
+export async function getOrganizationQuestBoard(
+  options: QuestRequestOptions = {},
+): Promise<OrganizationQuestBoardItem[]> {
+  const result = await requestQuest('/organization-quests', null, undefined, options, 'GET')
+  if (!Array.isArray(result)
+      || !result.every(isOrganizationQuestBoardItem)
+      || (Array.isArray(result) && new Set(result.map((item) => isRecord(item)
+        ? `${item.organizationId}/${item.questId}` : '')).size !== result.length)) {
+    throw new Error('The backend returned an invalid organization quest board.')
+  }
+  return result as OrganizationQuestBoardItem[]
+}
+
+export async function requestOrganizationQuest(
+  expectedUserId: string,
+  organizationId: string,
+  questId: string,
+  options: QuestRequestOptions = {},
+): Promise<SavedQuestResponse> {
+  if (!organizationId.trim() || organizationId.includes('/')
+      || !questId.trim() || questId.includes('/')) {
+    throw new Error('Choose a valid organization quest.')
+  }
+  const result = await requestQuest(
+    `/organization-quests/${encodeURIComponent(organizationId)}/${encodeURIComponent(questId)}/accept`,
+    expectedUserId,
+    {},
+    options,
+  )
+  if (!isSavedQuest(result, expectedUserId) || result.reusedExisting
+      || result.quest.sourceOrganizationId !== organizationId
+      || result.quest.sourceOrganizationQuestId !== questId) {
+    throw new Error('The backend returned an invalid organization quest assignment.')
+  }
   return result
 }
 
@@ -504,14 +598,14 @@ async function requestQuest(
     })
   } catch (error) {
     if (options.signal?.aborted) throw error
-    throw new Error('Could not reach FastAPI. Check the backend server, VITE_API_BASE_URL, and allowed frontend origin.')
+    throw new Error('Could not connect right now. Please try again in a moment.')
   }
   let result: unknown
   try {
     result = await response.json()
   } catch (error) {
     if (options.signal?.aborted) throw error
-    throw new Error(`FastAPI returned a non-JSON response (HTTP ${response.status}). Check VITE_API_BASE_URL.`)
+    throw new Error('Something went wrong while loading your quest. Please try again.')
   }
   const finished = now()
   try {

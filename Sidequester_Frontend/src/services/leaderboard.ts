@@ -6,7 +6,6 @@ export type LeaderboardEntry = {
 
 export type LeaderboardData = {
   entries: LeaderboardEntry[]
-  skippedUsers: number
 }
 
 export type DormLeaderboardEntry = {
@@ -18,10 +17,10 @@ export type DormLeaderboardEntry = {
 
 export type DormLeaderboardData = {
   entries: DormLeaderboardEntry[]
-  unassignedUsers: number
 }
 
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000').replace(/\/$/, '')
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL
+  || (import.meta.env.PROD ? '' : 'http://127.0.0.1:8000')).replace(/\/$/, '')
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -70,22 +69,20 @@ export async function getLeaderboardEntries(token: string): Promise<LeaderboardD
   const result = await fetchLeaderboard('/leaderboard', token)
   if (
     !Array.isArray(result.leaderboard) ||
-    !result.leaderboard.every(isStudentEntry) ||
-    !isNonNegativeInteger(result.skippedUsers)
+    !result.leaderboard.every(isStudentEntry)
   ) {
     throw new Error('The leaderboard service returned invalid student data.')
   }
-  return { entries: result.leaderboard, skippedUsers: result.skippedUsers }
+  return { entries: result.leaderboard }
 }
 
 export async function getDormLeaderboardEntries(token: string): Promise<DormLeaderboardData> {
   const result = await fetchLeaderboard('/leaderboard/dorms', token)
   if (
     !Array.isArray(result.leaderboard) ||
-    !result.leaderboard.every(isDormEntry) ||
-    !isNonNegativeInteger(result.unassignedUsers)
+    !result.leaderboard.every(isDormEntry)
   ) {
     throw new Error('The leaderboard service returned invalid dorm data.')
   }
-  return { entries: result.leaderboard, unassignedUsers: result.unassignedUsers }
+  return { entries: result.leaderboard }
 }

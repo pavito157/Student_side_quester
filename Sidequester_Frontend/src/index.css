@@ -45,11 +45,12 @@
 }
 
 * { scrollbar-color: #bcc8bf transparent; scrollbar-width: thin; }
-html { background: var(--color-background); scroll-padding-top: 6rem; }
+html { background: var(--color-background); scroll-padding-top: calc(6rem + env(safe-area-inset-top, 0px)); }
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  min-height: 100dvh;
   color: var(--color-foreground);
   font-family: var(--font-sans);
   line-height: 1.5;
@@ -141,15 +142,16 @@ input, textarea, select { accent-color: var(--color-secondary); }
 .magic-cta:disabled { opacity: .55; }
 
 /* Shared navigation and dialogs use the same light, readable palette. */
-.hud-header { border-color: #e0e5df !important; background: rgb(255 255 255 / 96%) !important; box-shadow: 0 1px 4px rgb(28 45 33 / 4%); }
+.hud-header { padding-top: calc(.625rem + env(safe-area-inset-top, 0px)); padding-left: max(.75rem, env(safe-area-inset-left, 0px)); padding-right: max(.75rem, env(safe-area-inset-right, 0px)); border-color: #e0e5df !important; background: rgb(255 255 255 / 96%) !important; box-shadow: 0 1px 4px rgb(28 45 33 / 4%); }
 .hud-header > div { min-height: 2.8rem; }
 .brand-title { display: flex; align-items: center; gap: .3rem; font-size: clamp(1.05rem, 2.4vw, 1.65rem); font-weight: 750; letter-spacing: -.045em; }
+.brand-icon { width: 1.35rem; height: 1.35rem; flex-shrink: 0; border-radius: .35rem; }
 .brand-sparkle { width: 1.2rem; height: 1.2rem; flex-shrink: 0; }
 .hud-button { border: 1px solid #d9dfe3; border-radius: 9px; background: #fff; transition: background-color 160ms ease, border-color 160ms ease, translate 160ms ease; }
 .hud-button:hover { border-color: #9fb8a5; background: #f0f7ed; }
 .rpg-dialog { color: var(--color-foreground); border: 1px solid #c6cfc5 !important; background: #fff !important; box-shadow: 5px 7px 0 rgb(31 45 36 / 16%), 0 12px 48px rgb(31 45 36 / 14%) !important; animation: modal-arrive 220ms ease-out both; }
 .rpg-dialog::backdrop { background: rgb(27 43 34 / 32%); backdrop-filter: blur(3px); }
-.sidebar-modal { position: fixed; inset: 0 auto 0 0; height: 100dvh; max-height: none; margin: 0; border-radius: 0 14px 14px 0; animation: sidebar-enter 480ms cubic-bezier(.16,1,.3,1) both; }
+.sidebar-modal { position: fixed; inset: 0 auto 0 0; height: 100dvh; max-height: none; margin: 0; padding-bottom: env(safe-area-inset-bottom, 0px); border-radius: 0 14px 14px 0; animation: sidebar-enter 480ms cubic-bezier(.16,1,.3,1) both; }
 .sidebar-modal::backdrop { background: transparent; transition: background-color 420ms ease; }
 .sidebar-modal[open]::backdrop { background: rgb(27 43 34 / 32%); }
 .sidebar-modal.is-closing { animation: sidebar-exit 420ms ease-in both; }
@@ -192,7 +194,7 @@ input, textarea, select { accent-color: var(--color-secondary); }
 .guild-map-caption { display: inline-flex; align-items: center; gap: .7rem; color: #64705e; font-family: Georgia, serif; font-size: .95rem; font-style: italic; }
 .guild-map-caption span { color: #d6a916; }
 
-.route-transition { min-height: 100vh; animation: route-arrive 220ms ease-out both; }
+.route-transition { min-height: 100vh; min-height: 100dvh; animation: route-arrive 220ms ease-out both; }
 @view-transition { navigation: auto; }
 ::view-transition-old(root) { animation: page-leave 150ms ease-in both; }
 ::view-transition-new(root) { animation: route-arrive 220ms ease-out both; }
@@ -204,8 +206,7 @@ input, textarea, select { accent-color: var(--color-secondary); }
 @media (max-width: 767px) {
   .location-controls { flex-direction: column; }
   .location-actions { width: 100%; }
-  .location-actions > div { flex: 1; }
-  .current-location-button { width: 100%; justify-content: center; }
+  .location-actions > button { width: 100%; justify-content: center; }
 }
 @media (max-width: 639px) {
   .brand-sparkle { display: none; }
@@ -298,3 +299,5 @@ input, textarea, select { accent-color: var(--color-secondary); }
 @media (prefers-reduced-motion: reduce) {
   .generation-leaf, .generation-finish, .generation-dots { animation: none; }
 }
+
+.global-event-input { display: block; width: 100%; min-width: 0; margin-top: 6px; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); color: var(--color-foreground); font: inherit; font-weight: 400; }

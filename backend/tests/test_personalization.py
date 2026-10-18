@@ -4,9 +4,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from backend.destination_resolver import VerifiedDestinationSelector
+from backend.quests.destination_resolver import VerifiedDestinationSelector
 from backend.personalization import personalization_context
-from backend.quest_contracts import GenerateQuestRequest, SelectedDestination
+from backend.quests.quest_contracts import GenerateQuestRequest, SelectedDestination
 
 
 class PersonalizationTests(unittest.TestCase):
@@ -54,7 +54,7 @@ class PersonalizationTests(unittest.TestCase):
                 'location': {'latitude': 29.6514, 'longitude': -82.3234},
                 'rating': 5.0, 'userRatingCount': 10000 if place_id == 'popular-park' else 5,
             }]}
-        with patch.dict(os.environ, env), patch('backend.destination_resolver._search', side_effect=search):
+        with patch.dict(os.environ, env), patch('backend.quests.destination_resolver._search', side_effect=search):
             selector = VerifiedDestinationSelector()
             for name, description, expected in [
                 ('Study Break', 'I like low cost activities I can do to burn off nervous energy.', 'recreation'),

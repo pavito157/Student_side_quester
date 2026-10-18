@@ -16,9 +16,12 @@ async function fixture(file = 'App.tsx', path = '/') {
   const f = { user: { id: 'alice' }, calls: [], navigations: [],
     assign: async () => saved('quest-1'), replace: async () => saved('quest-2'),
     preferences: async () => 'Nature', goals: async () => ['Explore'],
+    acceptOrganization: async () => saved('org-quest'),
     detailReplace: async () => {}, activeQuestCount: 1, activeQuests: [],
     sidequest: { id: 'quest-1', title: 'Existing quest', description: 'Existing activity', steps: ['Try it'],
       stepProofMethods: ['location'], verifiedPhotoSteps: [], skippedPhotoSteps: [],
+      destinations: [{ locationName: 'Park', latitude: 29.65, longitude: -82.34 }],
+      stepDestinationIndexes: [0],
       locationName: 'Park', latitude: 29.65, longitude: -82.34, xpValue: 10,
       estimatedMinutes: 30, estimatedCostDollars: 0, createdAt: '2026-10-17T12:00:00Z', userRequest: payload },
   }
@@ -62,6 +65,7 @@ async function fixture(file = 'App.tsx', path = '/') {
     if (name.endsWith('/questDirections')) return synthetic(questDirections)
     if (name.endsWith('/questAssignment')) return synthetic({
       MAX_ACTIVE_QUESTS: 3,
+      requestOrganizationQuest: async (...args) => { f.calls.push(['acceptOrganization', ...args]); return f.acceptOrganization(...args) },
       requestGeneratedQuest: async (...args) => { f.calls.push(['preview', ...args]); return { quest: { title: 'Guest challenge' }, saved: false } },
       getActiveQuests: async () => { f.reconciled = true; return [] },
       requestAssignedQuest: async (...args) => { f.calls.push(['assign', ...args]); return f.assign(...args) },
@@ -157,7 +161,7 @@ test('account switch aborts pending generation and cannot navigate to the old ac
 })
 
 test('detail Generate another blocks duplicate/overlapping actions and retains the quest on errors', async () => {
-  const f = await fixture('componenets/main-ui/SidequestDetailPage.tsx')
+  const f = await fixture('features/quests/detail/SidequestDetailPage.tsx')
   f.render()
   let reject
   f.detailReplace = () => new Promise((_resolve, fail) => { reject = fail })
@@ -184,7 +188,7 @@ test('account switch while loading legacy preferences cannot start a stale gener
 
 
 test('detail shows active slots and blocks generation when three quests are active', async () => {
-  const f = await fixture('componenets/main-ui/SidequestDetailPage.tsx')
+  const f = await fixture('features/quests/detail/SidequestDetailPage.tsx')
   f.activeQuestCount = 3
   f.render()
   assert.equal(f.button('Generate another').disabled, true)
@@ -196,7 +200,7 @@ test('detail shows active slots and blocks generation when three quests are acti
 
 
 test('all three quick-menu cards open their own quest detail route', async () => {
-  const f = await fixture('componenets/main-ui/ActiveSidequests.tsx')
+  const f = await fixture('features/quests/components/ActiveSidequests.tsx')
   f.activeQuests = [1, 2, 3].map((i) => ({ ...f.sidequest, id: `quest-${i}`, title: `Mission ${i}` }))
   f.render()
   for (let i = 1; i <= 3; i++) {
@@ -206,7 +210,7 @@ test('all three quick-menu cards open their own quest detail route', async () =>
 })
 
 test('selected quest displays its contents and steps and abandons only that quest', async () => {
-  const f = await fixture('componenets/main-ui/SidequestDetailPage.tsx')
+  const f = await fixture('features/quests/detail/SidequestDetailPage.tsx')
   f.sidequest = { ...f.sidequest, id: 'quest-2', title: 'Second quest',
     description: 'Second quest contents.', steps: ['Find a bench.', 'Sketch three leaves.'] }
   f.render(); f.render()
@@ -270,7 +274,7 @@ test('failed generation and reusing an existing quest do not celebrate', async (
 
 
 test('quest flags open the corresponding saved quest and empty slots remain disabled', async () => {
-  const f = await fixture('componenets/main-ui/QuestSlots.tsx')
+  const f = await fixture('features/quests/components/QuestSlots.tsx')
   f.activeQuests = [{ ...f.sidequest, id: 'quest/one' }, { ...f.sidequest, id: 'quest-two' }]
   f.render()
   const buttons = f.allButtons()
@@ -286,7 +290,7 @@ test('quest flags open the corresponding saved quest and empty slots remain disa
 })
 
 test('quest flags cannot be selected during loading or a subscription error', async () => {
-  const f = await fixture('componenets/main-ui/QuestSlots.tsx')
+  const f = await fixture('features/quests/components/QuestSlots.tsx')
   f.activeQuests = [f.sidequest]; f.slotsLoading = true; f.render()
   assert.ok(f.allButtons().every((button) => button.disabled))
   f.slotsLoading = false; f.slotsError = 'Unavailable'; f.render()
@@ -301,4 +305,26 @@ test('welcome route contains the separate hero and main route goes directly to t
   const welcome = await fixture('App.tsx', '/welcome')
   assert.ok(welcome.props('CinematicHero'))
   assert.equal(welcome.props('HomePage'), undefined)
+})
+
+
+test('organization acceptance opens its saved quest without replacing existing quests', async () => {
+  const f = await fixture()
+  await f.props('HomePage').onAcceptOrganizationQuest('alice', 'club', 'gbm'); f.render()
+  assert.equal(f.calls[0][0], 'acceptOrganization')
+  assert.equal(f.calls[0][1], 'alice')
+  assert.equal(f.props('SidequestDetailPage').sidequestId, 'org-quest')
+  assert.ok(f.props('QuestConfetti'))
+})
+
+test('account changes abort organization acceptance and ignore the old account result', async () => {
+  const f = await fixture()
+  let resolve
+  f.acceptOrganization = () => new Promise((done) => { resolve = done })
+  const pending = f.props('HomePage').onAcceptOrganizationQuest('alice', 'club', 'gbm')
+  f.render(); const signal = f.calls[0][4].signal
+  f.user = { id: 'bob' }; f.render()
+  assert.equal(signal.aborted, true)
+  resolve(saved('alice-org-quest')); await pending; f.render()
+  assert.equal(f.navigations.includes('/sidequests/alice-org-quest'), false)
 })

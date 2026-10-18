@@ -141,7 +141,7 @@ function LeaderboardPage() {
   return (
     <>
       <Header title="Leaderboard" />
-      <main className="min-h-[calc(100vh-4rem)] w-full min-w-0 bg-gradient-glow px-4 py-10 sm:px-6 sm:py-16">
+      <main className="min-h-[calc(100dvh-4rem)] w-full min-w-0 bg-gradient-glow px-3 py-7 sm:px-6 sm:py-16">
         <section className="mx-auto w-full min-w-0 max-w-3xl">
           <div className="mb-8 text-center">
             <p

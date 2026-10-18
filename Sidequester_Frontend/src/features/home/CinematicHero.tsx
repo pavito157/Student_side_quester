@@ -65,7 +65,7 @@ function CinematicHero() {
       onPointerLeave={resetPointer}
     >
       <motion.div
-        className="guild-hero-content relative z-10 mx-auto flex min-h-[min(54rem,calc(100svh-4rem))] w-full max-w-7xl flex-col items-center px-5 pb-8 pt-16 text-center sm:px-8 sm:pt-20"
+        className="guild-hero-content relative z-10 mx-auto flex min-h-[min(54rem,calc(100dvh-4rem))] w-full max-w-7xl flex-col items-center px-4 pb-8 pt-12 text-center sm:px-8 sm:pt-20"
         style={{
           opacity: prefersReducedMotion ? 1 : contentOpacity,
           y: prefersReducedMotion ? 0 : contentY,

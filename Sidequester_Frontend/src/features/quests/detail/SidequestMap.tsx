@@ -88,7 +88,7 @@ function SidequestMap({ stops, origin }: SidequestMapProps) {
           title.textContent = accessibleName
           const description = document.createElement('p')
           description.textContent = detail
-          description.style.cssText = 'margin:5px 0 0;font-size:13px;line-height:1.4'
+          description.style.cssText = 'margin:5px 0 0;font-size:13px;line-height:1.4;white-space:pre-line'
           content.append(title, description)
 
           const marker = new AdvancedMarkerElement({ map, position, title: accessibleName, content: pin })

@@ -397,8 +397,8 @@ function SidequestDetailPage({
   return (
     <>
       <Header title="Sidequest details" activeSidequestCount={activeQuestCount} />
-      <main className="min-h-[calc(100vh-4rem)] bg-gradient-glow px-4 py-8 sm:px-6 sm:py-12">
-        <div className="mx-auto max-w-6xl">
+      <main className="min-h-[calc(100dvh-4rem)] bg-gradient-glow px-3 py-5 sm:px-6 sm:py-12">
+        <div className="mx-auto w-full max-w-6xl">
           <button
             type="button"
             onClick={() => navigateTo('/')}
@@ -549,7 +549,7 @@ function SidequestDetailPage({
 
               <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.6fr)]">
                 <div className="space-y-5">
-                  <section className="rpg-panel p-5 sm:p-7">
+                  <section className="rpg-panel p-4 sm:p-7">
                     <p className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: colors.secondary }}>
                       Your mission
                     </p>
@@ -558,7 +558,7 @@ function SidequestDetailPage({
                     </p>
                   </section>
 
-                  <section className="rpg-panel p-5 sm:p-7">
+                  <section className="rpg-panel p-4 sm:p-7">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <p className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: colors.secondary }}>
@@ -662,7 +662,7 @@ function SidequestDetailPage({
                   </section>
                 </div>
 
-                <aside className="rpg-panel self-start p-5 sm:p-6">
+                <aside className="rpg-panel self-start p-4 sm:p-6">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: colors.secondary }}>
@@ -890,7 +890,7 @@ function SidequestDetailPage({
                 </aside>
 
                 {userRequest && (
-                  <section className="rpg-panel p-5 sm:p-7 lg:col-span-2">
+                  <section className="rpg-panel p-4 sm:p-7 lg:col-span-2">
                       <p className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: colors.muted }}>
                         Your original request
                       </p>

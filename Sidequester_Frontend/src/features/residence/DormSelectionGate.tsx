@@ -74,7 +74,7 @@ function DormSelectionGate({ children }: DormSelectionGateProps) {
   }
   if (gateState.error) {
     return (
-      <main className="min-h-screen bg-gradient-glow px-4 py-10">
+      <main className="min-h-[100dvh] bg-gradient-glow px-4 py-10">
         <section className="rpg-panel mx-auto max-w-xl space-y-4 p-6 sm:p-8">
           <h1 className="text-2xl font-bold">Could not load your residence</h1>
           <p role="alert" className="text-sm" style={{ color: colors.error }}>{gateState.error}</p>
@@ -98,7 +98,7 @@ function DormSelectionGate({ children }: DormSelectionGateProps) {
   return (
     <>
       <Header title="Choose your residence" />
-      <main className="min-h-[calc(100vh-4rem)] bg-gradient-glow px-4 py-10 sm:py-16">
+      <main className="min-h-[calc(100dvh-4rem)] bg-gradient-glow px-4 py-10 sm:py-16">
         <section className="rpg-panel mx-auto max-w-xl space-y-4 p-6 sm:p-8">
           <p
             className="text-xs font-semibold uppercase tracking-[0.2em]"

@@ -24,7 +24,7 @@ function SidequestMeButton({ onClick, isLoading = false, disabled = false }: Sid
       <img src="/art/cozy/compass.png" alt="" aria-hidden="true" className="cozy-icon size-8 shrink-0" />
       <span className="text-center">{isLoading ? 'Finding your quest…' : 'Sidequest me'}</span>
       <span aria-hidden="true" className="inline-flex size-6 shrink-0 items-center justify-center">
-        <img src="/art/cozy/pointer.png" alt="" aria-hidden="true" className="cozy-icon size-5" />
+        <img src="/art/cozy/navigation-arrow.svg" alt="" aria-hidden="true" className="cozy-icon size-5" />
       </span>
     </button>
   )

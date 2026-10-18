@@ -13,7 +13,6 @@ import {
   NavFoliage,
   PixelHangingVineIcon,
   PixelLeafIcon,
-  PixelTrailSignIcon,
 } from '../decor/AdventureDecor'
 import { navigateTo } from '../../services/navigation'
 
@@ -65,7 +64,6 @@ function Header({
         <div className="header-pixel-sky" aria-hidden="true">
           <PixelHangingVineIcon className="header-vine header-vine-left" />
           <PixelHangingVineIcon className="header-vine header-vine-right" />
-          <PixelTrailSignIcon className="header-trail-sign" />
           <PixelLeafIcon className="header-leaf header-leaf-one" />
           <PixelLeafIcon className="header-leaf header-leaf-two" />
           <PixelLeafIcon className="header-leaf header-leaf-three" />

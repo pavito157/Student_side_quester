@@ -278,7 +278,7 @@ function QuestFilterControls({
             style={{ color: colors.secondary, outlineColor: colors.primary }}
           >
             <span>Advanced settings</span>
-            <img src="/art/cozy/pointer.png" alt="" aria-hidden="true" className={`cozy-icon size-4 transition-transform ${isAdvancedSettingsOpen ? '-rotate-90' : 'rotate-90'}`} />
+            <img src="/art/cozy/navigation-arrow.svg" alt="" aria-hidden="true" className={`cozy-icon size-4 transition-transform ${isAdvancedSettingsOpen ? '-rotate-90' : 'rotate-90'}`} />
           </button>
         </div>
         <div

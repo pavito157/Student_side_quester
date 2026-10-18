@@ -63,7 +63,7 @@ function CinematicHero() {
         >
           <span className="pixel-welcome-cta-spark" aria-hidden="true">✦</span>
           <span>{isLeaving ? 'Following the trail…' : 'Enter the quest board'}</span>
-          <span className="pixel-welcome-cta-arrow" aria-hidden="true">➜</span>
+          <img src="/art/cozy/navigation-arrow.svg" alt="" aria-hidden="true" draggable={false} className="pixel-welcome-cta-arrow cozy-icon size-5" />
         </motion.button>
         <p className="pixel-welcome-caption">
           No long tutorial. Just pick a vibe and head out.

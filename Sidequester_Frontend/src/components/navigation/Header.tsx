@@ -8,7 +8,13 @@ import {
 } from '@clerk/clerk-react'
 import { AccountIcon, LeaderboardIcon, MenuIcon, SettingsIcon } from '../ui/icons'
 import { colors } from '../../constants/colors'
-import { FallingLeaves, NavFoliage, PixelLeafIcon } from '../decor/AdventureDecor'
+import {
+  FallingLeaves,
+  NavFoliage,
+  PixelHangingVineIcon,
+  PixelLeafIcon,
+  PixelTrailSignIcon,
+} from '../decor/AdventureDecor'
 import { navigateTo } from '../../services/navigation'
 
 interface HeaderProps {
@@ -57,6 +63,9 @@ function Header({
         style={{ backgroundColor: colors.surface, borderColor: colors.border }}
       >
         <div className="header-pixel-sky" aria-hidden="true">
+          <PixelHangingVineIcon className="header-vine header-vine-left" />
+          <PixelHangingVineIcon className="header-vine header-vine-right" />
+          <PixelTrailSignIcon className="header-trail-sign" />
           <PixelLeafIcon className="header-leaf header-leaf-one" />
           <PixelLeafIcon className="header-leaf header-leaf-two" />
           <PixelLeafIcon className="header-leaf header-leaf-three" />

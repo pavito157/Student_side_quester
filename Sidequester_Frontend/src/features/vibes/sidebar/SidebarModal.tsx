@@ -1,6 +1,13 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { colors } from '../../../constants/colors'
 import { BackIcon, CloseIcon } from '../../../components/ui/icons'
+import {
+  PixelBranchIcon,
+  PixelHangingVineIcon,
+  PixelLeafIcon,
+  PixelMushroomIcon,
+  PixelTrailSignIcon,
+} from '../../../components/decor/AdventureDecor'
 
 interface SidebarModalProps {
   isOpen: boolean
@@ -10,6 +17,7 @@ interface SidebarModalProps {
   children: ReactNode
   onBack?: () => void
   showAddVibe?: boolean
+  isEditor?: boolean
 }
 
 function SidebarModal({
@@ -20,6 +28,7 @@ function SidebarModal({
   children,
   onBack,
   showAddVibe = true,
+  isEditor = false,
 }: SidebarModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
 
@@ -60,18 +69,34 @@ function SidebarModal({
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
-      className="sidebar-modal rpg-dialog w-[min(94vw,38rem)] border p-0 shadow-2xl"
+      className="sidebar-modal trail-map-panel rpg-dialog border p-0 shadow-2xl"
       style={{
         backgroundColor: colors.surface,
         borderColor: colors.border,
         color: colors.foreground,
       }}
     >
-      <section className="flex h-full flex-col">
+      <div className="trail-map-atmosphere" aria-hidden="true">
+        <PixelTrailSignIcon className="trail-map-sign" />
+        <PixelMushroomIcon className="trail-map-mushroom" />
+        <PixelLeafIcon className="trail-map-leaf trail-map-leaf-one" />
+        <PixelLeafIcon className="trail-map-leaf trail-map-leaf-two" />
+        <PixelLeafIcon className="trail-map-leaf trail-map-leaf-three" />
+        <PixelLeafIcon className="trail-map-leaf trail-map-leaf-four" />
+        <span className="trail-route trail-route-one" />
+        <span className="trail-route trail-route-two" />
+        <span className="trail-map-firefly trail-map-firefly-one" />
+        <span className="trail-map-firefly trail-map-firefly-two" />
+        <span className="trail-map-firefly trail-map-firefly-three" />
+      </div>
+      <section className="trail-map-shell flex h-full min-h-0 flex-col">
+        <PixelBranchIcon className="modal-branch trail-map-branch" />
         <header
-          className="flex items-center justify-between border-b px-5 py-4"
+          className="trail-map-header flex shrink-0 items-center justify-between border-b px-5 py-4"
           style={{ borderColor: colors.border }}
         >
+          <PixelHangingVineIcon className="trail-map-vine trail-map-vine-left" />
+          <PixelHangingVineIcon className="trail-map-vine trail-map-vine-right" />
           <div className="flex min-w-0 items-center gap-3">
             {onBack && (
               <button
@@ -102,23 +127,32 @@ function SidebarModal({
             <CloseIcon />
           </button>
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
+        <div className={`trail-map-content min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-5 ${isEditor ? 'trail-map-editor-content' : ''}`}>
+          <div className="trail-map-stamp" aria-hidden="true">
+            <span className="trail-map-stamp-mark">✦</span>
+            <span>{title === 'Quick menu' ? 'SATCHEL INVENTORY' : 'FIELD NOTES'}</span>
+            <i />
+          </div>
+          {children}
+        </div>
         {showAddVibe && (
           <div
-            className="mt-auto border-t p-5"
+            className="trail-map-footer mt-auto shrink-0 border-t p-5"
             style={{ borderColor: colors.border, backgroundColor: colors.surface }}
           >
             <button
               type="button"
               onClick={onAddVibe}
-              className="min-h-12 w-full cursor-pointer rounded-xl px-4 py-3 font-semibold transition-all hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0 active:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="trail-map-action min-h-12 w-full cursor-pointer rounded-xl px-4 py-3 font-semibold transition-all hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0 active:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2"
               style={{
                 backgroundColor: colors.secondary,
                 color: colors.secondaryForeground,
                 outlineColor: colors.secondary,
               }}
             >
-              Add vibe
+              <PixelLeafIcon className="trail-action-leaf size-5" />
+              <span>Add vibe</span>
+              <PixelLeafIcon className="trail-action-leaf trail-action-leaf-end size-5" />
             </button>
           </div>
         )}

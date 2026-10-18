@@ -17,8 +17,8 @@ function GuestQuestPreviewPage({
     placeId: destination.placeId,
     latitude: destination.latitude,
     longitude: destination.longitude,
-    step: result.quest.steps.flatMap((step, stepIndex) =>
-      result.quest.stepDestinationIndexes[stepIndex] === index ? [step] : [],
+    step: result.quest.steps.filter((_step, stepIndex) =>
+      (result.quest.stepDestinationIndexes?.[stepIndex] ?? (result.destinations.length === 1 ? 0 : stepIndex)) === index,
     ).join('\n') || 'Explore this destination.',
     completed: false,
   })) ?? []

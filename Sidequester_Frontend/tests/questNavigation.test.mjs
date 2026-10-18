@@ -3,6 +3,11 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import vm from 'node:vm'
 import ts from 'typescript'
+
+const directionsSource = await readFile(new URL('../src/services/questDirections.ts', import.meta.url), 'utf8')
+const questDirections = await import(`data:text/javascript;base64,${Buffer.from(ts.transpileModule(directionsSource, {
+  compilerOptions: { module: ts.ModuleKind.ESNext },
+}).outputText).toString('base64')}`)
 const plain = (x) => JSON.parse(JSON.stringify(x))
 const tick = () => new Promise((resolve) => setImmediate(resolve))
 const payload = { location: 'Anywhere', time: { selection: '30' }, budget: { selection: '0' }, preferences: 'Nature' }
@@ -57,6 +62,7 @@ async function fixture(file = 'App.tsx', path = '/') {
     if (name === '@clerk/clerk-react') return synthetic({ useUser: () => ({ isLoaded: true, isSignedIn: Boolean(f.user), user: f.user }) })
     if (name.endsWith('/AdventureDecor')) return synthetic({ AccentStrokes: () => null, PageFoliage: () => null, QuestConfetti: () => null })
     if (name.endsWith('/colors')) return synthetic({ colors: {} })
+    if (name.endsWith('/questDirections')) return synthetic(questDirections)
     if (name.endsWith('/questAssignment')) return synthetic({
       MAX_ACTIVE_QUESTS: 3,
       requestOrganizationQuest: async (...args) => { f.calls.push(['acceptOrganization', ...args]); return f.acceptOrganization(...args) },

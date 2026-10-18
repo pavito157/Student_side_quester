@@ -55,6 +55,19 @@ test('actual frontend builder preserves the agreed distance object and null vibe
   assert.deepEqual(input, before)
 })
 
+test('selected vibe name and description survive both request builders without mutation', () => {
+  const activeVibe = { name: ' Study Break ', preferences: ' Affordable playful games ' }
+  const before = structuredClone(activeVibe)
+  const request = builder.buildSidequestRequest({ ...input, activeVibe })
+  const payload = builder.toQuestApiPayload(request)
+  assert.deepEqual(JSON.parse(JSON.stringify(payload.activeVibe)), {
+    name: 'Study Break', preferences: 'Affordable playful games',
+  })
+  assert.deepEqual(activeVibe, before)
+  assert.equal(builder.toQuestApiPayload(builder.buildSidequestRequest({ ...input, activeVibe: null })).activeVibe, null)
+  assert.equal('activeVibe' in builder.toQuestApiPayload(builder.buildSidequestRequest(input)), false)
+})
+
 test('distance builder rejects invalid limits and unsupported units', () => {
   for (const distance of [
     { maxDistance: 0, unit: 'miles' }, { maxDistance: -1, unit: 'miles' },

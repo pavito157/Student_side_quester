@@ -110,6 +110,51 @@
       ],
       "title": "DistanceFilter",
       "type": "object"
+    },
+    "SelectedVibe": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[^/]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "preferences": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Preferences",
+          "type": "string"
+        }
+      },
+      "required": [
+        "preferences"
+      ],
+      "title": "SelectedVibe",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -209,6 +254,17 @@
       ],
       "default": null,
       "description": "Coordinates of the selected search origin; required for distance filtering."
+    },
+    "activeVibe": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SelectedVibe"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [

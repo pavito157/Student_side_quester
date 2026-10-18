@@ -118,6 +118,8 @@ export function buildSidequestRequest(
     distance: input.distance ? { ...input.distance } : null,
     goals: input.goals.map((goal) => goal.trim()).filter(Boolean),
     vibePreferences: input.vibePreferences?.trim() || null,
+    ...(input.activeVibe !== undefined ? { activeVibe: input.activeVibe
+      ? { name: input.activeVibe.name.trim(), preferences: input.activeVibe.preferences.trim() } : null } : {}),
     multiQuest: input.multiQuest === true,
     ...(input.proofOptions ? { proofOptions: [...proofOptions] } : {}),
   }
@@ -143,6 +145,7 @@ export function toQuestApiPayload(request: SidequestRequestPayload): GenerateQue
     distance: request.distance ? { ...request.distance } : null,
     goals: [...request.goals],
     vibePreferences: request.vibePreferences,
+    ...(request.activeVibe !== undefined ? { activeVibe: request.activeVibe ? { ...request.activeVibe } : null } : {}),
     multiQuest: request.multiQuest,
     ...(request.proofOptions ? { proofOptions: [...request.proofOptions] } : {}),
   }

@@ -105,7 +105,11 @@ def _sidequest_data(result, user_request: Optional[GenerateQuestRequest] = None)
         "createdAt": firestore.SERVER_TIMESTAMP,
     }
     if user_request is not None:
-        data["userRequest"] = user_request.model_dump(mode="json")
+        # Preserve legacy vibePreferences requests on regeneration: an explicit
+        # activeVibe=null clears a vibe, whereas an omitted field uses legacy text.
+        data["userRequest"] = user_request.model_dump(
+            mode="json", exclude={"activeVibe"} if "activeVibe" not in user_request.model_fields_set else set(),
+        )
     return data
 
 

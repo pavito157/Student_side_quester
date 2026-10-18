@@ -40,3 +40,9 @@ Visual checks cover the guest board, narrow-screen board, settings, welcome page
 Integrated main through `481b48d`: its responsive sidebar shell, scrolling editor and fixed footer, card entrance/hover effects, header sprite motion, settings journal entrance, fireflies, drifting leaves, and button-reactive sprigs. The existing cozy borders, palette, fonts, button frames, pointer/leaf/branch/signpost/compass assets, map pins, and garden remain. New lantern, mushroom, and hanging-vine decorations from main remain as additional animated accents. Motion selectors support image sprites as well as SVGs, including reduced-motion handling.
 
 The sidebar stays fixed to the viewport. Its close delay now matches the 420ms exit animation, and reopening during that delay cancels the close and removes the stale closing class. Regression tests cover interrupted close/reopen, reduced-motion close, and the existing Escape callback. Quest and account handlers were retained.
+
+## Luis background integration
+
+Imported `gemini_generated_video_342ca554.mp4` from `luis_ui` (`73b4d51`) and restored that branch's `/art/leafy-corner.png` header foliage. Per the requested scope, the video mounts once at the application root and appears across all routes; Luis's unrelated quest-page layouts and scrolling changes were not imported. It loops muted behind every interactive layer, with his light overlay. Foliage bounce, shedding, and the existing UI remain intact.
+
+Reduced-motion preferences prevent video rendering, including live preference changes. Video/source failures remove the video while retaining the static garden fallback. The regression suite now has 138 passing tests, including preference changes and failed-media fallback. A browser check confirmed one playing, muted video layer on the board and after navigation to welcome. No production quest or account mutations were performed.

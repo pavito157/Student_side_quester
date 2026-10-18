@@ -911,3 +911,12 @@ input[type='checkbox'],input[type='radio'] { accent-color:#75994c; }
   .hud-header .brand-title { font-size:.8rem; max-width:calc(100vw - 13rem); }
   .hud-header .brand-icon { display:none; }
 }
+
+/* Luis's ambient scene is shared by every route, behind all interactive UI. */
+.quest-video-layer {
+  position:fixed; z-index:-1; inset:0; overflow:hidden; pointer-events:none;
+  background:#bfd58a url('/art/cozy/garden.webp') center top / cover no-repeat;
+}
+.quest-background-video { width:100%; height:100%; object-fit:cover; object-position:center; }
+.quest-video-overlay { position:absolute; inset:0; background:linear-gradient(rgb(250 249 242 / 34%),rgb(242 248 238 / 40%)); }
+@media(prefers-reduced-motion:reduce) { .quest-background-video { display:none; } }

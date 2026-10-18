@@ -153,8 +153,8 @@ export function NavFoliage() {
   }, [])
 
   return <><div ref={foliage} className="nav-foliage" aria-hidden="true">
-    <img className="corner-foliage foliage-left" src="/art/cozy/canopy.png" alt="" draggable={false} width={1536} height={1024} />
-    <img className="corner-foliage foliage-right" src="/art/cozy/canopy.png" alt="" draggable={false} width={1536} height={1024} />
+    <img className="corner-foliage foliage-left" src="/art/leafy-corner.png" alt="" draggable={false} width={1254} height={1254} />
+    <img className="corner-foliage foliage-right" src="/art/leafy-corner.png" alt="" draggable={false} width={1254} height={1254} />
   </div>
     {createPortal(<div className="released-leaves" aria-hidden="true">
       {releasedLeaves.map((leaf) => <span key={leaf.id} className="released-leaf"

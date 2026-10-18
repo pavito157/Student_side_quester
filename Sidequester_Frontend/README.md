@@ -43,8 +43,9 @@ stored separately as a string array in that document's `goals` field. Both use
 the Firebase client SDK; Firestore security rules are managed separately.
 Saved vibes keep the selected place's coordinates with its label so applying a
 vibe can restore the starting location and retain distance filtering. Existing
-vibes without saved coordinates need their place selected again before using a
-distance limit.
+vibes without saved coordinates automatically request the current location when
+Sidequest me needs an origin for a distance or multi-stop filter; location
+permission and geocoding errors are shown before any quest request is sent.
 
 ## Development
 

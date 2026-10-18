@@ -12,6 +12,11 @@ async function fixture() {
     auth: { isLoaded: true, isSignedIn: true, user: { id: 'example-user', fullName: 'Test Student', primaryEmailAddress: { emailAddress: 'student@ufl.edu' } } },
     calls: [], activeQuestCount: 0,
     request: async () => {},
+    currentLocationResult: {
+      label: 'Current location address',
+      latitude: 29.64,
+      longitude: -82.35,
+    },
     filters: {
       where: 'Selected origin',
       latitude: 29.65, longitude: -82.34,
@@ -69,6 +74,12 @@ async function fixture() {
       if (name.endsWith('/questAssignment')) return synthetic({ MAX_ACTIVE_QUESTS: 3 })
       if (name.endsWith('/questFilterDefaults')) return load('features/quest-generation/questFilterDefaults.ts')
       if (name.endsWith('/sidequestJson')) return load('services/sidequestJson.ts')
+      if (name.endsWith('/currentLocation')) return synthetic({
+        getCurrentLocation: async () => {
+          if (f.currentLocationResult instanceof Error) throw f.currentLocationResult
+          return f.currentLocationResult
+        },
+      })
       if (name.endsWith('/userPreferences')) return synthetic({ getUserPreferences: async () => 'Nature', getUserGoals: async () => ['Explore'] })
       const component = () => null
       Object.defineProperty(component, 'name', { value: name.split('/').at(-1) })
@@ -134,6 +145,46 @@ test('button submits the selected quest preferences to the generation flow', asy
   assert.equal(f.calls[0][1].location, 'Selected origin')
   assert.deepEqual(plain(f.calls[0][1].time), { selection: '60' })
   assert.equal(f.props('SidequestMeButton').isLoading, false)
+})
+
+test('Sidequest me resolves missing origin coordinates before submitting distance-filtered quests', async () => {
+  const f = await fixture()
+  f.filters = {
+    ...f.filters,
+    where: 'Saved vibe location',
+    latitude: null,
+    longitude: null,
+  }
+  f.activeVibe = { name: 'Campus stroll', preferences: 'Go outside' }
+  f.render()
+  f.click()
+  await f.settle()
+
+  assert.equal(f.calls.length, 1)
+  assert.equal(f.calls[0][1].location, 'Current location address')
+  assert.deepEqual(plain(f.calls[0][1].originCoordinates), {
+    latitude: 29.64,
+    longitude: -82.35,
+  })
+  assert.deepEqual(plain(f.calls[0][1].distance), { maxDistance: 1, unit: 'miles' })
+  assert.equal(f.filters.where, 'Current location address')
+  assert.equal(f.filters.latitude, 29.64)
+  assert.equal(f.filters.longitude, -82.35)
+})
+
+test('missing origin lookup failures stop submission with actionable feedback', async () => {
+  const f = await fixture()
+  f.filters = { ...f.filters, latitude: null, longitude: null }
+  f.currentLocationResult = new Error('Location access was denied.')
+  f.render()
+  f.click()
+  await f.settle()
+
+  assert.equal(f.calls.length, 0)
+  assert.equal(
+    f.findBy((node) => node.props?.role === 'alert')?.props.children,
+    'Location access was denied.',
+  )
 })
 
 test('only the actively selected vibe reaches the quest request', async () => {

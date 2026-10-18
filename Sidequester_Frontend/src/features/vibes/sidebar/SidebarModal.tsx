@@ -39,6 +39,7 @@ function SidebarModal({
     let closeTimer: number | undefined
 
     if (isOpen) {
+      dialog.classList.remove('is-closing')
       if (!dialog.open) dialog.showModal()
     } else if (dialog.open) {
       const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -49,7 +50,7 @@ function SidebarModal({
         closeTimer = window.setTimeout(() => {
           dialog.close()
           dialog.classList.remove('is-closing')
-        }, 360)
+        }, 420)
       }
     }
 
@@ -129,7 +130,7 @@ function SidebarModal({
         </header>
         <div className={`trail-map-content min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-5 ${isEditor ? 'trail-map-editor-content' : ''}`}>
           <div className="trail-map-stamp" aria-hidden="true">
-            <span className="trail-map-stamp-mark">✦</span>
+            <img src="/art/cozy/sparkle.png" alt="" className="trail-map-stamp-mark cozy-icon size-4" />
             <span>{title === 'Quick menu' ? 'SATCHEL INVENTORY' : 'FIELD NOTES'}</span>
             <i />
           </div>

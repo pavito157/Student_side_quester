@@ -5,12 +5,12 @@ import type { ActiveSidequest } from '../../../types/sidequest'
 export default function QuestSlots({ quests, loading, error }: {
   quests: ActiveSidequest[]; loading: boolean; error: string
 }) {
-  return <section className="quest-slots" aria-label="Your quest slots">
-    <div>
-      <p className="font-semibold text-sm">Your adventures</p>
+  return <section className="quest-slots rpg-panel cozy-journal" aria-label="Your quest slots">
+    <div className="cozy-panel-heading">
+      <h2><img src="/art/cozy/satchel.png" alt="" aria-hidden="true" className="cozy-icon size-8" />Your quest journal</h2>
       <p className="text-xs text-muted" role="status">{loading ? 'Loading your quests…' : error
         ? 'Quest slots unavailable. Check the quick menu.'
-        : `${quests.length} of ${MAX_ACTIVE_QUESTS} slots filled · Pick a flag to open a quest.`}</p>
+        : `${quests.length} / ${MAX_ACTIVE_QUESTS} slots used`}</p>
     </div>
     <div className="quest-slot-flags">
       {Array.from({ length: MAX_ACTIVE_QUESTS }, (_, index) => {
@@ -22,11 +22,11 @@ export default function QuestSlots({ quests, loading, error }: {
             : quest ? `Open quest ${index + 1}: ${quest.title}` : `Quest slot ${index + 1} empty`}
           title={quest?.title ?? 'Room for another adventure'}
           onClick={() => { if (quest) navigateTo(`/sidequests/${encodeURIComponent(quest.id)}`) }}>
-          <svg viewBox="0 0 32 32" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
-            <path d="M7 28V4m0 1c6-5 12 5 19 0v14c-7 5-13-5-19 0" fill={quest ? 'currentColor' : 'none'} />
-            {quest && <path d="m12 11 3 3 6-5" stroke="white" />}
-          </svg>
-          <span>{index + 1}</span>
+          <div className="journal-card-top"><img src={`/art/cozy/${quest ? 'sprout' : 'plus'}.png`} alt="" aria-hidden="true" className="cozy-icon size-8" />
+            {quest && <span className="cozy-xp">+{quest.xpValue} XP</span>}</div>
+          <strong>{quest ? quest.title : loading ? 'Getting your journal…' : error ? 'Slot unavailable' : 'Room for one more adventure'}</strong>
+          {quest && <><p className="journal-card-description">{quest.description}</p><p className="journal-card-place">{quest.locationName}</p></>}
+          <span className="journal-card-footer">{quest ? <><img src="/art/cozy/rose.png" alt="" aria-hidden="true" className="cozy-icon size-8" /><span>View quest <img src="/art/cozy/pointer.png" alt="" aria-hidden="true" className="cozy-icon size-4" /></span></> : <img src="/art/cozy/sprout.png" alt="" aria-hidden="true" className="cozy-icon size-10" />}</span>
         </button>
       })}
     </div>

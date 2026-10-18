@@ -8,6 +8,8 @@ const directionsSource = await readFile(new URL('../src/services/questDirections
 const questDirections = await import(`data:text/javascript;base64,${Buffer.from(ts.transpileModule(directionsSource, {
   compilerOptions: { module: ts.ModuleKind.ESNext },
 }).outputText).toString('base64')}`)
+const defaultsSource = await readFile(new URL('../src/features/quest-generation/questFilterDefaults.ts', import.meta.url), 'utf8')
+const defaults = await import(`data:text/javascript;base64,${Buffer.from(ts.transpileModule(defaultsSource, { compilerOptions: { module: ts.ModuleKind.ESNext } }).outputText).toString('base64')}`)
 const plain = (x) => JSON.parse(JSON.stringify(x))
 const tick = () => new Promise((resolve) => setImmediate(resolve))
 const payload = { location: 'Anywhere', time: { selection: '30' }, budget: { selection: '0' }, preferences: 'Nature' }
@@ -61,6 +63,7 @@ async function fixture(file = 'App.tsx', path = '/') {
     if (name === 'react/jsx-runtime') return synthetic({ jsx, jsxs: jsx, Fragment: "fragment" })
     if (name === '@clerk/clerk-react') return synthetic({ useUser: () => ({ isLoaded: true, isSignedIn: Boolean(f.user), user: f.user }) })
     if (name.endsWith('/AdventureDecor')) return synthetic({ AccentStrokes: () => null, PageFoliage: () => null, QuestConfetti: () => null })
+    if (name.endsWith('/questFilterDefaults')) return synthetic(defaults)
     if (name.endsWith('/colors')) return synthetic({ colors: {} })
     if (name.endsWith('/questDirections')) return synthetic(questDirections)
     if (name.endsWith('/questAssignment')) return synthetic({
@@ -100,7 +103,9 @@ async function fixture(file = 'App.tsx', path = '/') {
       cursor = 0; f.tree = root.type(root.props)
     } else {
       cursor = 0
-      f.tree = file.endsWith('QuestSlots.tsx')
+      f.tree = file.endsWith('HomePage.tsx')
+        ? mod.namespace.default({ activeSidequestsState: { userId: f.user?.id, sidequests: f.activeQuests, isLoading: false, error: '' }, onStartQuestGeneration() {}, onAcceptOrganizationQuest() {}, onAcceptGlobalEvent() {} })
+        : file.endsWith('QuestSlots.tsx')
         ? mod.namespace.default({ quests: f.activeQuests, loading: Boolean(f.slotsLoading), error: f.slotsError ?? '' })
         : file.endsWith('ActiveSidequests.tsx')
         ? mod.namespace.default({ sidequests: f.activeQuests, isLoading: false, error: '', isSignedIn: true })
@@ -369,4 +374,17 @@ test('accepted event detail offers generate another without replacing its shared
   f.sidequest.sourceGlobalEventId='event'
   f.render()
   assert.ok(f.button('Generate another (2 left)'))
+})
+
+test('home leaves multi-stop off without time and applies time-based defaults from vibes', async () => {
+  const f = await fixture('features/home/HomePage.tsx')
+  assert.equal(f.props('QuestFilterButtons').filters.multiQuest, false)
+  assert.deepEqual(plain(f.props('QuestFilterButtons').filters.proofOptions), ['location', 'photo'])
+  f.props('VibesSidebar').onApplyVibe({ name: 'Study break', preferences: 'Relax outside', time: '30' })
+  f.render()
+  assert.equal(f.props('QuestFilterButtons').filters.multiQuest, false)
+  assert.deepEqual(plain(f.props('QuestFilterButtons').filters.proofOptions), ['location', 'photo'])
+  f.props('VibesSidebar').onApplyVibe({ name: 'Long adventure', time: 'custom', customTime: '90' }); f.render()
+  assert.equal(f.props('QuestFilterButtons').filters.multiQuest, true)
+  assert.equal(f.props('QuestFilterButtons').filters.multiQuestManual, false)
 })

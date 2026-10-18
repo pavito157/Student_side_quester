@@ -1,4 +1,3 @@
-import { SparkleIcon } from '../../../../components/decor/AdventureDecor'
 import { colors } from '../../../../constants/colors'
 
 type SidequestMeButtonProps = {
@@ -22,20 +21,10 @@ function SidequestMeButton({ onClick, isLoading = false, disabled = false }: Sid
       }}
       onClick={onClick}
     >
-      <SparkleIcon className="size-6 shrink-0" />
+      <img src="/art/cozy/compass.png" alt="" aria-hidden="true" className="cozy-icon size-8 shrink-0" />
       <span className="text-center">{isLoading ? 'Finding your quest…' : 'Sidequest me'}</span>
       <span aria-hidden="true" className="inline-flex size-6 shrink-0 items-center justify-center">
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="size-5"
-        >
-          <path d="M5 12h14m-6-6 6 6-6 6" />
-        </svg>
+        <img src="/art/cozy/pointer.png" alt="" aria-hidden="true" className="cozy-icon size-5" />
       </span>
     </button>
   )

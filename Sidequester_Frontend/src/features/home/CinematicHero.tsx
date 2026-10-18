@@ -94,15 +94,7 @@ function CinematicHero() {
           >
             <SparkleIcon className="size-6" />
             <span>Begin journey</span>
-            <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="size-5">
-              <path
-                d="M10 3.5v13m0 0-5-5m5 5 5-5"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <img src="/art/cozy/pointer.png" alt="" aria-hidden="true" className="cozy-icon size-5" />
           </motion.button>
           <p className="hero-caption mt-4 text-sm">
             Your next favorite place might be closer than you think.

@@ -110,10 +110,12 @@ function Header({
                 event.preventDefault()
                 navigateTo('/')
               }}
-              className="hud-button w-fit max-w-full justify-self-start rounded-xl px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
+              aria-label="Quest board"
+              title="Quest board"
+              className="hud-button inline-flex size-10 shrink-0 items-center justify-center justify-self-start p-0 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
               style={{ color: colors.foreground, outlineColor: colors.primary }}
             >
-              Quest board
+              <img src="/art/cozy/map.png" alt="" aria-hidden="true" className="cozy-icon size-6" />
             </a>
           )}
 
@@ -128,7 +130,7 @@ function Header({
             className="brand-title min-w-0 justify-center truncate rounded-sm text-center"
             style={{ color: colors.foreground }}
           >
-            <img src="/favicon.svg" alt="" aria-hidden="true" width="24" height="24" className="brand-icon" />
+            <img src="/art/cozy/sprout.png" alt="" aria-hidden="true" width="24" height="24" className="brand-icon" />
             <PixelLeafIcon className="brand-sparkle" />
             Sidequester
           </a>
@@ -154,14 +156,14 @@ function Header({
                 navigateTo('/leaderboard')
               }}
               aria-label="Leaderboard"
-              className="hud-button inline-flex size-10 items-center justify-center gap-2 p-0 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 sm:size-auto sm:min-h-10 sm:px-3 sm:py-2 sm:text-sm"
+              title="Leaderboard"
+              className="hud-button inline-flex size-10 shrink-0 items-center justify-center p-0 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
               style={{
                 color: colors.foreground,
                 outlineColor: colors.primary,
               }}
             >
               <LeaderboardIcon />
-              <span className="hidden sm:inline">Leaderboard</span>
             </a>
             <SignedOut>
               <div className="relative" ref={authMenuRef}>
@@ -172,7 +174,7 @@ function Header({
                   aria-expanded={isAuthMenuOpen}
                   aria-controls="auth-dropdown"
                   onClick={() => setIsAuthMenuOpen((open) => !open)}
-                  className="hud-button cursor-pointer p-2 focus-visible:outline-2 focus-visible:outline-offset-2"
+                  className="hud-button inline-flex size-10 shrink-0 cursor-pointer items-center justify-center p-0 focus-visible:outline-2 focus-visible:outline-offset-2"
                   style={{ color: colors.primary, outlineColor: colors.primary }}
                 >
                   <AccountIcon />
@@ -216,11 +218,11 @@ function Header({
               </div>
             </SignedOut>
             <SignedIn>
-              <div className="inline-flex size-10 shrink-0 items-center justify-center">
+              <div className="hud-button inline-flex size-10 shrink-0 items-center justify-center p-0">
                 <UserButton
                   appearance={{
                     elements: {
-                      avatarBox: 'size-8',
+                      avatarBox: 'size-6',
                     },
                   }}
                 />

@@ -17,7 +17,7 @@ function GoalsSidebar() {
           Make it meaningful
         </p>
         <h2 id="goals-sidebar-title" className="widget-title">
-          <span aria-hidden="true" className="goal-flag">⚑</span> Goals
+          <img src="/art/cozy/flag.png" alt="" aria-hidden="true" className="cozy-icon goal-flag" /> Goals
         </h2>
         <p className="mt-1 text-xs leading-relaxed" style={{ color: colors.muted }}>
           Keep what you want to work toward in view as you choose a sidequest.

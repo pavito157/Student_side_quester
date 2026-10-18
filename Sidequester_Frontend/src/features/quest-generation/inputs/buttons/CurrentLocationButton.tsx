@@ -87,22 +87,7 @@ function CurrentLocationButton({ autoLocate, onLocationFound }: CurrentLocationB
           backgroundColor: colors.surface,
         }}
       >
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 20 20"
-          fill="none"
-          className="h-4 w-4 shrink-0"
-          style={{ color: colors.secondary }}
-        >
-          <circle cx="10" cy="10" r="5.75" stroke="currentColor" strokeWidth="1.5" />
-          <circle cx="10" cy="10" r="1.75" fill="currentColor" />
-          <path
-            d="M10 1.75v2M10 16.25v2M18.25 10h-2M3.75 10h-2"
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeWidth="1.5"
-          />
-        </svg>
+        <img src="/art/cozy/gps.png" alt="" aria-hidden="true" className="cozy-icon size-5" />
         <span>{isLocating ? 'Finding you…' : 'Use my location'}</span>
       </button>
       {error && (

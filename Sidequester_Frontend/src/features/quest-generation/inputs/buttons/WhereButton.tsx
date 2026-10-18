@@ -128,7 +128,7 @@ function WhereButton({ autoLocate, value, onChange }: WhereButtonProps) {
             outlineColor: colors.primary,
           }}
         >
-          Anywhere
+          <img src="/art/cozy/globe.png" alt="" aria-hidden="true" className="cozy-icon mr-2 size-5" />Anywhere
         </button>
       </div>
       {loadError && (

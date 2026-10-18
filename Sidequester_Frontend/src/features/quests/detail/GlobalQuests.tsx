@@ -1,17 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useUser, SignInButton } from '@clerk/clerk-react'
 import { getFirebaseIdToken } from '../../../services/firebaseSession'
-import {
-  checkInGlobalQuest,
-  createGlobalQuest,
-  getGlobalQuests,
-  getPublicGlobalQuests,
-  type GlobalQuestFeed,
-  type GlobalQuest,
-  type PublicGlobalQuest,
-} from '../../../services/globalQuests'
+import { createGlobalQuest, getGlobalQuests, getPublicGlobalQuests,
+  type GlobalQuestFeed, type GlobalQuest, type PublicGlobalQuest } from '../../../services/globalQuests'
+import { navigateTo } from '../../../services/navigation'
 import WhereButton from '../../quest-generation/inputs/buttons/WhereButton'
-import OrganizationQuestBoard from '../../organization-quests/OrganizationQuestBoard'
 import GlobalQuestMap from './GlobalQuestMap'
 import OrganizationAdmin from './OrganizationAdmin'
 import type { ActiveSidequest } from '../../../types/sidequest'
@@ -21,9 +14,10 @@ const eventDate = (value: string) => new Date(value).toLocaleString(undefined, {
   month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
 })
 
-export default function GlobalQuests({ activeQuests = [], onAcceptOrganizationQuest }: {
+export default function GlobalQuests({ activeQuests = [], onAcceptGlobalEvent }: {
   activeQuests?: ActiveSidequest[]
   onAcceptOrganizationQuest: (userId: string, organizationId: string, questId: string) => Promise<void>
+  onAcceptGlobalEvent: (userId: string, eventId: string) => Promise<void>
 }) {
   const { user } = useUser()
   const uid = user?.id
@@ -70,17 +64,12 @@ export default function GlobalQuests({ activeQuests = [], onAcceptOrganizationQu
     return () => controller.abort()
   }, [attempt])
   const currentFeed = feedUid === uid ? feed : null
-  async function checkIn(event: GlobalQuest) {
+  async function accept(event: GlobalQuest) {
     if (!uid || lock.current) return
     lock.current = true; setBusy(event.id); setNotice(''); setError('')
     try {
-      const token = await getFirebaseIdToken(uid)
-      const result = await checkInGlobalQuest(token, event)
-      if (mounted.current) {
-        setNotice(`You checked in to ${event.title}! +${result.xpAwarded} XP for you and your residence.`)
-        setFeed((current) => current ? { ...current, quests: current.quests.map((quest) => quest.id === event.id ? { ...quest, completed: true } : quest) } : current)
-      }
-    } catch (reason) { if (mounted.current) setError(reason instanceof Error ? reason.message : 'Check-in failed.') }
+      await onAcceptGlobalEvent(uid, event.id)
+    } catch (reason) { if (mounted.current) setError(reason instanceof Error ? reason.message : 'Could not add event quest.') }
     finally { lock.current = false; if (mounted.current) setBusy('') }
   }
   async function publish(event: FormEvent<HTMLFormElement>) {
@@ -113,39 +102,42 @@ export default function GlobalQuests({ activeQuests = [], onAcceptOrganizationQu
     <p className="text-xs font-bold uppercase tracking-widest text-secondary">Adventure, together</p>
     <h2 id="global-quests-title" className="mt-1 text-xl font-bold">Campus quest board</h2>
     <p className="mt-2 text-sm text-muted">Events and activities from campus organizations and sponsors. Find something worth showing up for.</p>
+    {uid && activeQuests.length >= 3 && <p role="status" className="mt-3 text-sm text-muted">Maximum quests reached (3/3). You can still browse global quests. Complete or abandon a quest before adding another.</p>}
     <button type="button" className="hud-button mt-4 px-3 py-2 text-sm" disabled={Boolean(busy)} onClick={() => setAttempt((value) => value + 1)}>Refresh board</button>
-    {!uid ? <div className="mt-4"><SignInButton mode="modal"><button className="hud-button px-4 py-2 font-semibold">Sign in to check in to campus events</button></SignInButton></div> : <>
+    {!uid ? <div className="mt-4"><SignInButton mode="modal"><button className="hud-button px-4 py-2 font-semibold">Sign in to add event quests</button></SignInButton></div> : <>
       {!currentFeed && !error && <p role="status" className="mt-4 text-sm text-muted">Loading campus events…</p>}
       {currentFeed?.quests.length === 0 && <p className="mt-4 text-sm text-muted">No upcoming events yet. Check back soon for your next campus adventure.</p>}
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         {currentFeed?.quests.map((quest) => {
-          const inWindow = clock >= Date.parse(quest.startsAt) - quest.graceMinutes * 60000 && clock <= Date.parse(quest.endsAt) + quest.graceMinutes * 60000
+          const existing = activeQuests.find((active) => active.sourceGlobalEventId === quest.id)
+          const ended = clock > Date.parse(quest.endsAt) + quest.graceMinutes * 60000
           return <article key={quest.id} className="quest-subpanel p-4">
             <p className="text-xs font-semibold text-secondary">{quest.organizationName} · Event · +{quest.xpReward} XP</p>
             <h3 className="mt-1 font-bold text-lg">{quest.title}</h3>
             <p className="mt-2 text-sm whitespace-pre-wrap break-words">{quest.description}</p>
             <p className="mt-3 text-sm font-semibold">{quest.locationName}</p>
+            {quest.source === 'uf-calendar' && quest.sourceUrl?.startsWith('https://calendar.ufl.edu/') &&
+              <a className="text-sm underline" href={quest.sourceUrl} target="_blank" rel="noreferrer">From UF Calendar ↗</a>}
             <p className="mt-1 text-xs text-muted">{eventDate(quest.startsAt)} – {eventDate(quest.endsAt)}</p>
             <p className="mt-2 text-xs text-muted">{quest.verificationMode === 'gps' ? `GPS check-in within ${quest.radiusMeters}m during the event.` : 'Confirm attendance during the event.'} One reward per person.</p>
             <div className="mt-4 flex flex-wrap gap-3 items-center">
-              <button type="button" className="magic-cta rounded-lg px-4 py-2 text-sm font-semibold" disabled={Boolean(busy) || quest.completed || !inWindow} onClick={() => void checkIn(quest)}>
-                {quest.completed ? 'Checked in ✓' : busy === quest.id ? 'Checking in…' : inWindow ? 'Check in' : clock < Date.parse(quest.startsAt) ? 'Opens when the event starts' : 'Check-in closed'}
+              <button type="button" className="magic-cta rounded-lg px-4 py-2 text-sm font-semibold" disabled={Boolean(busy) || quest.completed || ended} onClick={() => existing ? navigateTo(`/sidequests/${encodeURIComponent(existing.id)}`) : activeQuests.length >= 3 ? navigateTo(`/global-quests/${encodeURIComponent(quest.id)}`) : void accept(quest)}>
+                {quest.completed ? 'Completed ✓' : existing ? 'View quest' : busy === quest.id ? 'Preparing event quest…' : ended ? 'Event ended' : activeQuests.length >= 3 ? 'View quest' : 'Add to my quests'}
               </button>
               <a className="text-sm underline" href={`https://www.google.com/maps/search/?api=1&query=${quest.latitude},${quest.longitude}`} target="_blank" rel="noreferrer">View venue ↗</a>
             </div>
           </article>
         })}
       </div>
+      <p className="mt-3 text-xs text-muted">Event quests use one of your three slots. Everyone receives the same event tasks; check in at the venue during its scheduled time.</p>
     </>}
     <div className="mt-5">
-      <h3 className="text-sm font-bold">Explore event locations</h3>
-      <p className="mt-1 text-xs text-muted">Select an orange XP marker to see event details and directions.</p>
+      <h3 className="text-sm font-bold">Global quest map</h3>
+      <p className="mt-1 text-xs text-muted">Campus and organization events only. Select an orange XP pin to view a global quest.</p>
       {mapQuests === null && !mapError && <p role="status" className="mt-3 text-sm text-muted">Loading event locations…</p>}
       {mapError && <p role="alert" className="mt-3 text-sm" style={{ color: 'var(--color-error)' }}>Event locations could not load: {mapError}</p>}
-      {mapQuests && <GlobalQuestMap quests={mapQuests} />}
+      <GlobalQuestMap quests={mapQuests ?? []} activeQuests={activeQuests} />
     </div>
-    <OrganizationQuestBoard userId={uid ?? null} activeQuests={activeQuests}
-      onAccept={onAcceptOrganizationQuest} refreshKey={attempt} />
     {uid && <>
       {currentFeed?.adminRole === 'explicit_admin' && <OrganizationAdmin userId={uid} refreshKey={attempt} onChanged={() => setAttempt(value=>value+1)} />}
       {Boolean(currentFeed?.organizations.length) && <details className="mt-6 border-t pt-5 border-border">

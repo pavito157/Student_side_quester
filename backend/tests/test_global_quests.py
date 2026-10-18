@@ -72,7 +72,7 @@ class GlobalQuestRouteTests(unittest.TestCase):
                 "steps": ["Do not expose this"],
             },
         }
-        self.db.collection.return_value.where.return_value.order_by.return_value.limit.return_value.stream.return_value = [snapshot]
+        self.db.collection.return_value.where.return_value.order_by.return_value.stream.return_value = [snapshot]
         self.app.dependency_overrides.pop(current_uid)
 
         with patch.object(g, "utc_now", return_value=NOW):
@@ -113,6 +113,35 @@ class GlobalQuestRouteTests(unittest.TestCase):
 
         self.assertEqual(result["quests"][0]["id"], snapshot.id)
         self.assertNotIn("questTemplate", result["quests"][0])
+
+    def test_public_detail_is_allowlisted_and_rejects_cancelled_or_missing_events(self):
+        raw = {**payload().model_dump(), **g.default_policy().model_dump(),
+            "id":"event", "organizationName":"Club", "createdBy":"private-admin", "createdAt":NOW}
+        snapshot = Mock(exists=True)
+        snapshot.to_dict.return_value = raw
+        self.db.collection.return_value.document.return_value.get.return_value = snapshot
+        self.app.dependency_overrides.pop(current_uid)
+        with patch.object(g,"utc_now",return_value=NOW):
+            response = self.client.get('/global-quests/public/event')
+            self.assertEqual(response.status_code,200)
+            self.assertEqual(response.json()['id'],'event')
+            self.assertNotIn('createdBy',response.json())
+            self.assertNotIn('questTemplate',response.json())
+            snapshot.to_dict.return_value = {**raw, 'status':'cancelled'}
+            self.assertEqual(self.client.get('/global-quests/public/event').status_code,404)
+            snapshot.exists = False
+            self.assertEqual(self.client.get('/global-quests/public/event').status_code,404)
+
+    def test_public_map_includes_all_available_events_not_only_first_fifty(self):
+        snapshots = []
+        for index in range(55):
+            snapshot = Mock()
+            snapshot.to_dict.return_value = {**payload().model_dump(), **g.default_policy().model_dump(),
+                'id':str(index), 'organizationName':'Club', 'createdBy':'admin', 'createdAt':NOW}
+            snapshots.append(snapshot)
+        self.db.collection.return_value.where.return_value.order_by.return_value.stream.return_value = snapshots
+        with patch.object(g,'utc_now',return_value=NOW):
+            self.assertEqual(len(g.list_public_events(self.db)),55)
 
     def test_all_routes_require_auth(self):
         self.app.dependency_overrides.pop(current_uid)
@@ -219,6 +248,12 @@ class GlobalQuestEmulatorTests(unittest.TestCase):
             g.check_in(self.db, self.uid, self.event.id, self.position)
         self.assertEqual(self.user_ref.get().to_dict()["xp"], 10)
         self.assertFalse(self.claim_ref.get().exists)
+
+
+    def test_cancelled_events_are_hidden_from_both_feeds(self):
+        self.event_ref.update({'status': 'cancelled'})
+        self.assertNotIn(self.event.id, [event.id for event in g.list_public_events(self.db)])
+        self.assertNotIn(self.event.id, [event['id'] for event in g.list_events(self.uid,self.db)['quests']])
 
     def test_feed_returns_admin_options_event_and_completion_status(self):
         result = g.list_events(self.uid, self.db)

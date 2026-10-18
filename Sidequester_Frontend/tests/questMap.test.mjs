@@ -3,113 +3,73 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import vm from 'node:vm'
 import ts from 'typescript'
-
-const directionsSource = await readFile(new URL('../src/services/questDirections.ts', import.meta.url), 'utf8')
-const questDirections = await import(`data:text/javascript;base64,${Buffer.from(ts.transpileModule(directionsSource, {
-  compilerOptions: { module: ts.ModuleKind.ESNext },
-}).outputText).toString('base64')}`)
-
-async function fixture() {
-  const elements = [], markers = [], effects = [], windows = []
-  const createElement = (tag) => {
-    const element = { tag, children: [], style: {}, listeners: {}, textContent: '',
-      append(...children) { this.children.push(...children) },
-      setAttribute() {}, addEventListener(name, fn) { this.listeners[name] = fn },
-      removeEventListener() {},
-    }
-    elements.push(element)
-    return element
-  }
-  class InfoWindow {
-    constructor() { windows.push(this) }
-    setContent(content) { this.content = content }
-    open(options) { this.options = options }
-    close() {}
-  }
-  const maps = { Map: class { fitBounds() {} }, InfoWindow,
-    LatLngBounds: class { extend() {} },
-    importLibrary: async (name) => name === 'marker'
-      ? { AdvancedMarkerElement: class { constructor(options) { Object.assign(this, options); markers.push(this) } } }
-      : { Route: { computeRoutes: async () => ({ routes: [] }) }, TravelMode: { WALKING: 'WALKING' } },
-  }
-  const context = vm.createContext({ document: { createElement }, google: { maps } })
-  const jsx = (type, props) => ({ type, props })
-  const synthetic = async (values) => {
-    const mod = new vm.SyntheticModule(Object.keys(values), function () {
-      for (const [key, value] of Object.entries(values)) this.setExport(key, value)
-    }, { context })
-    await mod.link(() => {})
-    await mod.evaluate()
-    return mod
-  }
-  async function load(name) {
-    const source = await readFile(new URL(`../src/componenets/main-ui/${name}.tsx`, import.meta.url), 'utf8')
-    const compiled = ts.transpileModule(source, { compilerOptions: {
-      module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2023, jsx: ts.JsxEmit.ReactJSX,
-    } }).outputText
-    const mod = new vm.SourceTextModule(compiled, { context })
-    await mod.link(async (name) => {
-      if (name === 'react') return synthetic({ useRef: () => ({ current: {} }),
-        useState: () => [{ key: '', message: '' }, () => {}], useEffect: (fn) => effects.push(fn) })
-      if (name === 'react/jsx-runtime') return synthetic({ jsx, jsxs: jsx, Fragment: 'Fragment' })
-      if (name.endsWith('/googlePlaces')) return synthetic({ loadMapsLibrary: async () => maps })
-      if (name.endsWith('/colors')) return synthetic({ colors: {} })
-      if (name.endsWith('/questDirections')) return synthetic(questDirections)
-      if (name.endsWith('/navigation')) return synthetic({ navigateTo() {} })
-      return synthetic({ default: function Placeholder() {} })
-    })
-    await mod.evaluate()
-    return mod.namespace.default
-  }
-  return { load, elements, markers, effects, windows }
+const compile = source => ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2023,jsx:ts.JsxEmit.ReactJSX}}).outputText
+const dataSource = compile(await readFile(new URL('../src/services/questMapData.ts',import.meta.url),'utf8'))
+async function dataFixture(context=vm.createContext({})) {
+  const module = new vm.SourceTextModule(dataSource,{context})
+  await module.link(()=>{throw new Error('Unexpected map data import')}); await module.evaluate()
+  return module.namespace
 }
+const event = (id='event') => ({id,organizationName:'Campus Club',title:'Club meeting',description:'Meet the club.',locationName:'Union',latitude:29.65,longitude:-82.34,xpReward:25})
+const quest = (id='quest') => ({id,title:'Visit two places',description:'Explore the campus.',locationName:'Union',latitude:29.65,longitude:-82.34,xpValue:30,
+  destinations:[{locationName:'Union',latitude:29.65,longitude:-82.34},{locationName:'Library',latitude:29.66,longitude:-82.33}],completedStops:[0]})
 
-test('marker popup renders every step in order with hover, keyboard and tap access', async () => {
-  const f = await fixture()
-  const Map = await f.load('SidequestMap')
-  const steps = ['First', 'Second', 'Third', 'Fourth', '<script>plain text</script>']
-  Map({ stops: [{ name: 'One venue', latitude: 29.65, longitude: -82.32, step: steps.join(' '), completed: false }], origin: null })
-  f.effects[0]()
-  await new Promise((resolve) => setImmediate(resolve))
-  assert.equal(f.markers.length, 1)
-  const pin = f.markers[0].content
-  for (const event of ['mouseenter', 'focus', 'click']) {
-    pin.listeners[event]()
-    const description = f.windows[0].content.children.find((child) => child.tag === 'p').textContent
-    let position = -1
-    for (const step of steps) {
-      const next = description.indexOf(step)
-      assert.ok(next > position)
-      position = next
-    }
-  }
+test('global-only map excludes personal quests and all their stops while retaining accepted global events',async()=>{
+  const api = await dataFixture()
+  const accepted = {...quest('accepted-event'),sourceGlobalEventId:'gbm',destinations:[]}
+  const pins = api.buildQuestMapPins([event('gbm'),event('open')],[quest('route'),accepted])
+  assert.equal(pins.length,2)
+  assert.equal(pins.some(pin=>pin.questId==='route'),false)
+  assert.equal(pins.find(pin=>pin.questId==='gbm').path,'/sidequests/accepted-event')
+  assert.equal(pins.find(pin=>pin.questId==='open').path,'/global-quests/open')
+  assert.ok(pins.every(pin=>pin.label==='+25 XP' && pin.color==='#e88932'))
+  assert.equal(api.buildQuestMapPins([],[quest('route'),accepted]).length,0)
 })
 
-test('guest preview maps all five steps to one destination and keeps route steps separate', async () => {
-  const f = await fixture()
-  const Preview = await f.load('GuestQuestPreviewPage')
-  const steps = ['First', 'Second', 'Third', 'Fourth', 'Fifth']
-  const destination = { locationName: 'Venue', latitude: 29.65, longitude: -82.32 }
-  const collectStops = (node) => {
-    if (!node || typeof node !== 'object') return null
-    if (node.props?.stops) return node.props.stops
-    for (const child of [node.props?.children].flat(Infinity)) {
-      const stops = collectStops(child)
-      if (stops) return stops
-    }
-    return null
+test('global map ignores invalid venue coordinates and safely encodes quest links',async()=>{
+  const api = await dataFixture()
+  const pins = api.buildQuestMapPins([event('event/with spaces'),{...event('bad'),latitude:91}],[quest()])
+  assert.equal(pins.length,1)
+  assert.equal(pins[0].path,'/global-quests/event%2Fwith%20spaces')
+})
+
+test('global XP pins navigate to quest pages, separate overlapping venues and exclude personal routes',async()=>{
+  const markers=[], lines=[], effects=[], navigations=[]
+  class Element {
+    style={}; children=[]; events={}
+    append(...nodes){this.children.push(...nodes)}
+    setAttribute(){}
+    addEventListener(name,callback){this.events[name]=callback}
   }
-  const result = { quest: { title: 'Quest', description: 'Description', steps,
-    stepProofMethods: steps.map(() => 'recreation') }, destinations: [destination], normalizedPreferences: {} }
-  assert.equal(collectStops(Preview({ result, payload: null }))[0].step, steps.join(' '))
-  result.destinations = [destination, { ...destination, locationName: 'Other venue' }]
-  result.quest.steps = steps.slice(0, 2)
-  const stops = collectStops(Preview({ result, payload: null }))
-  assert.equal(stops[0].step, 'First')
-  assert.equal(stops[1].step, 'Second')
-  result.quest.steps = ['First', 'Second', 'Third']
-  result.quest.stepDestinationIndexes = [0, 0, 1]
-  const grouped = collectStops(Preview({ result, payload: null }))
-  assert.equal(grouped[0].step, 'First Second')
-  assert.equal(grouped[1].step, 'Third')
+  class Bounds {extend(){} getCenter(){return {lat:29.65,lng:-82.34}}}
+  class Map {fitBounds(){} setCenter(){} setZoom(){}}
+  class InfoWindow {setContent(){} open(){} close(){}}
+  class Polyline {constructor(options){Object.assign(this,options);lines.push(this)} setMap(map){this.map=map}}
+  class Marker {constructor(options){Object.assign(this,options);markers.push(this)}}
+  const context=vm.createContext({document:{createElement:()=>new Element()},
+    navigator:{geolocation:{getCurrentPosition(_success,failure){failure()}}},
+    google:{maps:{LatLngBounds:Bounds,importLibrary:async()=>({AdvancedMarkerElement:Marker})}}})
+  const data = await dataFixture(context)
+  const synthetic=values=>new vm.SyntheticModule(Object.keys(values),function(){for(const [key,value] of Object.entries(values))this.setExport(key,value)},{context})
+  const jsx=(type,props)=>({type,props})
+  const module=new vm.SourceTextModule(compile(await readFile(new URL('../src/features/quests/detail/GlobalQuestMap.tsx',import.meta.url),'utf8')),{context})
+  await module.link(name=>{
+    if(name==='react')return synthetic({useMemo:fn=>fn(),useRef:()=>({current:new Element()}),useState:value=>[value,()=>{}],useEffect:fn=>effects.push(fn)})
+    if(name==='react/jsx-runtime')return synthetic({jsx,jsxs:jsx})
+    if(name.endsWith('/questMapData'))return synthetic({buildQuestMapPins:data.buildQuestMapPins})
+    if(name.endsWith('/googlePlaces'))return synthetic({loadMapsLibrary:async()=>({Map,InfoWindow,Polyline})})
+    if(name.endsWith('/navigation'))return synthetic({navigateTo:path=>navigations.push(path)})
+    if(name.endsWith('/colors'))return synthetic({colors:{}})
+    throw new Error(name)
+  });await module.evaluate()
+  module.namespace.default({quests:[event('accepted'),event('open')],activeQuests:[quest(),{...quest('saved-event'),sourceGlobalEventId:'accepted'}]})
+  const cleanup=effects[0]();await new Promise(resolve=>setImmediate(resolve))
+  assert.equal(markers.length,2)
+  assert.equal(lines.length,0)
+  const sameVenue=markers.filter(marker=>marker.position.lat===29.65)
+  assert.notEqual(sameVenue[0].content.style.transform,sameVenue[1].content.style.transform)
+  for(const marker of markers)marker.content.children[0].events.click()
+  assert.deepEqual(navigations,['/sidequests/saved-event','/global-quests/open'])
+  assert.ok(markers.every(marker=>marker.content.children[0].textContent==='+25 XP'))
+  cleanup();assert.ok(markers.every(marker=>marker.map===null));assert.equal(lines.length,0)
 })

@@ -72,18 +72,18 @@ test('single campus event map uses GlobalQuests coordinates and marks current lo
   const component=await readFile(new URL('../src/features/quests/detail/GlobalQuestMap.tsx',import.meta.url),'utf8')
   const board=await readFile(new URL('../src/features/quests/detail/GlobalQuests.tsx',import.meta.url),'utf8')
   const activities=await readFile(new URL('../src/features/organization-quests/OrganizationQuestBoard.tsx',import.meta.url),'utf8')
-  assert.match(board,/GlobalQuestMap quests=\{mapQuests\}/)
-  assert.ok(board.indexOf('<GlobalQuestMap quests={mapQuests} />') > board.indexOf('{currentFeed?.quests.map'))
+  assert.match(board,/GlobalQuestMap quests=\{mapQuests \?\? \[\]\} activeQuests=\{activeQuests\}/)
+  assert.ok(board.indexOf('<GlobalQuestMap quests={mapQuests ?? []} activeQuests={activeQuests} />') > board.indexOf('{currentFeed?.quests.map'))
   assert.equal((board.match(/<GlobalQuestMap/g) ?? []).length,1)
   assert.match(component,/position: \{ lat: quest\.latitude, lng: quest\.longitude \}/)
   assert.match(component,/quest\.xpReward/)
   assert.match(component,/quest\.locationName/)
   assert.match(component,/navigator\.geolocation\.getCurrentPosition/)
-  assert.match(component,/border-top:10px solid #e88932/)
+  assert.match(component,/navigateTo\(quest.path\)/)
   assert.doesNotMatch(activities,/OrganizationQuestMap/)
 })
 
-async function view(organizations, signedIn=true, activities=null, adminRole='regular_admin') {
+async function view(organizations, signedIn=true, activities=null, adminRole='regular_admin', events=[], activeQuests=[]) {
   const file = activities === null ? 'GlobalQuests' : 'OrganizationQuestBoard'
   const path = file === 'GlobalQuests'
     ? `../src/features/quests/detail/${file}.tsx`
@@ -102,12 +102,13 @@ async function view(organizations, signedIn=true, activities=null, adminRole='re
     if(name==='react/jsx-runtime')return synthetic({jsx,jsxs:jsx,Fragment:'fragment'})
     if(name==='@clerk/clerk-react')return synthetic({useUser:()=>({user:signedIn?{id:'admin'}:null}),SignInButton:()=>null})
     if(name.endsWith('/questAssignment'))return synthetic({MAX_ACTIVE_QUESTS:3,getOrganizationQuestBoard:async()=>activities})
+    if(name.endsWith('/navigation'))return synthetic({navigateTo:()=>{}})
     if(name.endsWith('/colors'))return synthetic({colors:{}})
     if(name.endsWith('/firebaseSession'))return synthetic({getFirebaseIdToken:async()=> 'token'})
     if(name.endsWith('/OrganizationAdmin'))return synthetic({default:'OrganizationAdmin'})
-    if(name.endsWith('/globalQuests'))return synthetic({getGlobalQuests:async()=>({quests:[],organizations,adminRole,defaults:{xpReward:25}}),getPublicGlobalQuests:async()=>[],createGlobalQuest:async()=>{},checkInGlobalQuest:async()=>{}})
+    if(name.endsWith('/globalQuests'))return synthetic({getGlobalQuests:async()=>({quests:events,organizations,adminRole,defaults:{xpReward:25}}),getPublicGlobalQuests:async()=>[],createGlobalQuest:async()=>{},checkInGlobalQuest:async()=>{}})
     return synthetic({default:()=>null})
-  });await mod.evaluate();const props = activities === null ? {onAcceptOrganizationQuest:async()=>{}} : {userId:signedIn?'admin':null,activeQuests:[],onAccept:async()=>{}}
+  });await mod.evaluate();const props = activities === null ? {activeQuests,onAcceptGlobalEvent:async()=>{},onAcceptOrganizationQuest:async()=>{}} : {userId:signedIn?'admin':null,activeQuests:[],onAccept:async()=>{}}
   cursor=0;mod.namespace.default(props);effects.forEach(fn=>fn());await new Promise(resolve=>setImmediate(resolve));cursor=0
   return JSON.stringify(mod.namespace.default(props))
 }
@@ -170,4 +171,22 @@ test('organization management requests use authenticated server endpoints withou
   assert.equal(assign.calls[0][0],'http://localhost:8000/organizations/club/admins')
   assert.equal(assign.calls[0][1].method,'PUT')
   assert.deepEqual(JSON.parse(assign.calls[0][1].body),{userId:'user_member',action:'grant'})
+})
+
+
+test('events can be added before their start and existing event quests remain viewable at capacity', async () => {
+  const event = {id:'gbm', title:'Club GBM', organizationName:'Club', locationName:'Reitz',
+    startsAt:'2099-01-01T12:00:00Z',endsAt:'2099-01-01T13:00:00Z',graceMinutes:0,
+    verificationMode:'gps',radiusMeters:100,xpReward:25}
+  assert.match(await view([],true,null,'member',[event]),/Add to my quests/)
+  const active = [{id:'one'},{id:'two'},{id:'three'}]
+  const fullBoard = await view([],true,null,'member',[event],active)
+  assert.match(fullBoard,/Club GBM/)
+  assert.match(fullBoard,/View quest/)
+  assert.match(fullBoard,/Maximum quests reached \(3\/3\)/)
+  assert.doesNotMatch(fullBoard,/All 3 slots full/)
+  assert.match(fullBoard,/\"disabled\":false,\"children\":\"View quest\"/)
+  active[0].sourceGlobalEventId='gbm'
+  assert.match(await view([],true,null,'member',[event],active),/View quest/)
+  assert.match(await view([],true,null,'member',[{...event,completed:true}]),/Completed ✓/)
 })

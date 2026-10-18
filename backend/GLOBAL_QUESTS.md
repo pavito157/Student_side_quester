@@ -1,6 +1,6 @@
 # Global quests
 
-Global quests are organization events, independent of the three personal quest slots.
+Global quests are organization events that users can add to one of their three personal quest slots.
 Both user XP and residence XP are awarded once per event, in the same Firestore transaction
 as the attendance record. Repeated and concurrent check-ins cannot award twice.
 
@@ -59,7 +59,7 @@ All endpoints require the existing verified Firebase ID token in `Authorization:
 No arbitrary `userId`, `createdBy`, `xpReward`, radius, verification mode or timestamps of check-in are
 accepted from the browser. Reward is always chosen by server configuration (25 XP by default),
 never an organization admin. Supplying `xpReward` in creation JSON returns 422. Admins are responsible for the event/venue accuracy; this flow does not invoke
-Gemini, restrict the event to the city boundary, or claim to verify the hosting organization's identity.
+Gemini at publication time, restrict manually created events to the city boundary, or claim to verify the hosting organization's identity. Gemini creates shared instructions on first acceptance.
 GPS reports are browser-provided, as with personal quests; they are not spoof-proof attendance.
 
 ## Configuration
@@ -75,7 +75,7 @@ In ignored root `.env`, also documented in `.env.example`:
 Settings are snapshotted per event, so changes only affect newly published quests. Existing
 rewards/windows are immutable through this first version of the API. No event editing/cancel
 UI is included yet; a trusted database operator can remove an erroneous event. Invalid
-configuration fails closed. There is no automatic XP expiry or personal-slot reservation.
+configuration fails closed. There is no automatic XP expiry. Accepting an event reserves one personal slot.
 
 ## Team test checklist
 
@@ -83,10 +83,10 @@ configuration fails closed. There is no automatic XP expiry or personal-slot res
    Quest near the bottom. A regular account sees the event feed but no creation control.
 2. Publish an event using a selected venue, a window spanning now, and 25 XP. Another
    signed-in user sees the same event after Refresh events. No real event is pre-seeded.
-3. Check in at the venue with precise GPS during the window. Verify one +25 update to the
+3. Add the event to My quests and open its detail page. Check in at the venue with precise GPS during the window. Verify one +25 update to the
    user and dorm and one attendance receipt. Reload and retry: no second award.
 4. Try outside the time window, far from the venue, denied GPS and poor accuracy: no XP.
-5. Create a future event: check-in stays disabled until its scheduled start. Server rejects
+5. Create a future event: it can be added early, but server check-in requires its scheduled window. Server rejects
    forged early requests regardless of the browser clock.
 6. Call POST without auth (401), with a non-admin token (403), or with an extra UID/reward in
    check-in JSON (422). Direct client writes to protected paths must be denied by rules.
@@ -160,3 +160,76 @@ cover the platform-access document; no additional rules deployment was required.
 Initial explicit admins are granted only by a trusted operator:
 `python -m backend.scripts.grant_explicit_admin --user-id USER_ID`.
 This script preserves other explicit admins; it is not invoked at login or startup.
+
+
+## Shared event tasks and personal slots
+
+`POST /global-quests/{eventId}/accept` uses the verified Firebase token and an empty
+request body. Returns 201 with the existing `{quest, assignment, reusedExisting}`
+JSON contract. See `contracts/global-event-assignment.response.example.json` for a
+schema-validated example (illustrative event, not a published listing).
+
+On first acceptance, Gemini receives only the public event title, description,
+venue and times. A narrow JSON schema, low temperature and attendance-only prompt
+limit creative tasks: arrive, attend, check in. The winning task list is cached in
+`GlobalQuests/{eventId}.questTemplate`. All attendees reuse that exact list; no user
+preferences, private data, credentials, or AI-selected reward enter the prompt.
+Concurrent first acceptors may make more than one provider call, but only one
+canonical template wins the transaction. Provider failures consume no slot. There
+is no invented fallback presented as a real model result.
+
+The server attaches authoritative event ID, GPS, time window, radius, proof methods
+and fixed event XP to the response. The compatibility cost field remains zero; for
+event quests the frontend displays **See event listing**, not a promise of free
+admission. The event's published terms remain authoritative.
+
+Saved at `Users/{uid}/sidequests/{questId}` alongside ordinary quests, with
+`sourceGlobalEventId`, `eventStartsAt`, and `eventEndsAt`. Acceptance checks the
+three-slot limit inside the existing transaction, including concurrent requests.
+Repeated acceptance returns the existing assignment, even when all slots are full.
+The Campus board always keeps events visible. At capacity it offers **View quest**
+and a maximum-quests notice; the event preview disables **Add sidequest** until a
+slot is free.
+Detail view supports instructions, steps, directions and abandonment. Generate another adds a separate personal quest using the user’s saved filters/preferences;
+the original event’s shared tasks stay fixed.
+
+Personal completion uses `POST /quests/{questId}/complete` as before, but the server
+dispatches event quests to the canonical event's current GPS/time policy. It uses
+the same attendance receipt as the older board check-in endpoint, awards user and
+residence XP once, and deletes the accepted assignment to free the slot atomically.
+Board check-in remains API-compatible and also frees any accepted copy. Completing
+through both routes, abandoning/reaccepting, or replaying requests cannot award a
+second event reward. A cancelled or rescheduled event is checked against its current
+server record, not a stale personal copy.
+
+Extra team checks:
+
+1. Add one event using two accounts: compare their `quest.steps` arrays; they match.
+2. Reload and use View quest: same saved ID and instructions; no new generation.
+3. Fill all three slots with any mix of ordinary/event quests: adding a fourth fails.
+4. Abandon an event: it frees a slot without XP; reaccept before completion is allowed.
+5. Complete during the event at its venue: one +25 user and residence award, one claim,
+   and one freed slot. A second check-in or later reaccept is rejected.
+6. Test early, late, inaccurate/far GPS, a cancelled event and Gemini unavailable:
+   no XP; failed generation creates no assignment.
+
+Automated coverage: `backend.tests.test_event_quests` plus the existing completion,
+capacity, and global-event suites. Provider responses are mocked; Firestore writes
+run only against the local demo emulator. No production XP is used for tests.
+
+
+## Global quest map and event preview
+
+The bottom map shows only upcoming published global quests from campus events and
+organizations, including imported UF events. Every event uses an orange XP pin;
+personal quests and their multi-stop routes are not displayed on this map.
+Your current location remains a separate blue marker. Overlapping venues use
+separate offset pins while preserving their real coordinates.
+
+A global quest pin opens `/sidequests/{id}` when already accepted, or
+`/global-quests/{eventId}` otherwise. The latter loads public event facts via
+`GET /global-quests/public/{eventId}`, shows an attendance preview and Add sidequest,
+and disables acceptance while slots are loading, unavailable or full. Acceptance
+uses the authenticated transactional API and opens the saved quest detail with
+complete/generate another/abandon actions. The public map feed includes all upcoming
+published events; the authenticated board card feed retains its 50-card limit.

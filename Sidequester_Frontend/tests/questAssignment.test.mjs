@@ -497,3 +497,19 @@ test('organization acceptance validates the saved source and propagates request 
   saved.quest.sourceOrganizationQuestId = 'other'
   await assert.rejects(f.api.requestOrganizationQuest(saved.assignment.userId,'club','gbm'),/invalid organization quest assignment/)
 })
+
+
+test('global event acceptance validates provenance and supports retrying an existing assignment', async () => {
+  const f = await fixture()
+  const data = structuredClone(savedExample)
+  data.quest.sourceGlobalEventId = 'gbm'
+  data.reusedExisting = true
+  f.state.fetch = async (url, options) => {
+    f.calls.push(['fetch',url,options])
+    return {ok:true,status:201,json:async()=>data}
+  }
+  const result = await f.api.requestGlobalEventQuest(data.assignment.userId, 'gbm')
+  assert.equal(result.quest.sourceGlobalEventId, 'gbm')
+  data.quest.sourceGlobalEventId = 'different'
+  await assert.rejects(f.api.requestGlobalEventQuest(data.assignment.userId, 'gbm'), /invalid event quest/)
+})

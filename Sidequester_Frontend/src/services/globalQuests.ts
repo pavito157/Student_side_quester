@@ -3,6 +3,7 @@ export type GlobalQuest = {
   locationName: string; latitude: number; longitude: number; startsAt: string; endsAt: string
   xpReward: number; radiusMeters: number; maxAccuracyMeters: number
   verificationMode: 'gps' | 'honor'; graceMinutes: number; completed: boolean
+  source?: 'uf-calendar' | null; sourceUrl?: string | null
 }
 export type PublicGlobalQuest = Pick<GlobalQuest,
   'id' | 'organizationName' | 'title' | 'description' | 'locationName'
@@ -95,4 +96,15 @@ export async function createOrganization(token: string, name: string) {
 }
 export async function setOrganizationAdmin(token: string, organizationId: string, userId: string, action: 'grant' | 'revoke') {
   return request(token, `/organizations/${encodeURIComponent(organizationId)}/admins`, 'PUT', {userId, action})
+}
+
+export async function getPublicGlobalQuest(eventId: string, signal?: AbortSignal): Promise<PublicGlobalQuest> {
+  if (!eventId || eventId.includes('/')) throw new Error('Choose a valid event.')
+  const data = await request(null, `/global-quests/public/${encodeURIComponent(eventId)}`, 'GET', undefined, signal)
+  if (data.id !== eventId || typeof data.title !== 'string' || typeof data.description !== 'string'
+      || typeof data.locationName !== 'string' || !Number.isFinite(data.latitude) || Math.abs(data.latitude) > 90
+      || !Number.isFinite(data.longitude) || Math.abs(data.longitude) > 180
+      || !Number.isInteger(data.xpReward) || !Number.isFinite(Date.parse(data.startsAt))
+      || !Number.isFinite(Date.parse(data.endsAt))) throw new Error('Invalid event details.')
+  return data
 }

@@ -133,3 +133,9 @@ Test from a phone with Tailscale connected:
 The public website shell loads outside the tailnet, but API-backed features are
 unavailable unless the device has Tailscale connected and the Ubuntu server is
 online.
+
+## Daily UF calendar import
+
+For the optional midnight Eastern campus-event sync, install the application timer
+from `deploy/systemd/` following [the UF import guide](../backend/UF_CALENDAR_IMPORT.md).
+The importer runs directly on this backend host; it needs no public cron endpoint.

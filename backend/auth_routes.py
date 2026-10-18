@@ -1,5 +1,5 @@
 """Exchange a verified Clerk session for Firebase custom-token sign-in."""
-
+import traceback
 import os
 from functools import lru_cache
 from typing import Optional
@@ -156,6 +156,7 @@ def firebase_sign_in(payload: BridgeRequest, response: Response,
     except auth.EmailAlreadyExistsError:
         raise HTTPException(409, "Email is linked to another Firebase UID; account linking is required")
     except (exceptions.FirebaseError, GoogleAPICallError, RetryError, GoogleAuthError, ValueError, OSError):
+        traceback.print_exc()
         raise HTTPException(503, "Firebase authentication temporarily unavailable")
     response.headers["Cache-Control"] = "no-store"
     response.headers["Pragma"] = "no-cache"

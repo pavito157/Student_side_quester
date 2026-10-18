@@ -57,6 +57,8 @@ async function fixture() {
         }
       },
       requestQuestAbandon: async (...args) => { state.abandonments.push(args) },
+      requestPhotoProof: async () => ({ accepted: true, feedback: 'Looks good.' }),
+      requestQuestPhotoProofSkip: async () => [],
     }
     return new vm.SyntheticModule(Object.keys(exports), function () {
       for (const [key, value] of Object.entries(exports)) this.setExport(key, value)

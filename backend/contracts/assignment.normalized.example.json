@@ -4,6 +4,7 @@
   "budget": {"minDollars": 0, "maxDollars": 0},
   "maxDistanceMiles": null,
   "multiQuest": false,
+  "proofOptions": ["location", "photo"],
   "preferences": "I enjoy programming and spending time outside.",
   "goals": ["Take a break from studying"],
   "vibe": {

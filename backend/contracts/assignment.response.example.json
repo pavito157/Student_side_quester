@@ -7,6 +7,9 @@
       "Bring a notebook and your laptop to the destination.",
       "Sketch a nature journal interface, then implement one small feature."
     ],
+    "stepProofMethods": ["location", "photo"],
+    "verifiedPhotoSteps": [],
+    "skippedPhotoSteps": [],
     "locationName": "Example UF destination",
     "latitude": 29.65,
     "longitude": -82.34,

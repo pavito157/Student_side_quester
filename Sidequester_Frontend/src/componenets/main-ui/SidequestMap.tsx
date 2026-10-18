@@ -18,6 +18,9 @@ type SidequestMapProps = {
 
 type MapErrorState = { key: string; message: string }
 
+const activeRouteBlue = '#4285F4'
+const mutedRouteBlue = '#8AB4F8'
+
 function SidequestMap({ stops, origin }: SidequestMapProps) {
   const mapElementRef = useRef<HTMLDivElement>(null)
   const [mapErrorState, setMapErrorState] = useState<MapErrorState>({ key: '', message: '' })
@@ -34,7 +37,7 @@ function SidequestMap({ stops, origin }: SidequestMapProps) {
       }
 
       try {
-        const [{ Map, InfoWindow }, { AdvancedMarkerElement }, { DirectionsService, DirectionsRenderer }] =
+        const [{ Map, InfoWindow }, { AdvancedMarkerElement }, { Route, TravelMode }] =
           await Promise.all([
             loadMapsLibrary(),
             google.maps.importLibrary('marker') as Promise<google.maps.MarkerLibrary>,
@@ -65,6 +68,7 @@ function SidequestMap({ stops, origin }: SidequestMapProps) {
           detail: string,
           color: string,
           accessibleName: string,
+          isEmphasized = true,
         ) => {
           const pin = document.createElement('button')
           pin.type = 'button'
@@ -74,7 +78,9 @@ function SidequestMap({ stops, origin }: SidequestMapProps) {
             'display:flex', 'align-items:center', 'justify-content:center', 'min-width:32px',
             'height:32px', 'padding:0 8px', 'border:2px solid white', 'border-radius:9999px',
             `background:${color}`, 'color:white', 'font:700 12px sans-serif',
-            'box-shadow:0 2px 8px #0008', 'cursor:pointer',
+            `opacity:${isEmphasized ? 1 : 0.9}`,
+            `box-shadow:${isEmphasized ? '0 0 0 4px #f9731633,0 2px 8px #0008' : '0 2px 8px #0008'}`,
+            'cursor:pointer',
           ].join(';')
           const content = document.createElement('div')
           content.style.cssText = 'max-width:260px;padding:3px;color:#17251d'
@@ -105,7 +111,8 @@ function SidequestMap({ stops, origin }: SidequestMapProps) {
           showDetails: () => void
           hideDetails: () => void
         }> = []
-        let directionsRenderer: google.maps.DirectionsRenderer | undefined
+        let routePolylines: google.maps.Polyline[] = []
+        const nextStopIndex = stops.findIndex((stop) => !stop.completed)
         if (origin) {
           markerBindings.push(addMarker(
             { lat: origin.latitude, lng: origin.longitude },
@@ -113,42 +120,66 @@ function SidequestMap({ stops, origin }: SidequestMapProps) {
           ))
         }
         stops.forEach((stop, index) => {
+          const isNextStop = index === nextStopIndex
           markerBindings.push(addMarker(
             { lat: stop.latitude, lng: stop.longitude },
             String(index + 1),
-            `${stop.completed ? 'Completed stop. ' : ''}${stop.step}`,
-            stop.completed ? colors.success : colors.secondary,
-            `Stop ${index + 1}: ${stop.name}`,
+            `${stop.completed ? 'Completed stop. ' : isNextStop ? 'Next destination. ' : ''}${stop.step}`,
+            colors.secondary,
+            `${isNextStop ? 'Next destination' : stop.completed ? 'Completed stop' : 'Upcoming stop'} ${index + 1}: ${stop.name}`,
+            isNextStop,
           ))
         })
 
-        if (origin) {
-          const renderer = new DirectionsRenderer({
-            map,
-            suppressMarkers: true,
-            preserveViewport: true,
-            polylineOptions: { strokeColor: colors.primary, strokeOpacity: 0.85, strokeWeight: 5 },
-          })
-          directionsRenderer = renderer
-          new DirectionsService().route({
-            origin: { lat: origin.latitude, lng: origin.longitude },
-            destination: { lat: stops[0].latitude, lng: stops[0].longitude },
-            travelMode: google.maps.TravelMode.WALKING,
-          }, (result, status) => {
+        const routeOrigin = origin
+          ? { lat: origin.latitude, lng: origin.longitude }
+          : stops.length > 1
+            ? { lat: stops[0].latitude, lng: stops[0].longitude }
+            : null
+        if (routeOrigin) {
+          void Route.computeRoutes({
+            origin: routeOrigin,
+            intermediates: origin
+              ? stops.slice(0, -1).map((stop) => ({ location: { lat: stop.latitude, lng: stop.longitude } }))
+              : stops.slice(1, -1).map((stop) => ({ location: { lat: stop.latitude, lng: stop.longitude } })),
+            destination: { lat: stops[stops.length - 1].latitude, lng: stops[stops.length - 1].longitude },
+            travelMode: TravelMode.WALKING,
+            fields: ['path', 'legs', 'viewport'],
+          }).then(({ routes }) => {
+            const route = routes?.[0]
             if (!isCurrent) return
-            if (status === google.maps.DirectionsStatus.OK && result) {
-              renderer.setDirections(result)
+            if (route?.legs?.length) {
+              if (route.viewport) bounds.union(route.viewport)
+              map.fitBounds(bounds, 56)
+              routePolylines = route.legs.flatMap((leg, index) => leg.path.length > 0
+                ? [new google.maps.Polyline({
+                  map,
+                  path: leg.path,
+                  strokeColor: index === nextStopIndex ? activeRouteBlue : mutedRouteBlue,
+                  strokeOpacity: index === nextStopIndex ? 0.95 : 0.5,
+                  strokeWeight: index === nextStopIndex ? 6 : 4,
+                  clickable: false,
+                })]
+                : [])
             } else {
               setMapErrorState({
                 key: locationKey,
                 message: 'Destinations are shown, but walking directions could not be drawn.',
               })
             }
+          }).catch((error: unknown) => {
+            if (isCurrent) {
+              const detail = error instanceof Error ? ` ${error.message}` : ''
+              setMapErrorState({
+                key: locationKey,
+                message: `Destinations are shown, but walking directions could not be drawn.${detail}`,
+              })
+            }
           })
         }
 
         return () => {
-          directionsRenderer?.setMap(null)
+          routePolylines.forEach((polyline) => polyline.setMap(null))
           for (const { marker, pin, hideDetails } of markerBindings) {
             hideDetails()
             marker.map = null
@@ -185,8 +216,24 @@ function SidequestMap({ stops, origin }: SidequestMapProps) {
         )}
         <span className="inline-flex items-center gap-2" style={{ color: colors.foreground }}>
           <span className="size-3 rounded-full" style={{ backgroundColor: colors.secondary }} />
-          Destinations
+          Next destination
         </span>
+        <span className="inline-flex items-center gap-2" style={{ color: colors.muted }}>
+          <span className="size-3 rounded-full" style={{ backgroundColor: colors.secondary, opacity: 0.9 }} />
+          Other stops
+        </span>
+        {origin && stops.length > 0 && (
+          <>
+            <span className="inline-flex items-center gap-2" style={{ color: colors.foreground }}>
+              <span className="h-0.5 w-5 rounded" style={{ backgroundColor: activeRouteBlue }} />
+              Next leg
+            </span>
+            <span className="inline-flex items-center gap-2" style={{ color: colors.muted }}>
+              <span className="h-0.5 w-5 rounded" style={{ backgroundColor: mutedRouteBlue, opacity: 0.5 }} />
+              Later legs
+            </span>
+          </>
+        )}
         <span style={{ color: colors.muted }}>Hover or focus a pin for stop details.</span>
       </div>
       {mapError && (

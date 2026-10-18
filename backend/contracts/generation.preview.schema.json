@@ -136,6 +136,19 @@
           "title": "Steps",
           "type": "array"
         },
+        "stepProofMethods": {
+          "items": {
+            "enum": [
+              "location",
+              "photo",
+              "recreation"
+            ],
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Stepproofmethods",
+          "type": "array"
+        },
         "locationName": {
           "maxLength": 300,
           "minLength": 1,
@@ -247,6 +260,20 @@
           "default": false,
           "title": "Multiquest",
           "type": "boolean"
+        },
+        "proofOptions": {
+          "items": {
+            "enum": [
+              "location",
+              "photo",
+              "recreation"
+            ],
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Proofoptions",
+          "type": "array"
         }
       },
       "required": [

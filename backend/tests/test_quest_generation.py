@@ -21,7 +21,8 @@ class GenerationTests(unittest.TestCase):
     def setUp(self):
         self.body = {"location": "UF campus", "time": {"selection": "60"},
                      "budget": {"selection": "0"}, "preferences": "Nature and programming",
-                     "username": "Private Student", "goals": ["Learn"], "vibePreferences": "Relax"}
+                     "username": "Private Student", "goals": ["Learn"], "vibePreferences": "Relax",
+                     "proofOptions": ["location", "photo"]}
         self.preferences = GenerateQuestRequest.model_validate(self.body).normalize()
         self.destination = ResolvedDestination(locationName="Verified campus place", latitude=29.64,
                                                longitude=-82.35, scope="gainesville_city", placeId="place-123")
@@ -51,7 +52,11 @@ class GenerationTests(unittest.TestCase):
         patch.object(generation, "get_gemini_http_client", return_value=client).start()
 
     def provider_draft(self):
-        return {**self.proposal, "completionCriteria": "you have three labeled sketches."}
+        return {
+            **self.proposal,
+            "stepProofMethods": ["location", "photo"],
+            "completionCriteria": "you have three labeled sketches.",
+        }
 
     def generate(self, resolver=None):
         return generation.generate_preview(self.preferences, resolver)
@@ -74,6 +79,7 @@ class GenerationTests(unittest.TestCase):
         self.assertEqual(result.distanceStatus, "not_requested")
         self.assertEqual(result.quest.title, "Plant patterns")
         self.assertEqual(result.quest.steps[-1], "You're done when you have three labeled sketches.")
+        self.assertEqual(result.quest.stepProofMethods, ["location", "photo", "location"])
         self.assertNotIn("completionCriteria", result.quest.model_dump())
         for forbidden in ["id", "sourceQuestId", "latitude", "longitude", "radiusMeters", "xpReward"]:
             self.assertNotIn(forbidden, result.quest.model_dump())
@@ -97,6 +103,17 @@ class GenerationTests(unittest.TestCase):
         self.assertIn("schema", body["generationConfig"]["responseFormat"]["text"])
         self.assertEqual(body["generationConfig"]["responseFormat"]["text"]["mimeType"], "APPLICATION_JSON")
         self.assertEqual(body["generationConfig"]["thinkingConfig"], {"thinkingLevel": "LOW"})
+        self.assertIn("exactly one stepProofMethods value per step", body["systemInstruction"]["parts"][0]["text"])
+        self.assertIn("concrete, visible artifact", body["systemInstruction"]["parts"][0]["text"])
+        self.assertIn("location, photo", body["systemInstruction"]["parts"][0]["text"])
+        self.assertEqual(context["proofOptions"], ["location", "photo"])
+
+    def test_generation_rejects_methods_outside_user_selected_options(self):
+        self.preferences = GenerateQuestRequest.model_validate({
+            **self.body, "proofOptions": ["location"],
+        }).normalize()
+        self.http()
+        self.assert_status(502, self.generate)
 
     def test_provider_wait_is_configurable_and_connect_timeout_stays_short(self):
         for seconds in [90, 120, 10]:
@@ -114,7 +131,19 @@ class GenerationTests(unittest.TestCase):
                 self.generate()
                 config = json.loads(self.requests[0].content)["generationConfig"]
                 self.assertEqual(config["thinkingConfig"]["thinkingLevel"], thinking)
-                self.assertEqual(config["maxOutputTokens"], 1536)
+                self.assertEqual(config["maxOutputTokens"], 3072)
+
+    def test_truncated_and_safety_blocked_responses_have_actionable_errors(self):
+        for finish_reason, message in [
+            ("MAX_TOKENS", "Gemini's response was cut off."),
+            ("SAFETY", "Gemini blocked this quest request."),
+        ]:
+            with self.subTest(finish_reason=finish_reason):
+                self.http(body={"candidates": [{"finishReason": finish_reason}]})
+                with self.assertRaises(HTTPException) as caught:
+                    self.generate()
+                self.assertEqual(caught.exception.status_code, 502)
+                self.assertIn(message, caught.exception.detail)
 
     def test_connection_pool_is_reused_and_closed_at_shutdown(self):
         generation.close_gemini_http_client()
@@ -252,7 +281,7 @@ class GenerationTests(unittest.TestCase):
             self.assertIn("cannot prove the activity was performed", rules)
         # Prompt improvements must not change the response contract or latency controls.
         self.assertEqual(body["generationConfig"]["candidateCount"], 1)
-        self.assertEqual(body["generationConfig"]["maxOutputTokens"], 1536)
+        self.assertEqual(body["generationConfig"]["maxOutputTokens"], 3072)
 
     def test_replacement_prompt_contains_activity_but_no_previous_identity_or_gps(self):
         from types import SimpleNamespace

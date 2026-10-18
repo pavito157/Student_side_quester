@@ -6,8 +6,10 @@ This template provides a minimal setup to get React working in Vite with HMR and
 
 Copy `.env.example` to `.env.local` and set `VITE_GOOGLE_MAPS_API_KEY` to a
 Google Maps API key. Enable Maps JavaScript API and Places API (New) for the
-key's Google Cloud project. Enable Maps JavaScript API, Places API (New), and
-Geocoding API. Restrict the key to this app's HTTP referrers and the APIs the
+key's Google Cloud project. Enable Maps JavaScript API, Places API (New),
+Geocoding API, and Routes API. The detail and guest-preview maps use the Routes
+library to compute walking routes from the saved/requested origin to the first
+verified destination. Restrict the key to this app's HTTP referrers and the APIs the
 app uses before deploying. Browser API keys are visible to users in the client
 bundle, so do not use an unrestricted key.
 
@@ -16,6 +18,19 @@ Gainesville, Florida. Its “Use my location” button requires browser location
 permission and a secure context (HTTPS or localhost). Sidequest suggestions
 are currently available for the campus locations listed in
 `src/componenets/Buttons/QuestFilterButtons.tsx`.
+
+## Backend API
+
+The leaderboard and quest flows use the FastAPI backend. Set
+`VITE_API_BASE_URL` in this frontend's `.env.local` to the backend origin when
+it is not running at `http://127.0.0.1:8000`, then restart Vite so it reloads
+the setting. The leaderboard requires a signed-in account connected through
+the Firebase session bridge.
+
+The dorm leaderboard sums XP for profiles with a valid `dormId` that matches
+a dorm in the backend catalog. The available halls, including “Off campus,”
+are listed in `backend/dorm_catalog.py`. New signed-in users are prompted to
+choose one; they can change it later under Settings → Residence.
 
 ## User preferences and goals
 

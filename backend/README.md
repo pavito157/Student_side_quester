@@ -31,14 +31,49 @@ inspect or migrate.
   It can be tested while FastAPI startup is unresolved.
 - `quest_routes.py` contains the supplied GET/completion routes and uses the
   shared authentication/database helpers in `firebase_helpers.py`.
+- `leaderboard_routes.py` exposes authenticated individual and dorm XP
+  leaderboards. Individual balances come from `Users/{uid}` (`xp`, with legacy
+  `totalXp` read compatibility). Dorm scores are recomputed from those user
+  balances grouped by each profile's `dormId`.
+- `dorm_catalog.py` contains the UF residence list supplied for this feature,
+  including the `Off campus` category. `dorm_routes.py` returns the catalog and
+  lets the authenticated user save their own residence; selection creates the
+  corresponding Firestore `dorms/{dormId}` XP record when it does not exist.
 - `quest_completion.py` owns the Firestore completion transaction.
 - `quest_assignment_routes.py` mounts fixed/Gemini previews and saved/current
   assignment endpoints. `quest_persistence.py` owns atomic assignment creation.
 - `quest_generation.py` owns direct Gemini generation and the resolver interface.
 
-The frontend team owns wiring the typed helper to the UI. Backend 1's completion
-transaction and leaderboard work remain separate; Step 5 reuses the existing
-completion implementation without changing its XP logic.
+The frontend still needs to switch its leaderboard view to these backend
+endpoints. Quest completion remains a separate transaction and continues to
+update both a user's XP and the stored dorm total.
+
+## Leaderboards
+
+Both leaderboard endpoints require a valid Firebase ID token:
+
+- `GET /leaderboard` returns `{"leaderboard": [{"userId", "username", "xp"}],
+  "skippedUsers": n}`. A non-empty `username` is preferred; `displayName` is
+  used when username is absent. Profiles without either display name are
+  counted in `skippedUsers`.
+- `GET /leaderboard/dorms` returns
+  `{"leaderboard": [{"dormId", "dormName", "xp", "memberCount"}],
+  "unassignedUsers": n}`. Each score is the sum of the XP balances of users
+  whose stored `dormId` matches a document in `dorms`. Dorms with no members
+  remain on the board with zero XP. Missing, malformed, and unknown dorm IDs
+  are counted in `unassignedUsers`.
+
+`xp` is canonical; legacy `totalXp` is read only when `xp` is absent, following
+the shared `backend/xp.py` contract. Invalid XP data or Firestore read failures
+return HTTP 503 rather than a partial ranking. These endpoints scan the user
+collection on each request; consider a trusted, transactionally maintained
+aggregate or caching strategy if the user base grows substantially.
+
+`GET /me/dorm` returns the signed-in user's current `dormId`/`dormName` and the
+configured catalog. `PUT /me/dorm` accepts only `{"dormId": "<catalog ID>"}`;
+the ID is derived from the catalog entry, never from a user-provided name or UID.
+The frontend prompts new profiles to select a hall or `Off campus` before using
+the app and provides the same selector under Settings → Residence.
 
 ## Test without application startup
 

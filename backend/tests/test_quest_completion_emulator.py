@@ -136,7 +136,8 @@ class CompletionEmulatorTests(unittest.TestCase):
         self.assertEqual(self.db.collection("Users").document(other_uid).get().to_dict()["xp"], 35)
 
     def test_rejected_location_does_not_write(self):
-        for changes in [{"latitude": 0}, {"accuracy": 51}, {"longitude": float("nan")}]:
+        for changes in [{"latitude": 0}, {"accuracy": 51}, {"longitude": float("nan")},
+                        {"latitude": None, "longitude": None, "accuracy": None}]:
             with self.assertRaises(CompletionError):
                 self.finish(**changes)
             self.assert_unchanged()
@@ -237,6 +238,52 @@ class CompletionEmulatorTests(unittest.TestCase):
             profile_future.result()
             self.assertEqual(quest_future.result()["status"], "completed")
         self.assert_totals(35, 125)
+
+    def seed_photo_sidequest(self, verified=None, skipped=None):
+        ref = self.db.collection("Users").document(self.uid).collection("sidequests").document(self.quest_id)
+        self.refs.append(ref)
+        ref.set({
+            "userId": self.uid, "questId": self.quest_id, "ownerId": self.uid,
+            "status": "assigned", "isActive": True,
+            "latitude": 29.65, "longitude": -82.34, "radiusMeters": 100, "xpReward": 25,
+            "steps": ["Create a clear, labeled diagram."],
+            "stepProofMethods": ["photo"],
+            "verifiedPhotoSteps": verified or [],
+            "skippedPhotoSteps": skipped or [],
+        })
+        return ref
+
+    def test_photo_proof_is_required_or_explicitly_skipped_without_xp(self):
+        ref = self.seed_photo_sidequest()
+        with self.assertRaises(CompletionError) as error:
+            self.finish()
+        self.assertEqual(error.exception.status_code, 409)
+        self.assert_totals()
+        ref.update({"skippedPhotoSteps": [0]})
+        result = self.finish()
+        self.assertEqual(result["xpAwarded"], 0)
+        self.assertEqual(result["xpAwardedSoFar"], 0)
+        self.assertEqual(result["status"], "completed")
+        self.assert_totals()
+
+    def test_accepted_photo_proof_completes_with_normal_xp(self):
+        self.seed_photo_sidequest(verified=[0])
+        result = self.finish()
+        self.assertEqual(result["xpAwarded"], 25)
+        self.assertEqual(result["status"], "completed")
+        self.assert_totals(35, 125)
+
+    def test_recreation_only_completes_without_location_or_xp(self):
+        ref = self.seed_photo_sidequest()
+        ref.update({
+            "steps": ["Enjoy a playful observation challenge."],
+            "stepProofMethods": ["recreation"],
+            "xpReward": 0,
+        })
+        result = self.finish(latitude=None, longitude=None, accuracy=None)
+        self.assertEqual(result["xpAwarded"], 0)
+        self.assertEqual(result["status"], "completed")
+        self.assert_totals()
 
 
 if __name__ == "__main__":

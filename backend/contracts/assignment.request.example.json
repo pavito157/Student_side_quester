@@ -7,5 +7,6 @@
   "distance": null,
   "goals": ["Learn Computer Science"],
   "vibePreferences": "I want to play some games and have fun recreationaly",
-  "multiQuest": false
+  "multiQuest": false,
+  "proofOptions": ["location", "photo"]
 }

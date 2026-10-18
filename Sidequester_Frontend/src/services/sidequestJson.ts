@@ -5,6 +5,7 @@ import type {
   SidequestRequestInput,
   SidequestRequestPayload,
   TimeConstraint,
+  QuestProofMethod,
 } from '../types/sidequest'
 
 function validateTime(time: TimeConstraint): void {
@@ -96,6 +97,14 @@ export function buildSidequestRequest(
   if (!input.goals.every((goal) => typeof goal === 'string')) {
     throw new Error('Goals must be plain text values.')
   }
+  const proofMethods: QuestProofMethod[] = ['location', 'photo', 'recreation']
+  const proofOptions = input.proofOptions ?? ['location']
+  if (!proofOptions.length
+      || proofOptions.some((method) => !proofMethods.includes(method))
+      || new Set(proofOptions).size !== proofOptions.length
+      || proofOptions.includes('recreation') && proofOptions.length > 1) {
+    throw new Error('Choose one or more valid quest proof options.')
+  }
 
   return {
     preferences: input.preferences.trim(),
@@ -110,6 +119,7 @@ export function buildSidequestRequest(
     goals: input.goals.map((goal) => goal.trim()).filter(Boolean),
     vibePreferences: input.vibePreferences?.trim() || null,
     multiQuest: input.multiQuest === true,
+    ...(input.proofOptions ? { proofOptions: [...proofOptions] } : {}),
   }
 }
 
@@ -134,5 +144,6 @@ export function toQuestApiPayload(request: SidequestRequestPayload): GenerateQue
     goals: [...request.goals],
     vibePreferences: request.vibePreferences,
     multiQuest: request.multiQuest,
+    ...(request.proofOptions ? { proofOptions: [...request.proofOptions] } : {}),
   }
 }

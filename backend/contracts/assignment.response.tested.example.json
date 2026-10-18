@@ -6,6 +6,9 @@
     "steps": [
       "Draw three leaves."
     ],
+    "stepProofMethods": ["location"],
+    "verifiedPhotoSteps": [],
+    "skippedPhotoSteps": [],
     "locationName": "AI proposed name",
     "placeId": "provider-test-place",
     "latitude": 29.65,

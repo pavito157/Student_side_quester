@@ -1,7 +1,3 @@
-import { collection, getDocs } from 'firebase/firestore'
-import { db } from '../configs/FirebaseConfig'
-import { getUserXp } from './userProfile'
-
 export type LeaderboardEntry = {
   userId: string
   username: string
@@ -13,38 +9,83 @@ export type LeaderboardData = {
   skippedUsers: number
 }
 
-export async function getLeaderboardEntries(): Promise<LeaderboardData> {
-  const usersSnapshot = await getDocs(collection(db, 'Users'))
-  let skippedUsers = 0
+export type DormLeaderboardEntry = {
+  dormId: string
+  dormName: string
+  xp: number
+  memberCount: number
+}
 
-  const entries = usersSnapshot.docs.flatMap((userDocument) => {
-    const userData = userDocument.data()
-    const username = userData.username || userData.displayName
-    let xp: number
-    try {
-      xp = getUserXp(userData)
-    } catch {
-      skippedUsers += 1
-      return []
-    }
+export type DormLeaderboardData = {
+  entries: DormLeaderboardEntry[]
+  unassignedUsers: number
+}
 
-    if (
-      typeof username !== 'string' ||
-      !username.trim() ||
-      typeof xp !== 'number' ||
-      !Number.isFinite(xp) ||
-      xp < 0
-    ) {
-      skippedUsers += 1
-      return []
-    }
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000').replace(/\/$/, '')
 
-    return [{ userId: userDocument.id, username: username.trim(), xp }]
-  })
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
 
-  entries.sort(
-    (first, second) => second.xp - first.xp || first.username.localeCompare(second.username),
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+}
+
+function isStudentEntry(value: unknown): value is LeaderboardEntry {
+  return (
+    isRecord(value) &&
+    typeof value.userId === 'string' &&
+    typeof value.username === 'string' &&
+    isNonNegativeInteger(value.xp)
   )
+}
 
-  return { entries, skippedUsers }
+function isDormEntry(value: unknown): value is DormLeaderboardEntry {
+  return (
+    isRecord(value) &&
+    typeof value.dormId === 'string' &&
+    typeof value.dormName === 'string' &&
+    isNonNegativeInteger(value.xp) &&
+    isNonNegativeInteger(value.memberCount)
+  )
+}
+
+async function fetchLeaderboard(path: string, token: string): Promise<Record<string, unknown>> {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    credentials: 'omit',
+  })
+  const result: unknown = await response.json().catch(() => null)
+  if (!response.ok) {
+    const detail = isRecord(result) ? result.detail : null
+    throw new Error(typeof detail === 'string' ? detail : 'Could not load the leaderboard.')
+  }
+  if (!isRecord(result)) {
+    throw new Error('The leaderboard service returned an invalid response.')
+  }
+  return result
+}
+
+export async function getLeaderboardEntries(token: string): Promise<LeaderboardData> {
+  const result = await fetchLeaderboard('/leaderboard', token)
+  if (
+    !Array.isArray(result.leaderboard) ||
+    !result.leaderboard.every(isStudentEntry) ||
+    !isNonNegativeInteger(result.skippedUsers)
+  ) {
+    throw new Error('The leaderboard service returned invalid student data.')
+  }
+  return { entries: result.leaderboard, skippedUsers: result.skippedUsers }
+}
+
+export async function getDormLeaderboardEntries(token: string): Promise<DormLeaderboardData> {
+  const result = await fetchLeaderboard('/leaderboard/dorms', token)
+  if (
+    !Array.isArray(result.leaderboard) ||
+    !result.leaderboard.every(isDormEntry) ||
+    !isNonNegativeInteger(result.unassignedUsers)
+  ) {
+    throw new Error('The leaderboard service returned invalid dorm data.')
+  }
+  return { entries: result.leaderboard, unassignedUsers: result.unassignedUsers }
 }

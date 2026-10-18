@@ -1,6 +1,9 @@
 import { collection, doc, onSnapshot, Timestamp, type Unsubscribe } from 'firebase/firestore'
 import { db } from '../configs/FirebaseConfig'
-import { MAX_QUEST_REPLACEMENTS, requestQuestAbandon, requestQuestCompletion, type StopCompletionResult } from './questAssignment'
+import {
+  MAX_QUEST_REPLACEMENTS, requestPhotoProof, requestQuestAbandon, requestQuestCompletion,
+  requestQuestPhotoProofSkip, type StopCompletionResult,
+} from './questAssignment'
 import type { ActiveSidequest } from '../types/sidequest'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -43,6 +46,17 @@ function parseCompletedStops(value: unknown, totalStops: number): number[] | nul
   return value.every((index, position) => index === position) ? value : null
 }
 
+function parsePhotoSteps(
+  value: unknown, steps: string[], methods: ActiveSidequest['stepProofMethods'],
+): number[] | null {
+  if (value === undefined) return []
+  if (!Array.isArray(value) || value.length > steps.length
+      || !value.every((index) => typeof index === 'number' && Number.isSafeInteger(index)
+        && index >= 0 && index < steps.length && methods[index] === 'photo')
+      || new Set(value).size !== value.length) return null
+  return value
+}
+
 // Generated assignments are written and completed only by FastAPI. Old
 // "prepared" request previews are not generated quests and cannot earn XP.
 export function parseActiveSidequest(id: string, data: Record<string, unknown>, userId: string): ActiveSidequest | null {
@@ -58,10 +72,31 @@ export function parseActiveSidequest(id: string, data: Record<string, unknown>, 
   const completedStops = destinations
     ? parseCompletedStops(data.completedStops ?? [], destinations.length)
     : null
+  const steps = Array.isArray(data.steps) && data.steps.every((step) => typeof step === 'string')
+    ? data.steps as string[]
+    : null
+  const proofMethods = data.stepProofMethods === undefined
+    ? steps?.map(() => 'location' as const) ?? null
+    : Array.isArray(data.stepProofMethods)
+      && data.stepProofMethods.length === steps?.length
+      && data.stepProofMethods.every((method) => method === 'location' || method === 'photo' || method === 'recreation')
+      ? data.stepProofMethods as ActiveSidequest['stepProofMethods']
+      : null
+  const verifiedPhotoSteps = steps && proofMethods
+    ? parsePhotoSteps(data.verifiedPhotoSteps, steps, proofMethods)
+    : null
+  const skippedPhotoSteps = steps && proofMethods
+    ? parsePhotoSteps(data.skippedPhotoSteps, steps, proofMethods)
+    : null
+  const xpAwardedSoFar = data.xpAwardedSoFar === undefined ? undefined : data.xpAwardedSoFar
   if (data.userId !== userId || data.ownerId !== userId || data.questId !== id
       || typeof data.title !== 'string' || !data.title.trim()
       || typeof data.description !== 'string' || typeof data.locationName !== 'string'
-      || !Array.isArray(data.steps) || !data.steps.length || !data.steps.every((step) => typeof step === 'string')
+      || !steps || !steps.length || !proofMethods
+      || !verifiedPhotoSteps || !skippedPhotoSteps
+      || verifiedPhotoSteps.some((step) => skippedPhotoSteps.includes(step))
+      || (xpAwardedSoFar !== undefined
+        && (typeof xpAwardedSoFar !== 'number' || !Number.isSafeInteger(xpAwardedSoFar) || xpAwardedSoFar < 0))
       || typeof data.latitude !== 'number' || !Number.isFinite(data.latitude) || Math.abs(data.latitude) > 90
       || typeof data.longitude !== 'number' || !Number.isFinite(data.longitude) || Math.abs(data.longitude) > 180
       || (data.placeId !== undefined && data.placeId !== null && typeof data.placeId !== 'string')
@@ -86,11 +121,13 @@ export function parseActiveSidequest(id: string, data: Record<string, unknown>, 
     throw new Error(`Saved sidequest ${id} has invalid route details.`)
   }
   return {
-    id, title: data.title, description: data.description, steps: data.steps,
+    id, title: data.title, description: data.description, steps,
+    stepProofMethods: proofMethods, verifiedPhotoSteps, skippedPhotoSteps,
     locationName: data.locationName,
     placeId: typeof data.placeId === 'string' ? data.placeId : null,
     destinations,
     completedStops,
+    xpAwardedSoFar,
     latitude: data.latitude, longitude: data.longitude,
     estimatedMinutes: data.estimatedMinutes, estimatedCostDollars: data.estimatedCostDollars,
     xpValue: data.xpReward, createdAt: data.assignedAt.toDate().toISOString(),
@@ -124,10 +161,25 @@ export function subscribeToActiveSidequests(
   }, (error: Error) => onError(error.message))
 }
 
+export function submitSidequestPhotoProof(
+  userId: string, sidequestId: string, stepIndex: number, image: Blob,
+) {
+  return requestPhotoProof(userId, sidequestId, stepIndex, image)
+}
+
+export function skipSidequestPhotoProof(userId: string, sidequestId: string, stepIndex: number) {
+  return requestQuestPhotoProofSkip(userId, sidequestId, stepIndex)
+}
+
 export async function completeSidequest(
-  userId: string, sidequestId: string, stopIndex = 0,
+  userId: string, sidequestId: string, stopIndex = 0, requiresLocation = true,
 ): Promise<StopCompletionResult> {
   if (!userId.trim() || !sidequestId.trim()) throw new Error('Sign in and choose a valid sidequest.')
+  if (!requiresLocation) {
+    return requestQuestCompletion(userId, sidequestId, {
+      latitude: null, longitude: null, accuracy: null,
+    }, stopIndex)
+  }
   if (!navigator.geolocation) throw new Error('Your browser does not support location verification.')
   const position = await new Promise<GeolocationPosition>((resolve, reject) => {
     navigator.geolocation.getCurrentPosition(resolve,

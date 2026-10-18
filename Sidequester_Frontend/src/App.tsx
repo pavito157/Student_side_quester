@@ -5,6 +5,7 @@ import { useUser } from '@clerk/clerk-react'
 import Header from './componenets/main-ui/Header'
 import CinematicHero from './componenets/main-ui/CinematicHero'
 import { AccentStrokes } from './componenets/main-ui/AdventureDecor'
+import DormSelectionGate from './componenets/main-ui/DormSelectionGate'
 import LeaderboardPage from './componenets/main-ui/LeaderboardPage'
 import SidequestDetailPage from './componenets/main-ui/SidequestDetailPage'
 import GuestQuestPreviewPage from './componenets/main-ui/GuestQuestPreviewPage'
@@ -57,6 +58,7 @@ function HomePage({ onStartQuestGeneration, activeSidequestsState }: HomePagePro
     distance: 'any',
     customDistance: '',
     multiQuest: false,
+    proofOptions: ['location'],
   })
 
   const currentActiveSidequests = activeSidequestsState.userId === userId
@@ -100,6 +102,7 @@ function HomePage({ onStartQuestGeneration, activeSidequestsState }: HomePagePro
             distance: vibe.distance || 'any',
             customDistance: vibe.customDistance ?? '',
             multiQuest: false,
+            proofOptions: ['location'],
           })
         }}
       />
@@ -281,28 +284,37 @@ function AccountRoutes() {
   }
 
   return (
-    <div key={pathname} className="route-transition">
-      {celebration?.path === pathname && <QuestConfetti key={celebration.id} />}
-      {pathname === '/leaderboard' ? (
-        <LeaderboardPage />
-      ) : pathname === '/sidequests/generating' ? (
-        <SidequestDetailPage
-          sidequestId="generating"
-          generationState={generationState.status === 'guest-preview'
-            ? { status: 'idle' }
-            : generationState}
-        />
-      ) : pathname === '/sidequests/guest-preview' ? (
-        <GuestQuestPreviewPage
-          result={generationState.status === 'guest-preview' ? generationState.result : null}
-          payload={generationState.status === 'guest-preview' ? generationState.payload : null}
-        />
-      ) : pathname.startsWith('/sidequests/') ? (
-        <SidequestDetailPage activeQuestCount={activeQuestCount} sidequestId={decodeURIComponent(pathname.slice('/sidequests/'.length))} onGenerateAnother={generateAnother} />
-      ) : (
-        <HomePage activeSidequestsState={activeSidequestsState} onStartQuestGeneration={startQuestGeneration} />
-      )}
-    </div>
+    <DormSelectionGate>
+      <div key={pathname} className="route-transition">
+        {celebration?.path === pathname && <QuestConfetti key={celebration.id} />}
+        {pathname === '/leaderboard' ? (
+          <LeaderboardPage />
+        ) : pathname === '/sidequests/generating' ? (
+          <SidequestDetailPage
+            sidequestId="generating"
+            generationState={generationState.status === 'guest-preview'
+              ? { status: 'idle' }
+              : generationState}
+          />
+        ) : pathname === '/sidequests/guest-preview' ? (
+          <GuestQuestPreviewPage
+            result={generationState.status === 'guest-preview' ? generationState.result : null}
+            payload={generationState.status === 'guest-preview' ? generationState.payload : null}
+          />
+        ) : pathname.startsWith('/sidequests/') ? (
+          <SidequestDetailPage
+            activeQuestCount={activeQuestCount}
+            sidequestId={decodeURIComponent(pathname.slice('/sidequests/'.length))}
+            onGenerateAnother={generateAnother}
+          />
+        ) : (
+          <HomePage
+            activeSidequestsState={activeSidequestsState}
+            onStartQuestGeneration={startQuestGeneration}
+          />
+        )}
+      </div>
+    </DormSelectionGate>
   )
 }
 

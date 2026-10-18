@@ -134,7 +134,11 @@ test('caller cancellation is passed to fetch and is not converted into a network
 const generatedExample = {
   ...example, mode: 'generated', filtersApplied: false, destinationVerified: false,
   distanceStatus: 'not_requested', distanceMeters: null, destination: null,
-  quest: { ...example.quest, locationAddress: 'Proposed UF campus address' },
+  quest: {
+    ...example.quest,
+    stepProofMethods: example.quest.steps.map(() => 'location'),
+    locationAddress: 'Proposed UF campus address',
+  },
 }
 
 test('Gemini helper posts the same input plus optional search coordinates to its own endpoint', async () => {

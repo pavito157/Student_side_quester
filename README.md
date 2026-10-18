@@ -193,13 +193,30 @@ processing notes.
 
 | Layer | Tools |
 | --- | --- |
-| Frontend | React 19, TypeScript, Vite, Tailwind CSS, Framer Motion |
-| Identity | Clerk session with a backend-verified Firebase Auth bridge |
-| Data and persistence | Firebase Auth, Firestore, Firebase Admin SDK |
-| API | Python, FastAPI, Pydantic |
-| AI generation and photo review | Gemini REST API with structured JSON validation |
-| Place discovery and maps | Google Places, Google Maps JavaScript APIs |
+| Frontend | [React 19](https://react.dev/), [TypeScript](https://www.typescriptlang.org/), [Vite](https://vite.dev/), [Tailwind CSS](https://tailwindcss.com/), [Framer Motion](https://www.framer.com/motion/) |
+| Identity | [Clerk](https://clerk.com/) session with a backend-verified [Firebase Auth](https://firebase.google.com/docs/auth) bridge |
+| Data and persistence | [Firebase Auth](https://firebase.google.com/docs/auth), [Cloud Firestore](https://firebase.google.com/docs/firestore), Firebase Admin SDK |
+| API | [Python](https://www.python.org/), [FastAPI](https://fastapi.tiangolo.com/), [Pydantic](https://docs.pydantic.dev/) |
+| AI generation and photo review | [Google Gemini API](https://ai.google.dev/gemini-api/docs) with structured JSON validation |
+| Place discovery and maps | [Google Places API](https://developers.google.com/maps/documentation/places/web-service), [Google Maps JavaScript API](https://developers.google.com/maps/documentation/javascript) |
 | Tests | Python `unittest`, frontend Node tests, Firestore emulator integration tests |
+
+## AI disclosure and credits
+
+Sidequester uses Google's Gemini API at runtime to draft personalized quests
+and review submitted photo evidence. AI output is treated as untrusted: the
+backend validates quest structure and estimates, selects destinations from
+Google Places, checks them against the Gainesville boundary, and makes
+completion and XP decisions. Sidequester is a purpose-built local-adventure
+product—not a reskin of a general-purpose AI chat tool.
+
+AI coding assistants, including GitHub Copilot, were also used to assist with
+development. The project integrates and credits its frameworks, libraries, and
+external APIs in the technology table above. Gainesville boundary data
+attribution and processing details are documented in
+[`backend/data/README.md`](./backend/data/README.md). Third-party names and
+services remain the property of their respective owners; use of external APIs
+is subject to their terms.
 
 ## Run locally
 

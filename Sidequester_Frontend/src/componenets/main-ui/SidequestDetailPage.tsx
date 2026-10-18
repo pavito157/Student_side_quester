@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import Header from './Header'
 import SidequestMap, { type SidequestMapStop } from './SidequestMap'
 import { colors } from '../../constants/colors'
 import { navigateTo } from '../../services/navigation'
-import { abandonSidequest, completeSidequest, subscribeToActiveSidequest } from '../../services/sidequests'
+import {
+  abandonSidequest, completeSidequest, skipSidequestPhotoProof, submitSidequestPhotoProof,
+  subscribeToActiveSidequest,
+} from '../../services/sidequests'
 import type { ActiveSidequest } from '../../types/sidequest'
 import { MAX_ACTIVE_QUESTS } from '../../services/questAssignment'
 
@@ -27,20 +30,44 @@ function formatDate(date: string): string {
   })
 }
 
-function stopXpReward(totalXp: number, totalStops: number, index: number): number {
-  return Math.floor(totalXp / totalStops) + (index < totalXp % totalStops ? 1 : 0)
+function stopXpReward(
+  totalXp: number, totalStops: number, index: number,
+  proofMethods: ActiveSidequest['stepProofMethods'], skippedPhotoSteps: number[],
+): number {
+  if (totalStops === 1) {
+    return proofMethods.some((method) => method !== 'recreation') && skippedPhotoSteps.length === 0
+      ? totalXp : 0
+  }
+  const eligibleStops = proofMethods.flatMap((method, stepIndex) =>
+    stepIndex < totalStops && method !== 'recreation' ? [stepIndex] : [])
+  const rewardIndex = eligibleStops.indexOf(index)
+  return rewardIndex < 0 || skippedPhotoSteps.includes(index)
+    ? 0
+    : Math.floor(totalXp / eligibleStops.length) + (rewardIndex < totalXp % eligibleStops.length ? 1 : 0)
 }
 
-function getRewardProgress(totalXp: number, totalStops: number, completedStops: number[]) {
+function getRewardProgress(
+  totalXp: number, totalStops: number, completedStops: number[], skippedPhotoSteps: number[],
+  proofMethods: ActiveSidequest['stepProofMethods'],
+) {
   const earnedXp = completedStops.reduce(
-    (earned, index) => earned + stopXpReward(totalXp, totalStops, index),
+    (earned, index) => earned + (skippedPhotoSteps.includes(index)
+      ? 0 : stopXpReward(totalXp, totalStops, index, proofMethods, skippedPhotoSteps)),
     0,
   )
   const nextStopXp = completedStops.length < totalStops
-    ? stopXpReward(totalXp, totalStops, completedStops.length)
+    ? skippedPhotoSteps.includes(completedStops.length)
+      ? 0 : stopXpReward(totalXp, totalStops, completedStops.length, proofMethods, skippedPhotoSteps)
     : 0
-
-  return { earnedXp, nextStopXp, remainingXp: totalXp - earnedXp }
+  const forfeitedXp = totalStops === 1 && skippedPhotoSteps.length > 0
+    ? totalXp
+    : skippedPhotoSteps.reduce(
+      (total, index) => total + stopXpReward(totalXp, totalStops, index, proofMethods, []), 0,
+    )
+  const eligibleXp = totalStops === 1
+    ? proofMethods.some((method) => method !== 'recreation') ? totalXp : 0
+    : proofMethods.some((method, index) => index < totalStops && method !== 'recreation') ? totalXp : 0
+  return { earnedXp, nextStopXp, remainingXp: eligibleXp - earnedXp - forfeitedXp, forfeitedXp, eligibleXp }
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -133,6 +160,8 @@ function SidequestDetailPage({
   const [completionMessage, setCompletionMessage] = useState('')
   const [completionError, setCompletionError] = useState('')
   const [abandonError, setAbandonError] = useState('')
+  const [photoProofBusyStep, setPhotoProofBusyStep] = useState<number | null>(null)
+  const [photoProofFeedback, setPhotoProofFeedback] = useState<Record<number, string>>({})
 
   useEffect(() => {
     if (sidequestId === 'generating') return
@@ -155,16 +184,22 @@ function SidequestDetailPage({
     setCompletionError('')
     setCompletionMessage('')
     try {
-      const progress = await completeSidequest(userId, sidequestId, stopIndex)
+      const progress = await completeSidequest(userId, sidequestId, stopIndex, needsLocationForNextStep)
       if (progress.status === 'completed') {
         setCompletionMessage(`Sidequest completed. You earned ${progress.xpAwardedSoFar} XP in total.`)
         setStoredState({ key: routeKey, status: 'not-found' })
       } else if (state.status === 'ready') {
-        setCompletionMessage(`Stop ${stopIndex + 1} complete. You earned ${progress.xpAwarded} XP.`)
+        setCompletionMessage(progress.xpAwarded === 0 && state.sidequest.skippedPhotoSteps.includes(stopIndex)
+          ? `Stop ${stopIndex + 1} complete. No XP was awarded because photo proof was skipped.`
+          : `Stop ${stopIndex + 1} complete. You earned ${progress.xpAwarded} XP.`)
         setStoredState({
           key: routeKey,
           status: 'ready',
-          sidequest: { ...state.sidequest, completedStops: progress.completedStops },
+          sidequest: {
+            ...state.sidequest,
+            completedStops: progress.completedStops,
+            xpAwardedSoFar: progress.xpAwardedSoFar,
+          },
         })
       }
     } catch (error) {
@@ -174,6 +209,58 @@ function SidequestDetailPage({
     } finally {
       actionRef.current = false
       setIsCompleting(false)
+    }
+  }
+
+  async function handlePhotoProof(stepIndex: number, image?: File) {
+    if (!userId || state.status !== 'ready' || !image || actionRef.current) return
+    actionRef.current = true
+    setPhotoProofBusyStep(stepIndex)
+    setPhotoProofFeedback((previous) => ({ ...previous, [stepIndex]: 'Reviewing photo…' }))
+    try {
+      const result = await submitSidequestPhotoProof(userId, sidequestId, stepIndex, image)
+      setPhotoProofFeedback((previous) => ({ ...previous, [stepIndex]: result.feedback }))
+      if (result.accepted && result.verifiedPhotoSteps) {
+        setStoredState({
+          key: routeKey,
+          status: 'ready',
+          sidequest: { ...state.sidequest, verifiedPhotoSteps: result.verifiedPhotoSteps },
+        })
+      }
+    } catch (error) {
+      setPhotoProofFeedback((previous) => ({
+        ...previous,
+        [stepIndex]: error instanceof Error ? error.message : 'Could not review this photo.',
+      }))
+    } finally {
+      actionRef.current = false
+      setPhotoProofBusyStep(null)
+    }
+  }
+
+  async function handlePhotoProofSkip(stepIndex: number) {
+    if (!userId || state.status !== 'ready' || actionRef.current) return
+    actionRef.current = true
+    setPhotoProofBusyStep(stepIndex)
+    setPhotoProofFeedback((previous) => ({
+      ...previous,
+      [stepIndex]: `Skipping photo proof; XP for this ${sidequestStops.length > 1 ? 'stop' : 'quest'} will be forfeited.`,
+    }))
+    try {
+      const skippedPhotoSteps = await skipSidequestPhotoProof(userId, sidequestId, stepIndex)
+      setStoredState({
+        key: routeKey,
+        status: 'ready',
+        sidequest: { ...state.sidequest, skippedPhotoSteps },
+      })
+    } catch (error) {
+      setPhotoProofFeedback((previous) => ({
+        ...previous,
+        [stepIndex]: error instanceof Error ? error.message : 'Could not skip photo proof.',
+      }))
+    } finally {
+      actionRef.current = false
+      setPhotoProofBusyStep(null)
     }
   }
 
@@ -215,36 +302,47 @@ function SidequestDetailPage({
   const sidequest = state.status === 'ready' ? state.sidequest : null
   const slotsRemaining = Math.max(0, MAX_ACTIVE_QUESTS - activeQuestCount)
   const userRequest = sidequest?.userRequest ?? null
-  const sidequestStops = useMemo(() => sidequest?.destinations ?? (sidequest ? [{
+  const sidequestStops = sidequest?.destinations ?? (sidequest ? [{
     locationName: sidequest.locationName,
     placeId: sidequest.placeId,
     latitude: sidequest.latitude,
     longitude: sidequest.longitude,
-  }] : []), [sidequest])
+  }] : [])
   const completedStops = sidequest?.completedStops ?? EMPTY_COMPLETED_STOPS
   const nextStopIndex = completedStops.length
   const rewardProgress = sidequest
-    ? getRewardProgress(sidequest.xpValue, sidequestStops.length, completedStops)
+    ? getRewardProgress(
+      sidequest.xpValue, sidequestStops.length, completedStops,
+      sidequest.skippedPhotoSteps, sidequest.stepProofMethods,
+    )
     : null
-  const mapStops: SidequestMapStop[] = useMemo(() => sidequestStops.map((stop, index) => ({
+  const requiredPhotoSteps = sidequest
+    ? sidequestStops.length > 1
+      ? sidequest.stepProofMethods[nextStopIndex] === 'photo' ? [nextStopIndex] : []
+      : sidequest.stepProofMethods.flatMap((method, index) => method === 'photo' ? [index] : [])
+    : []
+  const missingPhotoProof = Boolean(sidequest && requiredPhotoSteps.some((index) =>
+    !sidequest.verifiedPhotoSteps.includes(index) && !sidequest.skippedPhotoSteps.includes(index)))
+  const needsLocationForNextStep = Boolean(sidequest && (sidequestStops.length > 1
+    ? sidequest.stepProofMethods[nextStopIndex] === 'location'
+    : sidequest.stepProofMethods.includes('location')))
+  const mapStops: SidequestMapStop[] = sidequestStops.map((stop, index) => ({
     name: stop.locationName,
     placeId: stop.placeId,
     latitude: stop.latitude,
     longitude: stop.longitude,
     step: sidequest?.steps[index] ?? 'Explore this destination.',
     completed: completedStops.includes(index),
-  })), [sidequest?.steps, sidequestStops, completedStops])
-  const originCoordinates = useMemo(() => {
-    const requestedOrigin = asRecord(userRequest?.originCoordinates)
-    const originLatitude = requestedOrigin?.latitude ?? userRequest?.latitude
-    const originLongitude = requestedOrigin?.longitude ?? userRequest?.longitude
-    return typeof originLatitude === 'number' && Number.isFinite(originLatitude)
-      && Math.abs(originLatitude) <= 90
-      && typeof originLongitude === 'number' && Number.isFinite(originLongitude)
-      && Math.abs(originLongitude) <= 180
-      ? { latitude: originLatitude, longitude: originLongitude }
-      : null
-  }, [userRequest])
+  }))
+  const requestedOrigin = asRecord(userRequest?.originCoordinates)
+  const originLatitude = requestedOrigin?.latitude ?? userRequest?.latitude
+  const originLongitude = requestedOrigin?.longitude ?? userRequest?.longitude
+  const originCoordinates = typeof originLatitude === 'number' && Number.isFinite(originLatitude)
+    && Math.abs(originLatitude) <= 90
+    && typeof originLongitude === 'number' && Number.isFinite(originLongitude)
+    && Math.abs(originLongitude) <= 180
+    ? { latitude: originLatitude, longitude: originLongitude }
+    : null
   const requestedPreferences = typeof userRequest?.preferences === 'string'
     ? userRequest.preferences
     : ''
@@ -457,7 +555,74 @@ function SidequestDetailPage({
                           >
                             {index + 1}
                           </span>
-                          <span className="pt-1 text-sm leading-relaxed">{step}</span>
+                          <div className="min-w-0 flex-1">
+                            <p className="pt-1 text-sm leading-relaxed">{step}</p>
+                            <p className="mt-1 text-xs font-semibold" style={{ color: colors.muted }}>
+                              {sidequest.stepProofMethods[index] === 'photo'
+                                ? 'Photo verification · XP eligible'
+                                : sidequest.stepProofMethods[index] === 'location'
+                                  ? 'Location verification · XP eligible'
+                                  : 'Recreation · no verification or XP'}
+                            </p>
+                            {sidequest.stepProofMethods[index] === 'photo' && (
+                              <div
+                                className="mt-3 rounded-lg border p-3"
+                                style={{ borderColor: colors.border, backgroundColor: colors.surfaceRaised }}
+                              >
+                                <p className="text-xs leading-relaxed" style={{ color: colors.muted }}>
+                                  Photo proof is reviewed for this step and is not saved.
+                                </p>
+                                {sidequest.verifiedPhotoSteps.includes(index) ? (
+                                  <p className="mt-2 text-xs font-semibold" style={{ color: colors.success }}>
+                                    Photo proof accepted
+                                  </p>
+                                ) : sidequest.skippedPhotoSteps.includes(index) ? (
+                                  <p className="mt-2 text-xs font-semibold" style={{ color: colors.secondary }}>
+                                    Proof skipped · no XP for this {sidequestStops.length > 1 ? 'stop' : 'quest'}
+                                  </p>
+                                ) : (
+                                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                                    <label
+                                      className="inline-flex min-h-9 cursor-pointer items-center rounded-lg px-3 py-2 text-xs font-bold focus-within:outline-2 focus-within:outline-offset-2"
+                                      style={{
+                                        backgroundColor: colors.primary,
+                                        color: colors.primaryForeground,
+                                        outlineColor: colors.primary,
+                                      }}
+                                    >
+                                      {photoProofBusyStep === index ? 'Reviewing…' : 'Add photo proof'}
+                                      <input
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/webp"
+                                        capture="environment"
+                                        className="sr-only"
+                                        disabled={photoProofBusyStep !== null || isCompleting || isAbandoning || isReplacing}
+                                        onChange={(event) => {
+                                          const image = event.currentTarget.files?.[0]
+                                          event.currentTarget.value = ''
+                                          void handlePhotoProof(index, image)
+                                        }}
+                                      />
+                                    </label>
+                                    <button
+                                      type="button"
+                                      onClick={() => void handlePhotoProofSkip(index)}
+                                      disabled={photoProofBusyStep !== null || isCompleting || isAbandoning || isReplacing}
+                                      className="min-h-9 cursor-pointer rounded-lg border px-3 py-2 text-xs font-semibold hover:bg-white/5 disabled:cursor-wait disabled:opacity-60"
+                                      style={{ borderColor: colors.border, color: colors.secondary }}
+                                    >
+                                      Can’t take a picture? Skip proof (no XP)
+                                    </button>
+                                  </div>
+                                )}
+                                {photoProofFeedback[index] && (
+                                  <p role="status" className="mt-2 text-xs leading-relaxed" style={{ color: colors.muted }}>
+                                    {photoProofFeedback[index]}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </li>
                       ))}
                     </ol>
@@ -480,7 +645,7 @@ function SidequestDetailPage({
                         backgroundColor: colors.errorBackground,
                       }}
                     >
-                      +{sidequest.xpValue} XP
+                      {sidequest.xpValue > 0 ? `+${sidequest.xpValue} XP` : 'Recreation · no XP'}
                     </span>
                   </div>
                   <dl className="mt-4">
@@ -522,12 +687,19 @@ function SidequestDetailPage({
                         </div>
                       )}
                       <p className="mt-2 text-xs leading-relaxed" style={{ color: colors.muted }}>
-                        {nextStopIndex >= sidequestStops.length
-                          ? 'All XP for this sidequest has been earned.'
-                          : rewardProgress.nextStopXp > 0
-                            ? `Complete the next stop and pass location verification to earn +${rewardProgress.nextStopXp} XP. ${rewardProgress.remainingXp} XP remains.`
-                            : 'No XP is available for the next stop.'}
+                        {rewardProgress.eligibleXp === 0
+                          ? 'This recreation-only quest is for fun and does not award XP.'
+                          : nextStopIndex >= sidequestStops.length
+                            ? 'All XP for this sidequest has been earned.'
+                            : rewardProgress.nextStopXp > 0
+                              ? `${sidequestStops.length > 1 ? 'Complete the next stop' : 'Complete the quest'} using its selected verification to earn +${rewardProgress.nextStopXp} XP. ${rewardProgress.remainingXp} XP remains.`
+                              : 'No XP is available for the next step.'}
                       </p>
+                      {rewardProgress.forfeitedXp > 0 && (
+                        <p className="mt-2 text-xs leading-relaxed" style={{ color: colors.secondary }}>
+                          {rewardProgress.forfeitedXp} XP has been forfeited because photo proof was skipped.
+                        </p>
+                      )}
                     </section>
                   )}
                   {sidequestStops.length > 1 && (
@@ -597,7 +769,7 @@ function SidequestDetailPage({
                     <button
                       type="button"
                       onClick={() => void handleComplete(nextStopIndex)}
-                      disabled={isCompleting || isAbandoning || isReplacing}
+                      disabled={isCompleting || isAbandoning || isReplacing || photoProofBusyStep !== null || missingPhotoProof}
                       className="min-h-12 cursor-pointer rounded-xl px-4 py-2.5 text-sm font-black transition hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-wait disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 sm:col-span-2 lg:col-span-1"
                       style={{
                         backgroundColor: colors.primary,
@@ -606,11 +778,20 @@ function SidequestDetailPage({
                       }}
                     >
                       {isCompleting
-                        ? 'Verifying location…'
+                        ? needsLocationForNextStep ? 'Verifying location…' : 'Completing quest…'
                         : sidequestStops.length > 1
-                          ? `Complete Stop ${nextStopIndex + 1} · +${stopXpReward(sidequest.xpValue, sidequestStops.length, nextStopIndex)} XP`
-                          : 'Complete sidequest'}
+                          ? sidequest.stepProofMethods[nextStopIndex] === 'recreation'
+                            ? `Complete Stop ${nextStopIndex + 1} · Recreation · no XP`
+                            : `Complete Stop ${nextStopIndex + 1} · +${stopXpReward(sidequest.xpValue, sidequestStops.length, nextStopIndex, sidequest.stepProofMethods, sidequest.skippedPhotoSteps)} XP`
+                          : sidequest.xpValue === 0
+                            ? 'Complete recreation quest · no XP'
+                            : 'Complete sidequest'}
                     </button>
+                    {missingPhotoProof && (
+                      <p className="text-xs leading-relaxed sm:col-span-2 lg:col-span-1" style={{ color: colors.muted }}>
+                        Add the requested photo proof or explicitly skip it to continue. Skipping means no XP for this quest.
+                      </p>
+                    )}
                     {onGenerateAnother && <div className="space-y-2">
                       <button type="button" onClick={() => void handleGenerateAnother()}
                         disabled={isCompleting || isAbandoning || isReplacing || slotsRemaining === 0}

@@ -42,7 +42,7 @@ function GuestQuestPreviewPage({
           >
             <h2 className="font-bold">Guest preview — this quest was not saved</h2>
             <p className="mt-1 text-sm leading-relaxed" style={{ color: colors.foreground }}>
-              Sign in to save a quest, track stop completion, and earn XP. This preview will be lost when you leave this page.
+              Sign in to save a quest and track it. Only location- or photo-verified quest steps can award XP; recreation steps are for fun only.
             </p>
           </section>
 
@@ -66,7 +66,16 @@ function GuestQuestPreviewPage({
                         style={{ backgroundColor: colors.primary, color: colors.primaryForeground }}>
                         {index + 1}
                       </span>
-                      <span className="pt-1 text-sm leading-relaxed">{step}</span>
+                      <span className="pt-1 text-sm leading-relaxed">
+                        {step}
+                        <span className="mt-1 block text-xs font-semibold" style={{ color: colors.muted }}>
+                          {result.quest.stepProofMethods[index] === 'photo'
+                            ? 'Photo verification · XP eligible'
+                            : result.quest.stepProofMethods[index] === 'location'
+                              ? 'Location verification · XP eligible'
+                              : 'Recreation · no verification or XP'}
+                        </span>
+                      </span>
                     </li>
                   ))}
                 </ol>
@@ -77,6 +86,11 @@ function GuestQuestPreviewPage({
                   <span className="rounded-full border px-3 py-1.5" style={{ borderColor: colors.border }}>
                     Estimated cost: {result.quest.estimatedCostDollars === 0 ? 'Free' : `$${result.quest.estimatedCostDollars}`}
                   </span>
+                  {result.quest.stepProofMethods.every((method) => method === 'recreation') && (
+                    <span className="rounded-full border px-3 py-1.5" style={{ borderColor: colors.border }}>
+                      Recreation only · no XP
+                    </span>
+                  )}
                   <span className="rounded-full border px-3 py-1.5" style={{ borderColor: colors.border }}>
                     {stops.length ? `${stops.length} verified stops` : `Suggested destination: ${result.quest.locationName}`}
                   </span>

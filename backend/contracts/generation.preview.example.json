@@ -14,6 +14,7 @@
       "Observe a natural pattern.",
       "Sketch a simple algorithm to reproduce it."
     ],
+    "stepProofMethods": ["location", "photo"],
     "locationName": "Proposed campus destination",
     "locationAddress": "Proposed campus address, Gainesville, FL",
     "estimatedMinutes": 30,
@@ -41,6 +42,7 @@
       "name": null,
       "preferences": "Relax"
     },
-    "maxDistanceMiles": null
+    "maxDistanceMiles": null,
+    "proofOptions": ["location", "photo"]
   }
 }

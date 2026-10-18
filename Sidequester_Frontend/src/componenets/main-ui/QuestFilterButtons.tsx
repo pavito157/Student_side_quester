@@ -11,6 +11,7 @@ import type {
   BudgetConstraint,
   DistanceConstraint,
   TimeConstraint,
+  QuestProofMethod,
 } from '../../types/sidequest'
 import type { Vibe } from '../../types/vibe'
 import BudgetButton from '../Buttons/BudgetButton'
@@ -30,6 +31,7 @@ export type QuestFilters = {
   distance: string
   customDistance: string
   multiQuest: boolean
+  proofOptions: QuestProofMethod[]
 }
 
 interface QuestFilterButtonsProps {
@@ -159,6 +161,7 @@ function QuestFilterControls({
         goals,
         vibePreferences: activeVibe?.preferences ?? null,
         multiQuest: filters.multiQuest,
+        proofOptions: filters.proofOptions ?? ['location'],
       })
 
       const apiRequest = toQuestApiPayload(request)
@@ -308,6 +311,47 @@ function QuestFilterControls({
           </span>
         </span>
       </label>
+
+      <fieldset className="space-y-3 rounded-xl border p-4" style={{ borderColor: colors.border }}>
+        <legend className="px-1 text-sm font-semibold">Quest verification options</legend>
+        <p className="text-xs leading-relaxed" style={{ color: colors.muted }}>
+          Choose one or more. Gemini can mix the selected methods across quest steps.
+        </p>
+        {([
+          ['location', 'Location verification', 'Reach the destination to verify the quest and earn XP.'],
+          ['photo', 'Photo verification', 'Submit a photo of a visible result for Gemini to review and earn XP.'],
+          ['recreation', 'Recreation only', 'A fun activity with no verification and no XP.'],
+        ] as const).map(([method, title, description]) => (
+          <label key={method} className="flex cursor-pointer items-start gap-3 rounded-lg p-2 hover:bg-white/5">
+            <input
+              type="checkbox"
+              checked={(filters.proofOptions ?? ['location']).includes(method)}
+              onChange={(event) => setFilters((current) => {
+                const selected = new Set(current.proofOptions ?? ['location'])
+                if (event.target.checked && method === 'recreation') {
+                  selected.clear()
+                  selected.add(method)
+                } else if (event.target.checked) {
+                  selected.delete('recreation')
+                  selected.add(method)
+                } else {
+                  selected.delete(method)
+                }
+                return selected.size > 0
+                  ? { ...current, proofOptions: [...selected] }
+                  : current
+              })}
+              className="mt-0.5 size-4 accent-orange-500"
+            />
+            <span>
+              <span className="block text-sm font-medium">{title}</span>
+              <span className="mt-0.5 block text-xs leading-relaxed" style={{ color: colors.muted }}>
+                {description}
+              </span>
+            </span>
+          </label>
+        ))}
+      </fieldset>
 
       {isLoaded && isSignedIn === false && (
         <section

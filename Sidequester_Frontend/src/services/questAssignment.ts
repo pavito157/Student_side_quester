@@ -1,4 +1,5 @@
 import { getFirebaseIdToken } from './firebaseSession'
+import type { QuestProofMethod } from '../types/sidequest'
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000').replace(/\/$/, '')
 
@@ -22,6 +23,7 @@ export type AssignQuestPayload = {
   goals?: string[]
   vibePreferences?: string | null
   multiQuest?: boolean
+  proofOptions?: QuestProofMethod[]
 }
 
 export type QuestPreviewResponse = {
@@ -33,6 +35,7 @@ export type QuestPreviewResponse = {
     title: string
     description: string
     steps: string[]
+    stepProofMethods: QuestProofMethod[]
     locationName: string
     estimatedMinutes: number
     estimatedCostDollars: number
@@ -133,6 +136,13 @@ function isQuestContent(quest: unknown): quest is QuestPreviewResponse['quest'] 
     && Number.isFinite(quest.estimatedCostDollars) && quest.estimatedCostDollars >= 0
 }
 
+function validProofMethods(
+  value: unknown, stepCount: number, allowed: QuestProofMethod[],
+): value is QuestProofMethod[] {
+  return Array.isArray(value) && value.length === stepCount
+    && value.every((method) => allowed.some((option) => option === method))
+}
+
 function isSavedQuest(value: unknown, expectedUserId: string): value is SavedQuestResponse {
   if (!isRecord(value) || !isRecord(value.quest) || !isRecord(value.assignment)
       || typeof value.reusedExisting !== 'boolean' || !isQuestContent(value.quest)) return false
@@ -160,6 +170,7 @@ export class QuestApiError extends Error {
   constructor(status: number, detail: unknown) {
     let message = typeof detail === 'string' ? detail : `Quest request failed (HTTP ${status}).`
     if (isRecord(detail) && typeof detail.reason === 'string') message = detail.reason
+    if (isRecord(detail) && typeof detail.feedback === 'string') message = detail.feedback
     if (Array.isArray(detail)) {
       const messages = detail.filter(isRecord).slice(0, 3).map((item) => {
         const path = Array.isArray(item.loc) ? item.loc.filter((part) => part !== 'body').join('.') : ''
@@ -202,6 +213,14 @@ export async function requestGeneratedQuest(
   if (typeof result.quest.locationAddress !== 'string' || !result.quest.locationAddress.trim()) {
     throw new Error('The backend returned an invalid quest destination.')
   }
+  const generatedStepCount = Array.isArray(result.quest.steps) ? result.quest.steps.length : 0
+  const proofMethods = result.quest.stepProofMethods
+    ?? (payload.proofOptions === undefined ? Array(generatedStepCount).fill('location') : undefined)
+  if (!validProofMethods(
+    proofMethods, generatedStepCount, payload.proofOptions ?? ['location'],
+  )) {
+    throw new Error('The backend returned invalid per-step proof requirements.')
+  }
   const d = result.destination
   if (result.destinationVerified) {
     if (!isRecord(d) || typeof d.locationName !== 'string' || !d.locationName.trim()
@@ -243,6 +262,7 @@ export async function requestGeneratedQuest(
   }
   return {
     ...result,
+    quest: { ...result.quest, stepProofMethods: proofMethods },
     destinations: Array.isArray(result.destinations)
       ? result.destinations
       : result.destinationVerified && isRecord(d) ? [d] : [],
@@ -297,7 +317,12 @@ export async function getCurrentQuest(
   return result
 }
 
-export type CompletionLocation = { latitude: number; longitude: number; accuracy: number; stopIndex?: number }
+export type CompletionLocation = {
+  latitude: number | null
+  longitude: number | null
+  accuracy: number | null
+  stopIndex?: number
+}
 export type StopCompletionResult = {
   questId: string
   status: 'in_progress' | 'completed'
@@ -308,8 +333,65 @@ export type StopCompletionResult = {
   totalStops: number
 }
 
+export type PhotoProofResult = {
+  accepted: boolean
+  feedback: string
+  verifiedPhotoSteps?: number[]
+}
+
 function isSafeInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value)
+}
+
+export async function requestPhotoProof(
+  userId: string, questId: string, stepIndex: number, image: Blob,
+): Promise<PhotoProofResult> {
+  if (!questId || questId.includes('/') || !isSafeInteger(stepIndex) || stepIndex < 0) {
+    throw new Error('Choose a valid quest step for photo proof.')
+  }
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(image.type)
+      || image.size <= 0 || image.size > 5 * 1024 * 1024) {
+    throw new Error('Choose a JPEG, PNG, or WebP image up to 5 MB.')
+  }
+  const result = await requestQuest(
+    `/quests/${encodeURIComponent(questId)}/steps/${stepIndex}/photo-proof`, userId, image, {},
+  )
+  if (!isRecord(result) || typeof result.accepted !== 'boolean'
+      || typeof result.feedback !== 'string' || !result.feedback.trim()
+      || result.feedback.length > 300) {
+    throw new Error('The backend returned an invalid photo review.')
+  }
+  if (!result.accepted) return { accepted: false, feedback: result.feedback }
+  if (!Array.isArray(result.verifiedPhotoSteps)
+      || !result.verifiedPhotoSteps.every(isSafeInteger)
+      || !result.verifiedPhotoSteps.includes(stepIndex)
+      || new Set(result.verifiedPhotoSteps).size !== result.verifiedPhotoSteps.length) {
+    throw new Error('The backend returned invalid photo proof progress.')
+  }
+  return {
+    accepted: true,
+    feedback: result.feedback,
+    verifiedPhotoSteps: result.verifiedPhotoSteps,
+  }
+}
+
+export async function requestQuestPhotoProofSkip(
+  userId: string, questId: string, stepIndex: number,
+): Promise<number[]> {
+  if (!questId || questId.includes('/') || !isSafeInteger(stepIndex) || stepIndex < 0) {
+    throw new Error('Choose a valid quest step for photo proof.')
+  }
+  const result = await requestQuest(
+    `/quests/${encodeURIComponent(questId)}/steps/${stepIndex}/skip-photo-proof`, userId, {}, {},
+  )
+  if (!isRecord(result) || result.xpAwarded !== 0
+      || !Array.isArray(result.skippedPhotoSteps)
+      || !result.skippedPhotoSteps.every(isSafeInteger)
+      || !result.skippedPhotoSteps.includes(stepIndex)
+      || new Set(result.skippedPhotoSteps).size !== result.skippedPhotoSteps.length) {
+    throw new Error('The backend returned invalid skipped photo proof progress.')
+  }
+  return result.skippedPhotoSteps
 }
 
 export async function requestQuestCompletion(
@@ -360,7 +442,8 @@ export async function requestQuestAbandon(userId: string, questId: string): Prom
 }
 
 async function requestQuest(
-  path: string, expectedUserId: string | null, payload: AssignQuestPayload | CompletionLocation | undefined,
+  path: string, expectedUserId: string | null,
+  payload: AssignQuestPayload | CompletionLocation | Blob | Record<string, unknown> | undefined,
   options: QuestRequestOptions, method: 'POST' | 'GET' = 'POST',
 ): Promise<unknown> {
   const started = now()
@@ -368,14 +451,15 @@ async function requestQuest(
   const tokenReady = now()
   let response: Response
   try {
+    const isImage = typeof Blob !== 'undefined' && payload instanceof Blob
     response = await fetch(`${apiBaseUrl}${path}`, {
       method,
       headers: {
         ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
-        ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}),
+        ...(method === 'POST' ? { 'Content-Type': isImage ? payload.type : 'application/json' } : {}),
       },
       credentials: 'omit',
-      body: payload === undefined ? undefined : JSON.stringify(payload),
+      body: payload === undefined ? undefined : isImage ? payload : JSON.stringify(payload),
       signal: options.signal,
     })
   } catch (error) {

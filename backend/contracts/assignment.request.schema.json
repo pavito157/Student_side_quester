@@ -183,6 +183,21 @@
       "title": "Multiquest",
       "type": "boolean"
     },
+    "proofOptions": {
+      "description": "Allowed per-step methods: location/photo can earn XP; recreation is fun-only and awards no XP.",
+      "items": {
+        "enum": [
+          "location",
+          "photo",
+          "recreation"
+        ],
+        "type": "string"
+      },
+      "maxItems": 3,
+      "minItems": 1,
+      "title": "Proofoptions",
+      "type": "array"
+    },
     "originCoordinates": {
       "anyOf": [
         {

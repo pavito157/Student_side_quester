@@ -56,6 +56,7 @@ function HomePage({ onStartQuestGeneration, activeSidequestsState }: HomePagePro
     distance: 'any',
     customDistance: '',
     multiQuest: false,
+    proofOptions: ['location'],
   })
 
   const currentActiveSidequests = activeSidequestsState.userId === userId
@@ -99,6 +100,7 @@ function HomePage({ onStartQuestGeneration, activeSidequestsState }: HomePagePro
             distance: vibe.distance || 'any',
             customDistance: vibe.customDistance ?? '',
             multiQuest: false,
+            proofOptions: ['location'],
           })
         }}
       />

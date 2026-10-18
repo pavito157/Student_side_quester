@@ -3,10 +3,11 @@
 Legacy global records remain readable during the storage transition.
 """
 
+import asyncio
 import os
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Path, Request
 from google.cloud.firestore_v1.base_query import FieldFilter
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -14,6 +15,10 @@ from .quest_completion import ASSIGNMENTS, CompletionError, abandon_quest, compl
 from .quest_validation import valid_coordinates, valid_number
 from .firebase_helpers import current_uid, get_db
 from .quest_persistence import sidequests
+from .photo_proof import (
+    MAX_PHOTO_BYTES, evaluate_photo, get_photo_proof_step, proof_response,
+    record_skipped_photo_step, record_verified_photo_step, validate_image,
+)
 
 router = APIRouter(tags=["Quests"])
 
@@ -76,9 +81,9 @@ def my_quests(
 
 class CompletionLocation(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    latitude: float = Field(..., strict=True, ge=-90, le=90, allow_inf_nan=False)
-    longitude: float = Field(..., strict=True, ge=-180, le=180, allow_inf_nan=False)
-    accuracy: float = Field(..., strict=True, gt=0, allow_inf_nan=False)
+    latitude: Optional[float] = Field(..., strict=True, ge=-90, le=90, allow_inf_nan=False)
+    longitude: Optional[float] = Field(..., strict=True, ge=-180, le=180, allow_inf_nan=False)
+    accuracy: Optional[float] = Field(..., strict=True, gt=0, allow_inf_nan=False)
     stopIndex: int = Field(default=0, strict=True, ge=0, le=2)
 
 
@@ -105,6 +110,45 @@ def complete(
         )
     except CompletionError as error:
         raise HTTPException(error.status_code, error.detail) from error
+
+
+@router.post("/quests/{quest_id}/steps/{step_index}/photo-proof")
+async def submit_photo_proof(
+    quest_id: str,
+    request: Request,
+    step_index: int = Path(ge=0, le=9),
+    uid: str = Depends(current_uid),
+    db=Depends(get_db),
+):
+    mime_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+    if mime_type not in {"image/jpeg", "image/png", "image/webp"}:
+        raise HTTPException(415, "Use a JPEG, PNG, or WebP image.")
+    chunks = []
+    size = 0
+    async for chunk in request.stream():
+        size += len(chunk)
+        if size > MAX_PHOTO_BYTES:
+            raise HTTPException(413, "Images must be 5 MB or smaller.")
+        chunks.append(chunk)
+    image = b"".join(chunks)
+    validate_image(image, mime_type)
+    step_text = get_photo_proof_step(db, uid, quest_id, step_index)
+    review = await asyncio.to_thread(evaluate_photo, step_text, image, mime_type)
+    if not review.accepted:
+        return proof_response(review)
+    verified_steps = record_verified_photo_step(db, uid, quest_id, step_index)
+    return {**proof_response(review), "verifiedPhotoSteps": verified_steps}
+
+
+@router.post("/quests/{quest_id}/steps/{step_index}/skip-photo-proof")
+def skip_photo_proof(
+    quest_id: str,
+    step_index: int = Path(ge=0, le=9),
+    uid: str = Depends(current_uid),
+    db=Depends(get_db),
+):
+    skipped_steps = record_skipped_photo_step(db, uid, quest_id, step_index)
+    return {"skippedPhotoSteps": skipped_steps, "xpAwarded": 0}
 
 
 @router.post("/quests/{quest_id}/abandon")

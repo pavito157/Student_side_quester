@@ -5,6 +5,9 @@
     "Bring a notebook and your laptop to the destination.",
     "Sketch a nature journal interface, then implement one small feature."
   ],
+  "stepProofMethods": ["location", "photo"],
+  "verifiedPhotoSteps": [],
+  "skippedPhotoSteps": [],
   "locationName": "Example UF destination",
   "latitude": 29.65,
   "longitude": -82.34,
@@ -44,6 +47,8 @@
       "unit": "miles"
     },
     "goals": ["Learn Computer Science"],
-    "vibePreferences": "Relax in nature."
+    "vibePreferences": "Relax in nature.",
+    "multiQuest": false,
+    "proofOptions": ["location", "photo"]
   }
 }

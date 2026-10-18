@@ -15,6 +15,8 @@ export type DistanceConstraint = {
   unit: 'miles'
 } | null
 
+export type QuestProofMethod = 'location' | 'photo' | 'recreation'
+
 export type SidequestRequestInput = {
   preferences: string
   username: string
@@ -28,6 +30,7 @@ export type SidequestRequestInput = {
   goals: string[]
   vibePreferences?: string | null
   multiQuest?: boolean
+  proofOptions?: QuestProofMethod[]
 }
 
 export type SidequestRequestPayload = {
@@ -43,6 +46,7 @@ export type SidequestRequestPayload = {
   goals: string[]
   vibePreferences: string | null
   multiQuest: boolean
+  proofOptions?: QuestProofMethod[]
 }
 
 export type SavedSidequestRequest = {
@@ -58,6 +62,9 @@ export type ActiveSidequest = {
   title: string
   description: string
   steps: string[]
+  stepProofMethods: QuestProofMethod[]
+  verifiedPhotoSteps: number[]
+  skippedPhotoSteps: number[]
   locationName: string
   placeId?: string | null
   destinations?: Array<{
@@ -67,6 +74,7 @@ export type ActiveSidequest = {
     longitude: number
   }>
   completedStops?: number[]
+  xpAwardedSoFar?: number
   latitude: number
   longitude: number
   estimatedMinutes: number

@@ -18,6 +18,8 @@ class ContractModel(BaseModel):
 DocumentId = Annotated[str, StringConstraints(min_length=1, max_length=128, pattern=r"^[^/]+$")]
 GoalText = Annotated[str, StringConstraints(min_length=1, max_length=500)]
 StepText = Annotated[str, StringConstraints(min_length=1, max_length=1000)]
+PhotoStepIndex = Annotated[int, Field(strict=True, ge=0, le=9)]
+QuestProofMethod = Literal["location", "photo", "recreation"]
 
 
 class Coordinates(ContractModel):
@@ -103,11 +105,15 @@ class NormalizedQuestPreferences(ContractModel):
     vibe: Optional[SelectedVibe] = None
     maxDistanceMiles: Optional[float] = Field(default=None, strict=True, gt=0, allow_inf_nan=False)
     multiQuest: bool = False
+    proofOptions: List[QuestProofMethod] = Field(default_factory=lambda: ["location"], min_length=1, max_length=3)
 
     @model_validator(mode="after")
     def distance_needs_origin(self):
         if self.maxDistanceMiles is not None and self.location.mode == "anywhere":
             raise ValueError("A specific location is required when distance is set")
+        if (len(set(self.proofOptions)) != len(self.proofOptions)
+                or "recreation" in self.proofOptions and len(self.proofOptions) > 1):
+            raise ValueError("Proof options must be unique; recreation cannot be combined with XP verification.")
         return self
 
 
@@ -173,6 +179,10 @@ class AssignQuestRequest(ContractModel):
     goals: List[GoalText] = Field(default_factory=list, max_length=20)
     vibePreferences: Optional[str] = Field(default="", max_length=4000)
     multiQuest: bool = Field(default=False, strict=True)
+    proofOptions: List[QuestProofMethod] = Field(
+        default_factory=lambda: ["location"], min_length=1, max_length=3,
+        description="Allowed per-step methods: location/photo can earn XP; recreation is fun-only and awards no XP.",
+    )
 
     def distance_miles(self):
         return self.distance.maxDistance if isinstance(self.distance, DistanceFilter) else self.distance
@@ -192,13 +202,20 @@ class AssignQuestRequest(ContractModel):
             raise ValueError("A specific location is required when distance is set")
         return self
 
+    @model_validator(mode="after")
+    def proof_options_are_unique(self):
+        if (len(set(self.proofOptions)) != len(self.proofOptions)
+                or "recreation" in self.proofOptions and len(self.proofOptions) > 1):
+            raise ValueError("Proof options must be unique; recreation cannot be combined with XP verification.")
+        return self
+
     def normalize(self) -> NormalizedQuestPreferences:
         return NormalizedQuestPreferences(
             location=self.normalized_location(), time=self.time.normalize(),
             budget=self.budget.normalize(), maxDistanceMiles=self.distance_miles(),
             preferences=self.preferences, goals=self.goals,
             vibe=SelectedVibe(preferences=self.vibePreferences) if self.vibePreferences else None,
-            multiQuest=self.multiQuest,
+            multiQuest=self.multiQuest, proofOptions=self.proofOptions,
         )
 
 
@@ -207,6 +224,9 @@ class AssignedQuest(ContractModel):
     title: str = Field(min_length=1, max_length=160)
     description: str = Field(min_length=1, max_length=4000)
     steps: List[StepText] = Field(min_length=1, max_length=10)
+    stepProofMethods: List[QuestProofMethod] = Field(default_factory=list, max_length=10)
+    verifiedPhotoSteps: List[PhotoStepIndex] = Field(default_factory=list, max_length=10)
+    skippedPhotoSteps: List[PhotoStepIndex] = Field(default_factory=list, max_length=10)
     locationName: str = Field(min_length=1, max_length=300)
     placeId: Optional[str] = Field(default=None, min_length=1, max_length=300)
     latitude: float = Field(strict=True, ge=-90, le=90, allow_inf_nan=False)
@@ -237,6 +257,15 @@ class AssignedQuest(ContractModel):
             raise ValueError("Completed stops must be sequential")
         if self.destinations and any(index >= len(self.destinations) for index in self.completedStops):
             raise ValueError("Completed stop index is outside the route")
+        if self.stepProofMethods and len(self.stepProofMethods) != len(self.steps):
+            raise ValueError("Each quest step must have exactly one proof method")
+        proof_progress = self.verifiedPhotoSteps + self.skippedPhotoSteps
+        if (self.verifiedPhotoSteps != sorted(set(self.verifiedPhotoSteps))
+                or self.skippedPhotoSteps != sorted(set(self.skippedPhotoSteps))
+                or len(proof_progress) != len(set(proof_progress))
+                or any(index >= len(self.steps) or not self.stepProofMethods
+                       or self.stepProofMethods[index] != "photo" for index in proof_progress)):
+            raise ValueError("Photo proof progress must reference photo-required steps")
         return self
 
 
@@ -321,10 +350,19 @@ class GeneratedQuestProposal(ContractModel):
     title: str = Field(min_length=1, max_length=160)
     description: str = Field(min_length=1, max_length=4000)
     steps: List[StepText] = Field(min_length=1, max_length=10)
+    stepProofMethods: List[QuestProofMethod] = Field(default_factory=list, max_length=10)
     locationName: str = Field(min_length=1, max_length=300)
     locationAddress: str = Field(min_length=1, max_length=500)
     estimatedMinutes: int = Field(strict=True, gt=0)
     estimatedCostDollars: float = Field(strict=True, ge=0, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def proof_methods_match_steps(self):
+        if not self.stepProofMethods:
+            self.stepProofMethods = ["location"] * len(self.steps)
+        if len(self.stepProofMethods) != len(self.steps):
+            raise ValueError("Each quest step must have exactly one proof method")
+        return self
 
 
 class GeminiActivityDraft(ContractModel):
@@ -334,6 +372,14 @@ class GeminiActivityDraft(ContractModel):
     description: str = Field(min_length=1, max_length=500,
                              description="One literal action objective with a count or result, not atmospheric prose.")
     steps: List[StepText] = Field(min_length=2, max_length=3)
+    stepProofMethods: List[QuestProofMethod] = Field(
+        min_length=2, max_length=3,
+        description=(
+            "Exactly one method per step, in order, chosen from request proofOptions. "
+            "Location and photo are XP-eligible verification; photo requires visible "
+            "evidence. Recreation is fun-only, requires no proof, and awards no XP."
+        ),
+    )
     estimatedMinutes: int = Field(strict=True, gt=0)
     estimatedCostDollars: float = Field(strict=True, ge=0, allow_inf_nan=False)
     completionCriteria: str = Field(

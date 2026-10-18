@@ -119,6 +119,15 @@ class FrontendPayloadTests(unittest.TestCase):
         self.assertNotIn("username", normalized.model_dump())
         self.assertEqual(AssignQuestRequest.model_validate_json(request.model_dump_json()), request)
 
+    def test_proof_options_allow_one_or_multiple_unique_choices(self):
+        for choices in [["location"], ["location", "photo"], ["recreation"]]:
+            with self.subTest(choices=choices):
+                request = AssignQuestRequest.model_validate({**self.body, "proofOptions": choices})
+                self.assertEqual(request.normalize().proofOptions, choices)
+        for choices in [[], ["photo", "photo"], ["camera"], ["location", "recreation"]]:
+            with self.subTest(choices=choices), self.assertRaises(ValidationError):
+                AssignQuestRequest.model_validate({**self.body, "proofOptions": choices})
+
     def test_activity_time_options_preserve_their_meanings(self):
         for selection, custom, minimum, maximum in [
             ("any", None, None, None), ("", None, None, None), ("30", None, None, 30),

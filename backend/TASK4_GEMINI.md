@@ -21,7 +21,7 @@ No additional dependencies are required. The existing HTTP client calls Gemini's
 REST API with structured JSON output, then Pydantic validates the result.
 The default is now `gemini-3.5-flash-lite`, selected by live comparisons for this
 short structured task. It uses MINIMAL thinking; other Gemini 3 configurations use
-LOW. The model remains configurable. Requests use a compact prompt and a 1,536-token
+LOW. The model remains configurable. Requests use a compact prompt and a 3,072-token
 output cap, asking for 2-3 short actions plus one explicit completion instruction.
 The backend uses a reusable HTTP connection pool, closed at app shutdown.
 The REST `responseFormat.text.mimeType` uses the `APPLICATION_JSON` enum.
@@ -38,7 +38,7 @@ error, or credential is returned to the frontend.
 
 ## Response and current boundary
 
-The frontend receives `title`, `description`, `steps`, `locationName`,
+The frontend receives `title`, `description`, `steps`, per-step `stepProofMethods`, `locationName`,
 `locationAddress`, `estimatedMinutes`, and `estimatedCostDollars`. Internally Gemini
 also returns `completionCriteria`; the backend formats that into the final
 "You're done when ..." step and does not expose an extra frontend field. It cannot provide GPS coordinates,
@@ -47,8 +47,12 @@ invalid/non-finite values are rejected.
 
 The prompt keeps playful titles but asks for a literal objective, actionable steps,
 and an observable "You're done when ..." ending. It avoids vague reflection as a
-finish condition, forced academic metaphors, or unimplemented proof uploads. This
-improves task clarity; GPS still only checks proximity and cannot prove the action.
+finish condition and forced academic metaphors. `location` and `photo` steps can
+earn XP using their corresponding verification; photo proof is for visible,
+assessable outcomes. `recreation` is fun-only and earns no XP. Requests allow
+location, photo, or recreation, with recreation selected exclusively. The backend
+validates Gemini's per-step choices against the selected options. Photos are reviewed
+in memory and are not persisted; only accepted/skipped step indexes are saved.
 
 Time and budget estimates are checked on the backend: `120` means at least 120
 activity minutes, `30`/`60`/custom mean maximum minutes, and budget `10` means

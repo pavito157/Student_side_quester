@@ -13,6 +13,7 @@ async function fixture(file = 'App.tsx', path = '/') {
     preferences: async () => 'Nature', goals: async () => ['Explore'],
     detailReplace: async () => {}, activeQuestCount: 1, activeQuests: [],
     sidequest: { id: 'quest-1', title: 'Existing quest', description: 'Existing activity', steps: ['Try it'],
+      stepProofMethods: ['location'], verifiedPhotoSteps: [], skippedPhotoSteps: [],
       locationName: 'Park', latitude: 29.65, longitude: -82.34, xpValue: 10,
       estimatedMinutes: 30, estimatedCostDollars: 0, createdAt: '2026-10-17T12:00:00Z', userRequest: payload },
   }
@@ -65,6 +66,8 @@ async function fixture(file = 'App.tsx', path = '/') {
       subscribeToActiveSidequest(_uid, _id, callback) { callback(f.sidequest); return () => {} },
       completeSidequest: async () => { f.calls.push(['complete']); return { status: 'completed', xpAwarded: 10, xpAwardedSoFar: 10, completedStops: [0] } },
       abandonSidequest: async (...args) => { f.calls.push(['abandon', ...args]) },
+      skipSidequestPhotoProof: async () => [],
+      submitSidequestPhotoProof: async () => ({ accepted: true, feedback: 'Looks good.' }),
     })
     if (name.endsWith('/navigation')) return synthetic({ navigateTo(path) {
       f.navigations.push(path); browser.location.pathname = path; for (const fn of [...listeners]) fn()

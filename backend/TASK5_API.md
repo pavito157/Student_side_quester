@@ -37,7 +37,9 @@ header. Use the typed helper to obtain it; do not send a UID in request JSON.
 | `GET /me/quest` | 200 object or JSON `null` | Reload the most recent active assignment without Gemini |
 | `POST /quests/generate` | 200 preview | Generate an unsaved draft; preserve verification flags |
 | `POST /quests/preview` | 200 fixed preview | Original Step 3 transport test, moved from `/quests/assign` |
-| `POST /quests/{quest_id}/complete` | 200 | Existing GPS/XP completion transaction, now mounted |
+| `POST /quests/{quest_id}/steps/{step_index}/photo-proof` | 200 | Review an ephemeral JPEG/PNG/WebP photo for one photo-required step |
+| `POST /quests/{quest_id}/steps/{step_index}/skip-photo-proof` | 200 | Skip an unavailable photo; completion is allowed but the quest/stop earns no XP |
+| `POST /quests/{quest_id}/complete` | 200 | Transactionally complete a stop using its selected verification and award only eligible XP |
 
 `/quests/generate` is intentionally public for unsaved guest previews. All saved
 assignment, current-quest, completion, and abandon endpoints require a verified
@@ -51,12 +53,20 @@ contract, not the old fixed preview. `requestTestQuest` was updated to call
 Request example/schema: `contracts/assignment.request.example.json` and
 `assignment.request.schema.json`. The request accepts the same preferences,
 location, time, budget, distance, goals and vibe fields as generation, plus
-optional `originCoordinates` and `multiQuest` (defaults to false). Coordinates of the selected search origin are
+optional `originCoordinates` and `multiQuest` (defaults to false), and `proofOptions`
+(defaults to `["location"]`). Select one or both XP verification options
+(`location`, `photo`) or select `recreation` by itself. Recreation is fun-only,
+requires no evidence and earns no XP. Gemini may assign different enabled
+methods to individual steps. Coordinates of the selected search origin are
 required when `distance` is non-null. Defaults/time/budget meanings are unchanged.
 When `multiQuest` is true, `originCoordinates` is required and generation returns
 two or three distinct, resolver-verified destinations in nearest-first order.
 Generated steps correspond one-to-one with route stops. Each completed stop
-awards its share of the saved XP; the final stop deletes the active assignment.
+awards its share of the saved XP when its method is location or photo; recreation
+stops award no XP. Photo proof is an alternative to location proof, is reviewed
+by Gemini, and only accepted step indexes are retained. Image bytes are never
+persisted. A user may skip a required photo when unable to take one; completing
+that single-stop quest or multi-stop stop then awards no XP.
 
 Response example/schema: `contracts/assignment.response.example.json` and
 `assignment.response.schema.json`. The example is illustrative, not seeded data.
@@ -65,7 +75,8 @@ Response example/schema: `contracts/assignment.response.example.json` and
 quest:
   id, title, description, steps, locationName, placeId (string|null),
   latitude, longitude, radiusMeters, xpReward, isActive,
-  estimatedMinutes, estimatedCostDollars, destinations, completedStops
+  estimatedMinutes, estimatedCostDollars, destinations, completedStops,
+  stepProofMethods, verifiedPhotoSteps, skippedPhotoSteps
 assignment:
   id, userId, questId, status="assigned", assignedAt (RFC3339 UTC),
   completedAt=null, xpAwarded=0
@@ -82,6 +93,16 @@ quest is completed. Time/cost remain validated estimates.
 For single-stop assignments, `destinations` and `completedStops` are empty
 arrays. Multi-stop assignments persist the ordered verified destinations and
 sequentially completed zero-based stop indexes.
+
+The authenticated image endpoint accepts a raw image body with `Content-Type`
+`image/jpeg`, `image/png`, or `image/webp`, capped at 5 MiB. The backend checks
+the signature and step assignment, sends the image to Gemini for structured
+review, then stores only `verifiedPhotoSteps` on acceptance. Rejected images
+are not stored. `skip-photo-proof` records only the skipped step index. The
+completion transaction requires accepted or skipped status for each photo step;
+skipping forfeits the single quest's XP, or the current multi-stop stop's XP.
+Location proof still uses fresh GPS. Photo and recreation methods do not require
+GPS; recreation is always fun-only and cannot earn XP.
 
 `reusedExisting: false` accompanies new assignments (HTTP 201). Read endpoints
 set it to true for already saved quests. Each POST creates an independent quest;

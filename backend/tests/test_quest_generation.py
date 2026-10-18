@@ -21,7 +21,8 @@ class GenerationTests(unittest.TestCase):
     def setUp(self):
         self.body = {"location": "UF campus", "time": {"selection": "60"},
                      "budget": {"selection": "0"}, "preferences": "Nature and programming",
-                     "username": "Private Student", "goals": ["Learn"], "vibePreferences": "Relax"}
+                     "username": "Private Student", "goals": ["Learn"], "vibePreferences": "Relax",
+                     "proofOptions": ["location", "photo"]}
         self.preferences = GenerateQuestRequest.model_validate(self.body).normalize()
         self.destination = ResolvedDestination(locationName="Verified campus place", latitude=29.64,
                                                longitude=-82.35, scope="gainesville_city", placeId="place-123")
@@ -51,7 +52,11 @@ class GenerationTests(unittest.TestCase):
         patch.object(generation, "get_gemini_http_client", return_value=client).start()
 
     def provider_draft(self):
-        return {**self.proposal, "completionCriteria": "you have three labeled sketches."}
+        return {
+            **self.proposal,
+            "stepProofMethods": ["location", "photo"],
+            "completionCriteria": "you have three labeled sketches.",
+        }
 
     def generate(self, resolver=None):
         return generation.generate_preview(self.preferences, resolver)
@@ -74,6 +79,7 @@ class GenerationTests(unittest.TestCase):
         self.assertEqual(result.distanceStatus, "not_requested")
         self.assertEqual(result.quest.title, "Plant patterns")
         self.assertEqual(result.quest.steps[-1], "You're done when you have three labeled sketches.")
+        self.assertEqual(result.quest.stepProofMethods, ["location", "photo", "location"])
         self.assertNotIn("completionCriteria", result.quest.model_dump())
         for forbidden in ["id", "sourceQuestId", "latitude", "longitude", "radiusMeters", "xpReward"]:
             self.assertNotIn(forbidden, result.quest.model_dump())
@@ -97,6 +103,17 @@ class GenerationTests(unittest.TestCase):
         self.assertIn("schema", body["generationConfig"]["responseFormat"]["text"])
         self.assertEqual(body["generationConfig"]["responseFormat"]["text"]["mimeType"], "APPLICATION_JSON")
         self.assertEqual(body["generationConfig"]["thinkingConfig"], {"thinkingLevel": "LOW"})
+        self.assertIn("exactly one stepProofMethods value per step", body["systemInstruction"]["parts"][0]["text"])
+        self.assertIn("concrete, visible artifact", body["systemInstruction"]["parts"][0]["text"])
+        self.assertIn("location, photo", body["systemInstruction"]["parts"][0]["text"])
+        self.assertEqual(context["proofOptions"], ["location", "photo"])
+
+    def test_generation_rejects_methods_outside_user_selected_options(self):
+        self.preferences = GenerateQuestRequest.model_validate({
+            **self.body, "proofOptions": ["location"],
+        }).normalize()
+        self.http()
+        self.assert_status(502, self.generate)
 
     def test_provider_wait_is_configurable_and_connect_timeout_stays_short(self):
         for seconds in [90, 120, 10]:

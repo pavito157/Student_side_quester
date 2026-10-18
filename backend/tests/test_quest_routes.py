@@ -56,6 +56,13 @@ class RouteTests(unittest.TestCase):
         self.verify.assert_called_once_with("signed-id-token", check_revoked=True)
         self.complete.assert_called_once_with(self.db, "token-owner", "quest", 29.65, -82.34, 10, 35, 0)
 
+    def test_non_location_proof_can_complete_without_coordinates(self):
+        response = self.post(body={
+            "latitude": None, "longitude": None, "accuracy": None, "stopIndex": 0,
+        })
+        self.assertEqual(response.status_code, 200)
+        self.complete.assert_called_once_with(self.db, "token-owner", "quest", None, None, None, 50, 0)
+
     def test_missing_or_wrong_auth_scheme(self):
         for headers in [{}, {"Authorization": "Basic abc"}]:
             self.assertEqual(self.post(headers=headers).status_code, 401)
@@ -102,7 +109,7 @@ class RouteTests(unittest.TestCase):
     def test_invalid_request_locations(self):
         for field, value in [("latitude", True), ("latitude", "29.65"), ("latitude", 91),
                              ("longitude", -181), ("accuracy", 0), ("accuracy", -5),
-                             ("accuracy", "10"), ("accuracy", None)]:
+                             ("accuracy", "10")]:
             self.assertEqual(self.post(body={**self.body, field: value}).status_code, 422)
         self.assertEqual(self.post(body={}).status_code, 422)
         self.complete.assert_not_called()
@@ -118,6 +125,66 @@ class RouteTests(unittest.TestCase):
         response = self.post()
         self.assertEqual(response.status_code, 409)
         self.assertEqual(response.json()["detail"], "This quest is not currently assigned.")
+
+    def test_photo_proof_requires_auth_and_valid_image_and_saves_only_accepted_status(self):
+        from backend.photo_proof import PhotoReview
+
+        image = b"\x89PNG\r\n\x1a\n" + b"test-image-bytes"
+        with patch.object(quest_routes, "get_photo_proof_step", return_value="Draw a labeled diagram."), \
+                patch.object(quest_routes, "evaluate_photo", return_value=PhotoReview(
+                    accepted=True, feedback="The labeled diagram is clear.",
+                )) as review, \
+                patch.object(quest_routes, "record_verified_photo_step", return_value=[1]) as record:
+            response = self.client.post(
+                "/quests/quest/steps/1/photo-proof", content=image,
+                headers={**self.headers, "Content-Type": "image/png"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {
+            "accepted": True, "feedback": "The labeled diagram is clear.", "verifiedPhotoSteps": [1],
+        })
+        review.assert_called_once_with("Draw a labeled diagram.", image, "image/png")
+        record.assert_called_once_with(self.db, "token-owner", "quest", 1)
+
+    def test_photo_rejection_does_not_persist_proof(self):
+        from backend.photo_proof import PhotoReview
+
+        image = b"\xff\xd8\xff" + b"test-image-bytes"
+        with patch.object(quest_routes, "get_photo_proof_step", return_value="Draw a diagram."), \
+                patch.object(quest_routes, "evaluate_photo", return_value=PhotoReview(
+                    accepted=False, feedback="The diagram is not visible.",
+                )), \
+                patch.object(quest_routes, "record_verified_photo_step") as record:
+            response = self.client.post(
+                "/quests/quest/steps/0/photo-proof", content=image,
+                headers={**self.headers, "Content-Type": "image/jpeg"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"accepted": False, "feedback": "The diagram is not visible."})
+        record.assert_not_called()
+
+    def test_skip_photo_proof_persists_skip_with_zero_xp(self):
+        with patch.object(quest_routes, "record_skipped_photo_step", return_value=[0]) as skip:
+            response = self.client.post(
+                "/quests/quest/steps/0/skip-photo-proof", headers=self.headers,
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"skippedPhotoSteps": [0], "xpAwarded": 0})
+        skip.assert_called_once_with(self.db, "token-owner", "quest", 0)
+
+    def test_photo_upload_rejects_bad_type_and_oversized_body_before_review(self):
+        with patch.object(quest_routes, "evaluate_photo") as review:
+            unsupported = self.client.post(
+                "/quests/quest/steps/0/photo-proof", content=b"nope",
+                headers={**self.headers, "Content-Type": "text/plain"},
+            )
+            oversized = self.client.post(
+                "/quests/quest/steps/0/photo-proof", content=b"\x89PNG\r\n\x1a\n" + b"x" * (5 * 1024 * 1024),
+                headers={**self.headers, "Content-Type": "image/png"},
+            )
+        self.assertEqual(unsupported.status_code, 415)
+        self.assertEqual(oversized.status_code, 413)
+        review.assert_not_called()
 
     def test_my_quests_filters_status(self):
         assigned, completed = Mock(), Mock()

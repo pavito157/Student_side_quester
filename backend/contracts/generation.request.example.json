@@ -11,5 +11,6 @@
   "goals": [
     "Learn Computer Science"
   ],
-  "vibePreferences": "Relax"
+  "vibePreferences": "Relax",
+  "proofOptions": ["location", "photo"]
 }

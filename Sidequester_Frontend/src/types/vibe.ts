@@ -1,8 +1,11 @@
+import type { OriginCoordinates } from './sidequest'
+
 export type Vibe = {
   id: string
   name: string
   preferences: string
   where: string
+  whereCoordinates?: OriginCoordinates | null
   time: string
   budget: string
   distance: string

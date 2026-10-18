@@ -16,6 +16,7 @@ type WhereButtonProps = {
 function WhereButton({ autoLocate, value, onChange }: WhereButtonProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const autocompleteRef = useRef<google.maps.places.PlaceAutocompleteElement | null>(null)
+  const valueRef = useRef(value)
   const onChangeRef = useRef(onChange)
   const [loadError, setLoadError] = useState('')
   const [isLoading, setIsLoading] = useState(true)
@@ -43,6 +44,7 @@ function WhereButton({ autoLocate, value, onChange }: WhereButtonProps) {
         })
         autocomplete.className = 'google-place-autocomplete'
         autocomplete.setAttribute('aria-label', 'Where')
+        autocomplete.value = valueRef.current === 'any' ? '' : valueRef.current
         autocomplete.addEventListener('input', handlePlaceInput)
         autocomplete.addEventListener('gmp-select', handlePlaceSelect)
         containerRef.current.replaceChildren(autocomplete)
@@ -100,6 +102,7 @@ function WhereButton({ autoLocate, value, onChange }: WhereButtonProps) {
   }, [])
 
   useEffect(() => {
+    valueRef.current = value
     const autocomplete = autocompleteRef.current
     if (autocomplete) autocomplete.value = value === 'any' ? '' : value
   }, [value])

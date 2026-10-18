@@ -41,6 +41,10 @@ For signed-in users, general preferences are stored as plain text in the
 `preferences` field of `Users/{Clerk user ID}`. Individual sidequest goals are
 stored separately as a string array in that document's `goals` field. Both use
 the Firebase client SDK; Firestore security rules are managed separately.
+Saved vibes keep the selected place's coordinates with its label so applying a
+vibe can restore the starting location and retain distance filtering. Existing
+vibes without saved coordinates need their place selected again before using a
+distance limit.
 
 ## Development
 

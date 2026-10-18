@@ -252,6 +252,9 @@ class AssignQuestRequest(ContractModel):
 
 class AssignedQuest(ContractModel):
     id: DocumentId
+    sourceGlobalEventId: Optional[DocumentId] = None
+    eventStartsAt: Optional[AwareDatetime] = None
+    eventEndsAt: Optional[AwareDatetime] = None
     sourceOrganizationId: Optional[DocumentId] = None
     sourceOrganizationQuestId: Optional[DocumentId] = None
     title: str = Field(min_length=1, max_length=160)

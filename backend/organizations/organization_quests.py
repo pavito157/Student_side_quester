@@ -1,6 +1,6 @@
 """Public organization quest board and acceptance workflow."""
 
-from typing import Literal
+from typing import Optional, Literal
 
 from fastapi import HTTPException
 from google.api_core.exceptions import GoogleAPICallError, RetryError
@@ -43,7 +43,7 @@ class OrganizationQuestBoardItem(ContractModel):
     summary: str = Field(min_length=1, max_length=300)
     details: str = Field(min_length=1, max_length=1200)
     timeLabel: str = Field(min_length=1, max_length=80)
-    mapLocation: OrganizationQuestMapLocation | None
+    mapLocation: Optional[OrganizationQuestMapLocation]
     mapLocationStatus: Literal["available", "missing", "invalid"]
     xpPotential: int = Field(strict=True, ge=5, le=50)
 

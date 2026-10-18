@@ -680,9 +680,10 @@ function SidequestDetailPage({
                   </div>
                   <dl className="mt-4">
                     <Detail label="Destination">{sidequest.locationName}</Detail>
+                    {sidequest.eventStartsAt && sidequest.eventEndsAt && <Detail label="Event time">{new Date(sidequest.eventStartsAt).toLocaleString()} – {new Date(sidequest.eventEndsAt).toLocaleString()}</Detail>}
                     <Detail label="Estimated time">{sidequest.estimatedMinutes} minutes</Detail>
                     <Detail label="Estimated cost">
-                      {sidequest.estimatedCostDollars === 0 ? 'Free' : `$${sidequest.estimatedCostDollars}`}
+                      {sidequest.sourceGlobalEventId ? 'See event listing' : sidequest.estimatedCostDollars === 0 ? 'Free' : `$${sidequest.estimatedCostDollars}`}
                     </Detail>
                   </dl>
                   {rewardProgress && (

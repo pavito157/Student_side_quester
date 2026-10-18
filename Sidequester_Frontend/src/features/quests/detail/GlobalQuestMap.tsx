@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { colors } from '../../../constants/colors'
 import { loadMapsLibrary } from '../../../services/googlePlaces'
+import { buildQuestMapPins } from '../../../services/questMapData'
+import { navigateTo } from '../../../services/navigation'
+import type { ActiveSidequest } from '../../../types/sidequest'
 import type { PublicGlobalQuest } from '../../../services/globalQuests'
 
 type GlobalQuestMapProps = {
   quests: PublicGlobalQuest[]
+  activeQuests?: ActiveSidequest[]
 }
 
 type MapStatus = {
@@ -15,39 +19,13 @@ type MapStatus = {
 
 const DEFAULT_MAP_CENTER = { lat: 29.6516, lng: -82.3248 }
 
-function isMappable(quest: PublicGlobalQuest): boolean {
-  return Number.isFinite(quest.latitude)
-    && Math.abs(quest.latitude) <= 90
-    && Number.isFinite(quest.longitude)
-    && Math.abs(quest.longitude) <= 180
-}
+const EMPTY_ACTIVE: ActiveSidequest[] = []
 
-function eventDate(value: string): string {
-  return new Date(value).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZoneName: 'short',
-  })
-}
-
-function GlobalQuestMap({ quests }: GlobalQuestMapProps) {
+function GlobalQuestMap({ quests, activeQuests = EMPTY_ACTIVE }: GlobalQuestMapProps) {
   const mapElementRef = useRef<HTMLDivElement>(null)
   const [mapStatus, setMapStatus] = useState<MapStatus>({ key: '', location: '', error: '' })
-  const mappableQuests = useMemo(() => quests.filter(isMappable), [quests])
-  const mapKey = JSON.stringify(mappableQuests.map((quest) => [
-    quest.id,
-    quest.title,
-    quest.description,
-    quest.organizationName,
-    quest.locationName,
-    quest.latitude,
-    quest.longitude,
-    quest.startsAt,
-    quest.endsAt,
-    quest.xpReward,
-  ]))
+  const mappableQuests = useMemo(() => buildQuestMapPins(quests, activeQuests), [quests, activeQuests])
+  const mapKey = JSON.stringify(mappableQuests)
   const currentStatus = mapStatus.key === mapKey
     ? mapStatus
     : { key: mapKey, location: '', error: '' }
@@ -87,27 +65,33 @@ function GlobalQuestMap({ quests }: GlobalQuestMapProps) {
         const questInfoWindow = new InfoWindow()
         infoWindow = questInfoWindow
 
+        const overlaps = new globalThis.Map<string, number>()
         for (const quest of mappableQuests) {
+          const pointKey = `${quest.latitude},${quest.longitude}`
+          const samePlace = mappableQuests.filter(pin => pin.latitude === quest.latitude && pin.longitude === quest.longitude).length
+          const ordinal = overlaps.get(pointKey) ?? 0
+          overlaps.set(pointKey, ordinal + 1)
           const markerContent = document.createElement('div')
           markerContent.style.cssText = 'display:flex;flex-direction:column;align-items:center'
+          if (samePlace > 1) markerContent.style.transform = `translateX(${(ordinal - (samePlace - 1) / 2) * 72}px)`
           const pin = document.createElement('button')
           pin.type = 'button'
           pin.textContent = `+${quest.xpReward} XP`
           pin.setAttribute(
             'aria-label',
-            `${quest.title} at ${quest.locationName}, ${quest.xpReward} XP. Activate for event details.`,
+            `${quest.title} at ${quest.locationName}, ${quest.xpReward} XP. Open global quest.`,
           )
           pin.style.cssText = [
             'min-height:40px', 'padding:0 12px',
             'border:3px solid #fff', 'border-radius:9999px',
-            'background:#e88932', 'color:#1e2c22',
+            `background:${quest.color}`, 'color:#1e2c22',
             'font:900 13px system-ui,sans-serif',
             'box-shadow:0 0 0 3px #e8893266,0 3px 10px #0009',
             'cursor:pointer', 'white-space:nowrap',
           ].join(';')
           const pointer = document.createElement('span')
           pointer.setAttribute('aria-hidden', 'true')
-          pointer.style.cssText = 'width:0;height:0;margin-top:-1px;border-left:8px solid transparent;border-right:8px solid transparent;border-top:10px solid #e88932;filter:drop-shadow(0 2px 1px #0008)'
+          pointer.style.cssText = `width:0;height:0;margin-top:-1px;border-left:8px solid transparent;border-right:8px solid transparent;border-top:10px solid ${quest.color};filter:drop-shadow(0 2px 1px #0008)`
           markerContent.append(pin, pointer)
 
           const preview = document.createElement('div')
@@ -118,21 +102,23 @@ function GlobalQuestMap({ quests }: GlobalQuestMapProps) {
           organization.textContent = quest.organizationName
           organization.style.cssText = 'margin:4px 0 0;font-size:12px'
           const location = document.createElement('p')
-          location.textContent = `${quest.locationName} · +${quest.xpReward} XP`
+          location.textContent = `${quest.locationName} · ${quest.xpReward} XP total for this quest`
           location.style.cssText = 'margin:4px 0 0;font-size:13px;line-height:1.4'
           const description = document.createElement('p')
-          description.textContent = quest.description
+          description.textContent = quest.description.length > 220 ? `${quest.description.slice(0,220)}…` : quest.description
           description.style.cssText = 'margin:6px 0 0;font-size:13px;line-height:1.4'
-          const schedule = document.createElement('p')
-          schedule.textContent = `${eventDate(quest.startsAt)} – ${eventDate(quest.endsAt)}`
-          schedule.style.cssText = 'margin:6px 0 0;font-size:12px'
           const directions = document.createElement('a')
           directions.href = `https://www.google.com/maps/dir/?api=1&destination=${quest.latitude},${quest.longitude}`
           directions.target = '_blank'
           directions.rel = 'noreferrer'
           directions.textContent = 'Get directions'
           directions.style.cssText = 'display:inline-block;margin-top:8px;color:#0861e8;font-weight:700'
-          preview.append(title, organization, location, description, schedule, directions)
+          const openQuest = document.createElement('a')
+          openQuest.href = quest.path
+          openQuest.textContent = 'Open quest →'
+          openQuest.style.cssText = 'display:block;margin-top:8px;color:#0861e8;font-weight:700'
+          openQuest.addEventListener('click', event => { if (!event.metaKey && !event.ctrlKey) { event.preventDefault(); navigateTo(quest.path) } })
+          preview.append(title, organization, location, description, openQuest, directions)
 
           const marker = new AdvancedMarkerElement({
             map: mapInstance,
@@ -146,7 +132,7 @@ function GlobalQuestMap({ quests }: GlobalQuestMapProps) {
           }
           pin.addEventListener('mouseenter', showPreview)
           pin.addEventListener('focus', showPreview)
-          pin.addEventListener('click', showPreview)
+          pin.addEventListener('click', () => navigateTo(quest.path))
           markers.push(marker)
         }
 
@@ -166,7 +152,7 @@ function GlobalQuestMap({ quests }: GlobalQuestMapProps) {
           frameEventLocations()
           setMapStatus({
             key: mapKey,
-            location: 'Current location is unavailable; event locations are shown.',
+            location: 'Current location is unavailable; global quest venues are shown.',
             error: '',
           })
           return
@@ -207,7 +193,7 @@ function GlobalQuestMap({ quests }: GlobalQuestMapProps) {
             }
             setMapStatus({
               key: mapKey,
-              location: 'Your location and all event locations are shown.',
+              location: 'Your location and global quest venues are shown.',
               error: '',
             })
           },
@@ -216,7 +202,7 @@ function GlobalQuestMap({ quests }: GlobalQuestMapProps) {
             frameEventLocations()
             setMapStatus({
               key: mapKey,
-              location: 'Current location is unavailable; event locations are shown.',
+              location: 'Current location is unavailable; global quest venues are shown.',
               error: '',
             })
           },
@@ -243,17 +229,21 @@ function GlobalQuestMap({ quests }: GlobalQuestMapProps) {
 
   return (
     <div className="mt-4 overflow-hidden rounded-xl border border-border">
+      <div aria-label="Map key" className="flex flex-wrap gap-3 border-b border-border px-3 py-3 text-xs">
+        <span><span aria-hidden="true" style={{color:'#e88932'}}>●</span> Orange XP pins: campus and organization global quests</span>
+        <span><span aria-hidden="true" style={{color:'#0861e8'}}>●</span> You: current location</span>
+      </div>
       <div
         ref={mapElementRef}
         role="region"
-        aria-label="Campus quest map. Event markers show XP rewards."
+        aria-label="Global quest map: campus and organization events with XP pins."
         className="h-[min(62vh,34rem)] min-h-72 w-full"
       />
       {mappableQuests.length === 0 && (
         <p className="border-t border-border px-3 py-2 text-xs text-muted">
           {quests.length
             ? 'No valid venue coordinates are available for these events.'
-            : 'No upcoming events are available to pin yet.'}
+            : 'No upcoming global quests are available to pin yet.'}
         </p>
       )}
       {currentStatus.location && (
@@ -263,7 +253,7 @@ function GlobalQuestMap({ quests }: GlobalQuestMapProps) {
       )}
       {currentStatus.error && (
         <p role="alert" className="border-t border-border px-3 py-2 text-xs" style={{ color: colors.error }}>
-          Event cards remain available below. {currentStatus.error}
+          Quest cards remain available. {currentStatus.error}
         </p>
       )}
     </div>

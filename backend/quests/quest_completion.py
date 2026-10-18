@@ -33,6 +33,23 @@ def complete_quest(
     quest_ref = db.collection("quests").document(quest_id)
     user_ref = db.collection(USERS).document(user_id)
 
+    # Event quests use their canonical event policy and the same attendance claim
+    # as board check-in. Never award through the ordinary, untimed quest path.
+    candidate = nested_ref.get() if quest_id.startswith("event-") else None
+    event_id = candidate.to_dict().get("sourceGlobalEventId") if candidate is not None and candidate.exists else None
+    if event_id:
+        from backend.global_quests import check_in, CheckIn
+        from backend.event_quests import assignment_id
+        from fastapi import HTTPException
+        if not isinstance(event_id, str) or quest_id != assignment_id(event_id) or stop_index != 0:
+            raise CompletionError(409, "Invalid event quest assignment.")
+        try:
+            result = check_in(db, user_id, event_id, CheckIn(latitude=latitude, longitude=longitude, accuracy=accuracy), require_assignment=True)
+        except HTTPException as error:
+            raise CompletionError(error.status_code, error.detail) from None
+        return {**result, "valid": True, "reason": "Event attendance verified.", "questId": quest_id,
+                "stopIndex": 0, "xpAwardedSoFar": result["xpAwarded"], "completedStops": [0], "totalStops": 1}
+
     @firestore.transactional
     def commit(transaction):
         nested = nested_ref.get(transaction=transaction)
@@ -42,6 +59,8 @@ def complete_quest(
         if not assignment_snapshot.exists or not quest_snapshot.exists:
             raise CompletionError(404, "Quest or assignment not found.")
         assignment, quest = assignment_snapshot.to_dict(), quest_snapshot.to_dict()
+        if quest.get("sourceGlobalEventId"):
+            raise CompletionError(409, "Reload this event quest before checking in.")
         if (nested.exists and quest.get("ownerId") != user_id) or quest.get("ownerId") not in (None, user_id):
             raise CompletionError(403, "This quest is not assigned to you.")
         if assignment.get("userId") != user_id:

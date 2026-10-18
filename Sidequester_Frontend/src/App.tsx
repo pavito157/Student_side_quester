@@ -6,11 +6,12 @@ import CinematicHero from './features/home/CinematicHero'
 import DormSelectionGate from './features/residence/DormSelectionGate'
 import LeaderboardPage from './features/leaderboard/LeaderboardPage'
 import SidequestDetailPage from './features/quests/detail/SidequestDetailPage'
+import GlobalQuestPreviewPage from './features/quests/preview/GlobalQuestPreviewPage'
 import GuestQuestPreviewPage from './features/quests/preview/GuestQuestPreviewPage'
 import HomePage from './features/home/HomePage'
 import { subscribeToActiveSidequests } from './services/sidequests'
 import type { ActiveSidequestsState } from './app/types'
-import { getActiveQuests, requestAssignedQuest, requestAdditionalQuest, requestGeneratedQuest, requestOrganizationQuest, type GeneratedQuestResponse, type GenerateQuestPayload } from './services/questAssignment'
+import { getActiveQuests, requestAssignedQuest, requestAdditionalQuest, requestGeneratedQuest, requestOrganizationQuest, requestGlobalEventQuest, type SavedQuestResponse, type GeneratedQuestResponse, type GenerateQuestPayload } from './services/questAssignment'
 import { navigateTo } from './services/navigation'
 import { getUserGoals, getUserPreferences } from './services/userPreferences'
 
@@ -146,7 +147,7 @@ function AccountRoutes() {
     return startQuestGeneration(userId, payload, questId)
   }
 
-  async function acceptOrganizationQuest(userId: string, organizationId: string, questId: string) {
+  async function acceptCampusQuest(userId: string, request: (signal: AbortSignal) => Promise<SavedQuestResponse>) {
     if (!activeRef.current || userId !== user?.id) throw new Error('Your account changed. Reload the quest board and try again.')
     generationControllerRef.current?.abort()
     const controller = new AbortController()
@@ -154,7 +155,7 @@ function AccountRoutes() {
     generationIdRef.current = generationId
     generationControllerRef.current = controller
     try {
-      const saved = await requestOrganizationQuest(userId, organizationId, questId, { signal: controller.signal })
+      const saved = await request(controller.signal)
       if (!activeRef.current || controller.signal.aborted || generationIdRef.current !== generationId) return
       const path = `/sidequests/${encodeURIComponent(saved.quest.id)}`
       setCelebration({ id: generationId, path })
@@ -189,6 +190,16 @@ function AccountRoutes() {
             result={generationState.status === 'guest-preview' ? generationState.result : null}
             payload={generationState.status === 'guest-preview' ? generationState.payload : null}
           />
+
+        ) : pathname.startsWith('/global-quests/') ? (
+          <GlobalQuestPreviewPage
+            eventId={decodeURIComponent(pathname.slice('/global-quests/'.length))}
+            activeQuests={activeSidequestsState.userId === userId ? activeSidequestsState.sidequests : []}
+            slotsLoading={Boolean(userId) && (activeSidequestsState.userId !== userId || activeSidequestsState.isLoading)}
+            slotsError={activeSidequestsState.userId === userId ? activeSidequestsState.error : ''}
+            onAccept={(uid, eventId) => acceptCampusQuest(uid,
+              (signal) => requestGlobalEventQuest(uid, eventId, { signal }))}
+          />
         ) : pathname.startsWith('/sidequests/') ? (
           <SidequestDetailPage
             activeQuestCount={activeQuestCount}
@@ -199,7 +210,10 @@ function AccountRoutes() {
           <HomePage
             activeSidequestsState={activeSidequestsState}
             onStartQuestGeneration={startQuestGeneration}
-            onAcceptOrganizationQuest={acceptOrganizationQuest}
+            onAcceptOrganizationQuest={(uid, orgId, questId) => acceptCampusQuest(uid,
+              (signal) => requestOrganizationQuest(uid, orgId, questId, { signal }))}
+            onAcceptGlobalEvent={(uid, eventId) => acceptCampusQuest(uid,
+              (signal) => requestGlobalEventQuest(uid, eventId, { signal }))}
           />
         )}
       </div>

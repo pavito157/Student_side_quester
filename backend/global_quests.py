@@ -13,6 +13,8 @@ from backend.users.dorm_catalog import DORM_NAME_BY_ID
 from backend.quests.quest_validation import calculate_distance
 from backend.users.xp import read_xp
 from .organization_access import authorize_publishing, publishing_organizations
+from .event_quests import EventInstructions, assignment_id, accept_event
+from backend.quests.quest_contracts import AssignQuestResponse
 
 router = APIRouter(tags=["Global quests"])
 ORGANIZATIONS = "Organizations"
@@ -72,7 +74,10 @@ class GlobalEvent(CreateEvent, EventPolicy):
     createdBy: str
     createdAt: AwareDatetime
     xpReward: int = Field(strict=True, ge=1, le=500)
-    status: Literal["published"] = "published"
+    status: Literal["published", "cancelled"] = "published"
+    source: Optional[Literal["uf-calendar"]] = None
+    sourceUrl: Optional[str] = None
+    questTemplate: Optional[EventInstructions] = None
 
 
 class PublicGlobalEvent(BaseModel):
@@ -116,7 +121,7 @@ def publish_event(db, uid, payload):
     return commit(db.transaction())
 
 
-def check_in(db, uid, event_id, position):
+def check_in(db, uid, event_id, position, require_assignment=False):
     event_ref = db.collection(EVENTS).document(event_id)
     user_ref = db.collection(USERS).document(uid)
     claim_ref = user_ref.collection(CLAIMS).document(event_id)
@@ -132,7 +137,19 @@ def check_in(db, uid, event_id, position):
             raise HTTPException(409, "This global quest needs repair.") from None
         if event.id != event_id:
             raise HTTPException(409, "This global quest needs repair.")
+        if event.status != "published":
+            raise HTTPException(409, "This event is no longer available.")
         claim = claim_ref.get(transaction=transaction)
+        personal_ref = user_ref.collection("sidequests").document(assignment_id(event_id))
+        personal = personal_ref.get(transaction=transaction)
+        if require_assignment and not personal.exists:
+            raise HTTPException(409, "This event quest is no longer assigned.")
+        if personal.exists and (personal.to_dict().get("sourceGlobalEventId") != event_id
+                                or personal.to_dict().get("ownerId") != uid
+                                or personal.to_dict().get("userId") != uid
+                                or personal.to_dict().get("questId") != personal_ref.id
+                                or personal.to_dict().get("status") != "assigned"):
+            raise HTTPException(409, "Event assignment needs repair.")
         if claim.exists:
             raise HTTPException(409, "You already earned XP for this event.")
         # Server time is checked on every transaction retry, never client time.
@@ -170,10 +187,17 @@ def check_in(db, uid, event_id, position):
         transaction.create(claim_ref, {"eventId": event_id, "userId": uid,
             "xpAwarded": reward, "completedAt": now, "organizationId": event.organizationId})
         transaction.update(user_ref, {"xp": user_xp + reward})
+        if personal.exists:
+            transaction.delete(personal_ref)
+            if user.get("activeQuestId") == personal_ref.id:
+                transaction.update(user_ref, {"activeQuestId": firestore.DELETE_FIELD})
         transaction.update(dorm_ref, {"xp": dorm_xp + reward})
         return {"eventId": event_id, "status": "completed", "xpAwarded": reward,
                 "distanceMeters": round(distance, 1) if distance is not None else None}
-    return commit(db.transaction())
+    try:
+        return commit(db.transaction())
+    except (GoogleAPICallError, RetryError, ValueError):
+        raise HTTPException(503, "Attendance database is busy. Retry safely; XP can only be awarded once.") from None
 
 
 def _upcoming_event_snapshots(db, now):
@@ -181,7 +205,6 @@ def _upcoming_event_snapshots(db, now):
         db.collection(EVENTS)
         .where("endsAt", ">=", now - timedelta(minutes=60))
         .order_by("endsAt")
-        .limit(50)
         .stream()
     )
 
@@ -194,7 +217,7 @@ def list_public_events(db=Depends(get_db)):
         events = []
         for snapshot in _upcoming_event_snapshots(db, now):
             event = GlobalEvent.model_validate(snapshot.to_dict())
-            if event.endsAt + timedelta(minutes=event.graceMinutes) < now:
+            if event.status != "published" or event.endsAt + timedelta(minutes=event.graceMinutes) < now:
                 continue
             events.append(PublicGlobalEvent(
                 id=event.id,
@@ -215,6 +238,22 @@ def list_public_events(db=Depends(get_db)):
         raise HTTPException(503, "Global quests are temporarily unavailable.") from None
 
 
+@router.get("/global-quests/public/{event_id}", response_model=PublicGlobalEvent)
+def get_public_event(event_id: str, db=Depends(get_db)):
+    if not event_id or "/" in event_id or len(event_id) > 128:
+        raise HTTPException(400, "Invalid event ID.")
+    try:
+        snapshot = db.collection(EVENTS).document(event_id).get()
+        if not snapshot.exists:
+            raise HTTPException(404, "Event not found.")
+        event = GlobalEvent.model_validate(snapshot.to_dict())
+        if event.status != "published" or event.endsAt <= utc_now():
+            raise HTTPException(404, "This event is no longer available.")
+        return PublicGlobalEvent.model_validate({key: getattr(event, key) for key in PublicGlobalEvent.model_fields})
+    except (GoogleAPICallError, RetryError):
+        raise HTTPException(503, "Event details are temporarily unavailable.") from None
+
+
 @router.get("/global-quests")
 def list_events(uid: str = Depends(current_uid), db=Depends(get_db)):
     try:
@@ -225,10 +264,12 @@ def list_events(uid: str = Depends(current_uid), db=Depends(get_db)):
         events = []
         for snapshot in _upcoming_event_snapshots(db, now):
             event = GlobalEvent.model_validate(snapshot.to_dict())
-            if event.endsAt + timedelta(minutes=event.graceMinutes) < now:
+            if event.status != "published" or event.endsAt + timedelta(minutes=event.graceMinutes) < now:
                 continue
             completed = db.collection(USERS).document(uid).collection(CLAIMS).document(snapshot.id).get().exists
             events.append({**event.model_dump(mode="json"), "completed": completed})
+            if len(events) >= 50:
+                break
         events.sort(key=lambda event: event["startsAt"])
         return {"quests": events, "organizations": organizations, "adminRole": role, "defaults": policy.model_dump()}
     except (GoogleAPICallError, RetryError):
@@ -251,3 +292,11 @@ def attend(event_id: str, position: CheckIn, uid: str = Depends(current_uid), db
         return check_in(db, uid, event_id, position)
     except (GoogleAPICallError, RetryError):
         raise HTTPException(503, "Could not check in. Try again.") from None
+
+
+@router.post("/global-quests/{event_id}/accept", response_model=AssignQuestResponse, status_code=201)
+def accept_global_event(event_id: str, uid: str = Depends(current_uid), db=Depends(get_db)):
+    try:
+        return accept_event(db, uid, event_id)
+    except (GoogleAPICallError, RetryError):
+        raise HTTPException(503, "Could not add this event quest. Try again.") from None

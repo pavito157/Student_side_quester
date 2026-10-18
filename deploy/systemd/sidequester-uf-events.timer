@@ -1,0 +1,10 @@
+[Unit]
+Description=Refresh UF calendar quests at midnight Eastern
+
+[Timer]
+OnCalendar=*-*-* 00:00:00 America/New_York
+Persistent=true
+Unit=sidequester-uf-events.service
+
+[Install]
+WantedBy=timers.target

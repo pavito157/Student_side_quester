@@ -920,3 +920,33 @@ input[type='checkbox'],input[type='radio'] { accent-color:#75994c; }
 .quest-background-video { width:100%; height:100%; object-fit:cover; object-position:center; }
 .quest-video-overlay { position:absolute; inset:0; background:linear-gradient(rgb(250 249 242 / 34%),rgb(242 248 238 / 40%)); }
 @media(prefers-reduced-motion:reduce) { .quest-background-video { display:none; } }
+
+/* Aarav's podium/roster structure, rendered with the shared cozy UI kit. */
+.leaderboard-body { padding:1.25rem; }
+.leaderboard-section-heading { display:flex; align-items:baseline; justify-content:space-between; gap:1rem; margin-bottom:1rem; }
+.leaderboard-section-heading h2 { display:flex; align-items:center; font-size:1rem; color:var(--color-foreground); }
+.leaderboard-section-heading p { color:var(--color-muted); font-size:.75rem; }
+.leaderboard-podium { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; margin-bottom:2rem; align-items:stretch; }
+.leaderboard-champion {
+  --placement:#e6b65b;
+  position:relative; display:flex; flex-direction:column; align-items:stretch;
+  gap:1rem; min-width:0; padding:1rem;
+  border:7px solid transparent; border-image:url('/art/cozy/tile-cream.png') 6 / 8px / 0 stretch;
+  background:#fff2d6; box-shadow:2px 4px #805d4345;
+}
+.leaderboard-champion::before { content:''; position:absolute; inset:0 0 auto; height:4px; background:var(--placement); pointer-events:none; }
+.leaderboard-champion[data-placement='silver'] { --placement:#afbdc0; }
+.leaderboard-champion[data-placement='bronze'] { --placement:#cd9a76; }
+.leaderboard-champion[data-placement='gold'] { background-color:#fae9bc; }
+.leaderboard-champion .leaderboard-place { width:100%; height:2.75rem; justify-content:space-between; border:0; border-radius:0; background:transparent!important; color:var(--color-foreground)!important; font:1.5rem 'Sprout Pixel',sans-serif; box-shadow:none; }
+.leaderboard-champion .leaderboard-identity > span:first-child > span:first-child { white-space:normal; overflow-wrap:anywhere; }
+.leaderboard-champion .leaderboard-progress { margin-top:auto; }
+.leaderboard-champion[aria-current='true'] { outline:2px solid var(--color-success-border); outline-offset:2px; }
+@media(max-width:760px) {
+  .leaderboard-body { padding:.85rem; }
+  .leaderboard-podium { grid-template-columns:1fr; gap:.85rem; }
+  .leaderboard-champion { display:grid; align-items:center; grid-template-columns:2.5rem minmax(0,1fr); gap:.75rem; padding:.85rem; }
+  .leaderboard-champion .leaderboard-place { flex-direction:column; height:auto; gap:.25rem; font-size:1.1rem; }
+  .leaderboard-champion .leaderboard-progress { grid-column:2; }
+  .leaderboard-section-heading { align-items:flex-start; flex-wrap:wrap; gap:.4rem; }
+}

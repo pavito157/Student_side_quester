@@ -1,3 +1,4 @@
+import { defaultMultiQuest } from '../quest-generation/questFilterDefaults'
 import { useState } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import { colors } from '../../constants/colors'
@@ -44,7 +45,8 @@ function HomePage({
     distance: 'any',
     customDistance: '',
     multiQuest: false,
-    proofOptions: ['location'],
+    multiQuestManual: false,
+    proofOptions: ['location', 'photo'],
   })
 
   const currentActiveSidequests = activeSidequestsState.userId === userId
@@ -86,8 +88,9 @@ function HomePage({
             customBudget: vibe.customBudget ?? '',
             distance: vibe.distance || 'any',
             customDistance: vibe.customDistance ?? '',
-            multiQuest: false,
-            proofOptions: ['location'],
+            multiQuest: defaultMultiQuest(vibe.time || 'any', vibe.customTime ?? ''),
+            multiQuestManual: false,
+            proofOptions: ['location', 'photo'],
           })
         }}
       />

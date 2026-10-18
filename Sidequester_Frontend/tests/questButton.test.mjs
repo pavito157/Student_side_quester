@@ -67,6 +67,7 @@ async function fixture() {
       if (name.endsWith('/AdventureDecor')) return synthetic({ PixelLeafIcon: () => null })
       if (name.endsWith('/colors')) return synthetic({ colors: {} })
       if (name.endsWith('/questAssignment')) return synthetic({ MAX_ACTIVE_QUESTS: 3 })
+      if (name.endsWith('/questFilterDefaults')) return load('features/quest-generation/questFilterDefaults.ts')
       if (name.endsWith('/sidequestJson')) return load('services/sidequestJson.ts')
       if (name.endsWith('/userPreferences')) return synthetic({ getUserPreferences: async () => 'Nature', getUserGoals: async () => ['Explore'] })
       const component = () => null
@@ -216,9 +217,13 @@ test('advanced quest options are tucked below location controls and stay reactiv
   assert.equal(f.filters.multiQuest, true)
   f.render()
 
-  const photoVerification = f.findBy((node) => node.type === 'input'
-    && node.props?.className?.includes('size-4') && node.props.checked === false)
-  photoVerification.props.onChange({ target: { checked: true } })
+  const photoVerification = () => f.findBy((node) => node.type === 'label'
+    && JSON.stringify(node.props.children).includes('Photo verification')).props.children[0]
+  assert.equal(photoVerification().props.checked, true)
+  photoVerification().props.onChange({ target: { checked: false } })
+  assert.deepEqual(plain(f.filters.proofOptions), ['location'])
+  f.render()
+  photoVerification().props.onChange({ target: { checked: true } })
   assert.deepEqual(plain(f.filters.proofOptions), ['location', 'photo'])
   f.render()
   f.click()
@@ -254,4 +259,29 @@ test('full active list disables the board button; freeing a slot permits another
   assert.equal(f.props('SidequestMeButton').disabled, false)
   f.click(); await f.settle()
   assert.equal(f.calls.length, 1)
+})
+
+test('multi-stop follows time defaults until the user explicitly changes the checkbox', async () => {
+  const f = await fixture()
+  for (const [time, customTime, expected] of [['', '', false], ['any', '', false], ['30', '', false], ['60', '', true], ['120', '', true], ['custom', '59', false], ['custom', '60', true], ['custom', '', false]]) {
+    f.filters.customTime = customTime
+    f.props('TimeButton').onChange(time)
+    f.render()
+    assert.equal(f.filters.multiQuest, expected)
+  }
+  f.props('TimeButton').onChange('custom'); f.render()
+  f.props('TimeButton').onCustomChange('90'); f.render()
+  assert.equal(f.filters.multiQuest, true)
+  f.props('TimeButton').onCustomChange('20'); f.render()
+  assert.equal(f.filters.multiQuest, false)
+  const checkbox = () => f.findBy(node => node.type === 'input' && node.props.className?.includes('size-5'))
+  checkbox().props.onChange({ target: { checked: true } }); f.render()
+  f.props('TimeButton').onChange('any'); f.render()
+  assert.equal(f.filters.multiQuest, true)
+  f.props('TimeButton').onChange('custom'); f.render()
+  f.props('TimeButton').onCustomChange('15'); f.render()
+  assert.equal(f.filters.multiQuest, true)
+  checkbox().props.onChange({ target: { checked: false } }); f.render()
+  f.props('TimeButton').onChange('120'); f.render()
+  assert.equal(f.filters.multiQuest, false)
 })

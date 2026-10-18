@@ -1,3 +1,4 @@
+import { defaultMultiQuest } from './questFilterDefaults'
 import { useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import { PixelLeafIcon } from '../../components/decor/AdventureDecor'
@@ -32,6 +33,7 @@ export type QuestFilters = {
   distance: string
   customDistance: string
   multiQuest: boolean
+  multiQuestManual?: boolean
   proofOptions: QuestProofMethod[]
 }
 
@@ -164,7 +166,7 @@ function QuestFilterControls({
         vibePreferences: activeVibe?.preferences ?? null,
         activeVibe: activeVibe ? { name: activeVibe.name, preferences: activeVibe.preferences } : null,
         multiQuest: filters.multiQuest,
-        proofOptions: filters.proofOptions ?? ['location'],
+        proofOptions: filters.proofOptions ?? ['location', 'photo'],
       })
 
       const apiRequest = toQuestApiPayload(request)
@@ -281,6 +283,7 @@ function QuestFilterControls({
                 onChange={(event) => setFilters((current) => ({
                   ...current,
                   multiQuest: event.target.checked,
+                  multiQuestManual: true,
                 }))}
                 className="mt-0.5 size-5 accent-green-700"
               />
@@ -308,9 +311,9 @@ function QuestFilterControls({
                 <label key={method} className="flex cursor-pointer items-start gap-3 rounded-lg p-2 hover:bg-white/5">
                   <input
                     type="checkbox"
-                    checked={(filters.proofOptions ?? ['location']).includes(method)}
+                    checked={(filters.proofOptions ?? ['location', 'photo']).includes(method)}
                     onChange={(event) => setFilters((current) => {
-                      const selected = new Set(current.proofOptions ?? ['location'])
+                      const selected = new Set(current.proofOptions ?? ['location', 'photo'])
                       if (event.target.checked && method === 'recreation') {
                         selected.clear()
                         selected.add(method)
@@ -348,9 +351,15 @@ function QuestFilterControls({
             <TimeButton
               value={filters.time}
               customValue={filters.customTime}
-              onChange={(time) => setFilters((current) => ({ ...current, time }))}
+              onChange={(time) => setFilters((current) => ({
+                ...current, time,
+                multiQuest: current.multiQuestManual ? current.multiQuest : defaultMultiQuest(time, current.customTime),
+              }))}
               onCustomChange={(customTime) =>
-                setFilters((current) => ({ ...current, customTime }))
+                setFilters((current) => ({
+                  ...current, customTime,
+                  multiQuest: current.multiQuestManual ? current.multiQuest : defaultMultiQuest(current.time, customTime),
+                }))
               }
             />
           </div>

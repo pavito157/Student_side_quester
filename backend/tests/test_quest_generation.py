@@ -133,6 +133,50 @@ class GenerationTests(unittest.TestCase):
         self.http()
         self.assert_status(502, self.generate)
 
+    def test_location_only_prompt_generates_a_presence_verifiable_visit(self):
+        self.preferences = GenerateQuestRequest.model_validate({
+            **self.body, "proofOptions": ["location"],
+        }).normalize()
+        self.proposal.update({
+            "title": "Garden Wander",
+            "description": "Take a relaxed visit through a public garden.",
+            "steps": [
+                "Visit the public garden and explore its grounds. Optional: notice a color or shape you enjoy."
+            ],
+        })
+        draft = {
+            **self.proposal,
+            "stepProofMethods": ["location"],
+            "stepEvidence": [{"proofObligations": ["presence"]}],
+            "stepDestinationIndexes": [0],
+            "completionCriteria": "you have visited the garden",
+        }
+        self.http(body={"candidates": [{"finishReason": "STOP", "content": {
+            "parts": [{"text": json.dumps(draft)}],
+        }}]})
+
+        result = self.generate()
+
+        instruction = json.loads(self.requests[0].content)["systemInstruction"]["parts"][0]["text"]
+        self.assertIn("LOCATION-ONLY PROOF MODE — HARD REQUIREMENT", instruction)
+        self.assertIn("Do not make exercise, walking a circuit", instruction)
+        self.assertEqual(result.quest.stepProofMethods, ["location"])
+        self.assertEqual(result.quest.stepEvidence[0].proofObligations, ["presence"])
+
+    def test_selected_location_and_photo_prompt_separates_presence_from_visible_results(self):
+        self.preferences = GenerateQuestRequest.model_validate({
+            **self.body, "proofOptions": ["location", "photo"],
+        }).normalize()
+        self.http()
+
+        self.generate()
+
+        instruction = json.loads(self.requests[0].content)["systemInstruction"]["parts"][0]["text"]
+        self.assertIn("LOCATION/PHOTO PROOF MODE — HARD REQUIREMENT", instruction)
+        self.assertIn("Location proves physical presence", instruction)
+        self.assertIn("Photo proves only a concrete visible result", instruction)
+        self.assertIn("Do not assign action_completion to location or photo", instruction)
+
     def test_gemini_receives_the_conditional_primary_experience_and_constraints(self):
         cases = [
             ({'activeVibe': {'name': 'Study Break', 'preferences': 'Affordable games'},

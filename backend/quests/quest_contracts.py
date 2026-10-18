@@ -389,8 +389,20 @@ ProofObligation = Literal['presence', 'action_completion', 'visible_result']
 
 class StepProofEvidence(ContractModel):
     """Generation-only proof obligations; no planning/review contract is needed."""
-    proofObligations: List[ProofObligation] = Field(min_length=1, max_length=3)
-    expectedPhotoEvidence: str = Field(default='', max_length=300)
+    proofObligations: List[ProofObligation] = Field(
+        min_length=1,
+        max_length=3,
+        description=(
+            "Describe only what the selected proof can establish: location requires "
+            "exactly ['presence']; photo requires exactly ['visible_result']; "
+            "action_completion is valid only for unverified recreation."
+        ),
+    )
+    expectedPhotoEvidence: str = Field(
+        default='',
+        max_length=300,
+        description="For photo proof, name the concrete safe visible result shown in the step; otherwise empty.",
+    )
 
 
 class RouteDependency(ContractModel):
@@ -452,8 +464,9 @@ class GeminiActivityDraft(ContractModel):
         min_length=1, max_length=MAX_QUEST_STEPS,
         description=(
             "Exactly one method per step, in order, chosen from request proofOptions. "
-            "Location and photo are XP-eligible verification; photo requires visible "
-            "evidence. Recreation is fun-only, requires no proof, and awards no XP."
+            "Location is XP-eligible and proves physical presence only. Photo is "
+            "XP-eligible only for a concrete visible result. Recreation is fun-only, "
+            "requires no proof, and awards no XP."
         ),
     )
     stepDestinationIndexes: List[DestinationIndex] = Field(

@@ -195,9 +195,46 @@ def validate_step_evidence(steps, methods, evidence, allowed):
             or method == 'photo' and obligations == {'visible_result'} and bool(item.expectedPhotoEvidence.strip())
         )
         if not compatible:
-            raise HTTPException(409, {"code": "proof_incompatible", "reason":
-                "Selected proof cannot establish this activity outcome. Location proves presence only; "
-                "choose appropriate photo evidence or enable recreation without XP."})
+            raise HTTPException(502, {"code": "proof_incompatible", "reason":
+                "Gemini returned an activity that does not match the selected proof methods. "
+                "Try again, or select photo proof for a visible result."})
+
+
+def _proof_mode_instructions(proof_options):
+    selected = set(proof_options)
+    if selected == {"location"}:
+        return (
+            "\nLOCATION-ONLY PROOF MODE — HARD REQUIREMENT: The only selected proof is "
+            "location, which establishes physical presence at the assigned venue and "
+            "nothing about an action. Design the XP-eligible mission as a worthwhile "
+            "visit/exploration of that venue. Each step's required, finishable outcome "
+            "must be the visit/presence itself; set its stepEvidence.proofObligations "
+            "to exactly [\"presence\"]. Do not make exercise, walking a circuit, "
+            "creating something, observing/counting something, or any other action "
+            "a required or claimed-complete outcome. You may add one brief, clearly "
+            "optional idea for enjoying the venue, but it must not be required for "
+            "completion or XP. Keep completionCriteria limited to having visited the "
+            "assigned venue. Prefer one meaningful step per destination; do not split "
+            "one visit into multiple separately rewarded location steps."
+        )
+    if selected == {"photo"}:
+        return (
+            "\nPHOTO-ONLY PROOF MODE — HARD REQUIREMENT: Build each XP-eligible step "
+            "around a concrete visible result that can be safely assessed from a photo. "
+            "Set proofObligations to exactly [\"visible_result\"] and state the same "
+            "specific expectedPhotoEvidence in the evidence object and step. A photo "
+            "does not prove an action that leaves no visible result."
+        )
+    return (
+        "\nLOCATION/PHOTO PROOF MODE — HARD REQUIREMENT: Location proves physical "
+        "presence at the assigned venue only; set its proofObligations to exactly "
+        "[\"presence\"]. Photo proves only a concrete visible result; set its "
+        "proofObligations to exactly [\"visible_result\"] and provide the same "
+        "specific expectedPhotoEvidence in the step and evidence object. Do not "
+        "assign action_completion to location or photo, and do not make an action "
+        "without one of those verifiable outcomes required for XP. If a fun action "
+        "is not verifiable, present it only as optional, not as a completion condition."
+    )
 
 
 def call_gemini(preferences, selected_destination=None, *, previous_quest=None):
@@ -286,10 +323,12 @@ def call_gemini(preferences, selected_destination=None, *, previous_quest=None):
     allowed_proofs = ", ".join(preferences.proofOptions)
     instruction += (
         f"\nUse only these requested stepProofMethods: {allowed_proofs}. Choose exactly one "
-        "method per step. 'location' requires reaching the destination and is eligible for XP. "
-        "'photo' uses a submitted image as alternative XP evidence and must name a visible result "
-        "that can be assessed. 'recreation' is fun-only, needs no evidence, and is not eligible for XP. "
+        "method per step. 'location' is eligible for XP but proves presence only; "
+        "'photo' is eligible for XP only for a concrete visible result; 'recreation' "
+        "is fun-only, needs no evidence, and is not eligible for XP. "
         "If recreation is the only selected option, use it for every step."
+        + (_proof_mode_instructions(preferences.proofOptions)
+           if "recreation" not in preferences.proofOptions else "")
     )
     body = {
         "systemInstruction": {"parts": [{"text": instruction}]},

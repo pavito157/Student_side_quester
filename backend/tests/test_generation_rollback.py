@@ -79,7 +79,7 @@ class GenerationRollbackTests(unittest.TestCase):
                 generation.validate_step_evidence(['Complete a workout'], [method], [
                     StepProofEvidence(proofObligations=['action_completion'], expectedPhotoEvidence='A workout selfie'),
                 ], [method])
-            self.assertEqual(caught.exception.status_code, 409)
+            self.assertEqual(caught.exception.status_code, 502)
             self.assertEqual(caught.exception.detail['code'], 'proof_incompatible')
 
     def test_recreation_keeps_action_steps_without_changing_proof_methods(self):
@@ -88,7 +88,7 @@ class GenerationRollbackTests(unittest.TestCase):
         ], ['recreation'])
 
     def test_missing_evidence_or_photo_description_fails_closed(self):
-        for evidence, status in [([], 502), ([StepProofEvidence(proofObligations=['visible_result'])], 409)]:
+        for evidence, status in [([], 502), ([StepProofEvidence(proofObligations=['visible_result'])], 502)]:
             with self.subTest(status=status), self.assertRaises(HTTPException) as caught:
                 generation.validate_step_evidence(['Create a drawing'], ['photo'], evidence, ['photo'])
             self.assertEqual(caught.exception.status_code, status)

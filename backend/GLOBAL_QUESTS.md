@@ -1,16 +1,17 @@
 # Global quests
 
 Global quests are organization events that users can add to one of their three personal quest slots.
-Both user XP and residence XP are awarded once per event, in the same Firestore transaction
-as the attendance record. Repeated and concurrent check-ins cannot award twice.
+Check-ins record a once-per-user claim, but browser-reported GPS is not trustworthy attendance
+proof. Global-event XP is therefore disabled (the API returns `xpAwarded: 0`) until a
+server-verifiable attendance signal is available.
 
 ## Access and storage
 
 - `Organizations/{organizationId}`: `name`, `isActive`, `adminUserIds` (Firebase/Clerk bridge UIDs).
 - `GlobalQuests/{eventId}`: event title, description, organization ID/name, canonical venue GPS,
-  timezone-aware start/end, XP reward, radius, GPS accuracy, grace window, verification mode.
-- `Users/{uid}/globalQuestCompletions/{eventId}`: immutable award receipt with event ID, UID,
-  completion timestamp, organization ID, awarded XP. Exact GPS is not stored.
+  timezone-aware start/end, configured attendance window and GPS accuracy limits.
+- `Users/{uid}/globalQuestCompletions/{eventId}`: immutable check-in receipt with event ID, UID,
+  completion timestamp, organization ID and zero XP. Exact GPS is not stored.
 
 Run `python -m backend.scripts.seed_global_quest_admins` with backend credentials to grant
 only the two requested test admins membership in `Organizations/campus-events`. This is an
@@ -18,12 +19,12 @@ explicit operator action, not a sign-in hook or a hardcoded runtime authorizatio
 The existing member list is preserved. Revoking membership prevents publishing immediately.
 The test organization is named Campus Events; its name can be edited by a trusted operator.
 
-**Database rules are required:** browser writes to Organizations, GlobalQuests and attendance
-receipts must be denied, including for admins. All operations use FastAPI with Firebase ID
-tokens. `security/firestore-global-quests.rules` is a scoped migration from the project's
-inspected development allow-all rules. It intentionally preserves unrelated legacy rules;
-it is not a complete production security policy. Do not deploy blindly over newer rules.
-Rule deployment requires explicit approval and a backup of the current release.
+**Database rules are required:** browser writes to Organizations, GlobalQuests, active quests,
+XP and check-in receipts must be denied, including for admins. All operations use FastAPI with
+Firebase ID tokens. `security/firestore-global-quests.rules` is now a deny-by-default policy
+that permits only owner-scoped profile/preferences, vibe operations and active-quest reads.
+The checked-in file does not establish what policy is live in Firebase; review the current
+release and back it up before deploying this ruleset.
 
 ## API
 
@@ -39,9 +40,8 @@ All endpoints require the existing verified Firebase ID token in `Authorization:
   and after start, within seven days. Frontend times are local, converted to UTC before POST.
 - `POST /global-quests/{eventId}/check-in`: `{latitude, longitude, accuracy}` for GPS events.
   Uses server time on each transaction attempt; requires distance + GPS accuracy <= radius,
-  and accuracy <= the saved maximum. Missing GPS: 422; too far/imprecise: 400;
-  outside time/already checked in/missing residence: 409. Success:
-  `{eventId, status: "completed", xpAwarded: 25, distanceMeters}`.
+  and accuracy <= the saved maximum. These client-provided coordinates are spoofable and
+  do not award XP. Success: `{eventId, status: "completed", xpAwarded: 0, distanceMeters}`.
 
 ```json
 {
@@ -57,8 +57,8 @@ All endpoints require the existing verified Firebase ID token in `Authorization:
 ```
 
 No arbitrary `userId`, `createdBy`, `xpReward`, radius, verification mode or timestamps of check-in are
-accepted from the browser. Reward is always chosen by server configuration (25 XP by default),
-never an organization admin. Supplying `xpReward` in creation JSON returns 422. Admins are responsible for the event/venue accuracy; this flow does not invoke
+accepted from the browser. Event XP is disabled because venue presence is based on client GPS.
+Supplying `xpReward` in creation JSON returns 422. Admins are responsible for the event/venue accuracy; this flow does not invoke
 Gemini at publication time, restrict manually created events to the city boundary, or claim to verify the hosting organization's identity. Gemini creates shared instructions on first acceptance.
 GPS reports are browser-provided, as with personal quests; they are not spoof-proof attendance.
 
@@ -66,14 +66,13 @@ GPS reports are browser-provided, as with personal quests; they are not spoof-pr
 
 In ignored root `.env`, also documented in `.env.example`:
 
-- `GLOBAL_QUEST_DEFAULT_XP=25`
 - `GLOBAL_QUEST_RADIUS_METERS=100`
 - `GLOBAL_QUEST_MAX_ACCURACY_METERS=50`
 - `GLOBAL_QUEST_GRACE_MINUTES=0` (before and after the scheduled window)
 - `GLOBAL_QUEST_VERIFICATION_MODE=gps` (`honor` explicitly disables GPS; time is always checked)
 
-Settings are snapshotted per event, so changes only affect newly published quests. Existing
-rewards/windows are immutable through this first version of the API. No event editing/cancel
+Attendance settings are snapshotted per event, so changes only affect newly published quests.
+Legacy event reward values are ignored and exposed as zero. No event editing/cancel
 UI is included yet; a trusted database operator can remove an erroneous event. Invalid
 configuration fails closed. There is no automatic XP expiry. Accepting an event reserves one personal slot.
 
@@ -81,11 +80,10 @@ configuration fails closed. There is no automatic XP expiry. Accepting an event 
 
 1. Restart FastAPI after pulling; refresh the frontend. A supplied admin sees Create Global
    Quest near the bottom. A regular account sees the event feed but no creation control.
-2. Publish an event using a selected venue, a window spanning now, and 25 XP. Another
+2. Publish an event using a selected venue and a window spanning now. Another
    signed-in user sees the same event after Refresh events. No real event is pre-seeded.
-3. Add the event to My quests and open its detail page. Check in at the venue with precise GPS during the window. Verify one +25 update to the
-   user and dorm and one attendance receipt. Reload and retry: no second award.
-4. Try outside the time window, far from the venue, denied GPS and poor accuracy: no XP.
+3. Add the event to My quests and open its detail page. Check in at the venue with precise GPS during the window. Verify one zero-XP claim receipt and no balance changes. Reload and retry: no second claim.
+4. Try outside the time window, far from the venue, denied GPS and poor accuracy: no check-in or XP.
 5. Create a future event: it can be added early, but server check-in requires its scheduled window. Server rejects
    forged early requests regardless of the browser clock.
 6. Call POST without auth (401), with a non-admin token (403), or with an extra UID/reward in
@@ -103,7 +101,7 @@ The two supplied admin memberships were written and read back successfully in th
 `studentsidequest` project. With explicit user approval, the scoped rules were deployed.
 Public REST reads returned 403 for Organizations, GlobalQuests and completion receipts;
 legacy profile/vibe probe paths retained their prior policy (404 for absent documents).
-Both admins' real feeds were read successfully (one organization, zero events, 25 XP default).
+Both admins' real feeds were read successfully (one organization, zero events, 25 XP default at that time).
 No real events were published and no real XP was awarded during validation.
 
 Full validation: 253 backend tests (including real local Firestore transactions), 93 frontend

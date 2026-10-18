@@ -3,7 +3,7 @@ import unittest
 import uuid
 from datetime import datetime, timezone, timedelta
 from concurrent.futures import ThreadPoolExecutor
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
@@ -36,9 +36,9 @@ class GlobalQuestRouteTests(unittest.TestCase):
 
     def test_defaults_are_configurable_and_fail_closed(self):
         with patch.dict(os.environ, {"GLOBAL_QUEST_DEFAULT_XP": "40", "GLOBAL_QUEST_RADIUS_METERS": "75"}):
-            self.assertEqual(g.default_policy().xpReward, 40)
+            self.assertEqual(g.default_policy().xpReward, 0)
             self.assertEqual(g.default_policy().radiusMeters, 75)
-        for key, value in [("GLOBAL_QUEST_DEFAULT_XP", "-1"), ("GLOBAL_QUEST_VERIFICATION_MODE", "bad"), ("GLOBAL_QUEST_GRACE_MINUTES", "300")]:
+        for key, value in [("GLOBAL_QUEST_VERIFICATION_MODE", "bad"), ("GLOBAL_QUEST_GRACE_MINUTES", "300")]:
             with patch.dict(os.environ, {key: value}), self.assertRaises(HTTPException):
                 g.default_policy()
 
@@ -69,7 +69,7 @@ class GlobalQuestRouteTests(unittest.TestCase):
             "status": "published",
             "questTemplate": {
                 "description": "Internal generation template",
-                "steps": ["Do not expose this"],
+                "steps": ["Meet the group.", "Learn about the next event."],
             },
         }
         self.db.collection.return_value.where.return_value.order_by.return_value.stream.return_value = [snapshot]
@@ -84,6 +84,7 @@ class GlobalQuestRouteTests(unittest.TestCase):
         self.assertEqual(event["latitude"], 29.65)
         self.assertEqual(event["longitude"], -82.34)
         self.assertEqual(event["locationName"], "Campus meeting room")
+        self.assertEqual(event["xpReward"], 0)
         self.assertNotIn("createdBy", event)
         self.assertNotIn("createdAt", event)
         self.assertNotIn("radiusMeters", event)
@@ -101,9 +102,12 @@ class GlobalQuestRouteTests(unittest.TestCase):
             "createdBy": "private-admin-id",
             "createdAt": NOW,
             "status": "published",
-            "questTemplate": {"steps": ["Internal-only step"]},
+            "questTemplate": {
+                "description": "Internal instructions.",
+                "steps": ["Internal-only step.", "Keep this private."],
+            },
         }
-        self.db.collection.return_value.where.return_value.order_by.return_value.limit.return_value.stream.return_value = [snapshot]
+        self.db.collection.return_value.where.return_value.order_by.return_value.stream.return_value = [snapshot]
 
         with (
             patch.object(g, "utc_now", return_value=NOW),
@@ -112,6 +116,7 @@ class GlobalQuestRouteTests(unittest.TestCase):
             result = g.list_events("verified-user", self.db)
 
         self.assertEqual(result["quests"][0]["id"], snapshot.id)
+        self.assertEqual(result["quests"][0]["xpReward"], 0)
         self.assertNotIn("questTemplate", result["quests"][0])
 
     def test_public_detail_is_allowlisted_and_rejects_cancelled_or_missing_events(self):
@@ -150,6 +155,50 @@ class GlobalQuestRouteTests(unittest.TestCase):
             response = self.client.request(method, path, **({"json": body} if body is not None else {}))
             self.assertEqual(response.status_code, 401)
 
+    def test_legacy_event_reward_cannot_award_xp_from_client_gps(self):
+        collections = {name: Mock() for name in (g.EVENTS, g.USERS, "dorms")}
+        db = Mock()
+        db.collection.side_effect = lambda name: collections[name]
+        event_ref = collections[g.EVENTS].document.return_value
+        event_snapshot = Mock(exists=True)
+        event_snapshot.to_dict.return_value = {
+            **payload().model_dump(), **g.default_policy().model_dump(),
+            "id": "legacy-event", "organizationName": "Campus Events",
+            "createdBy": "admin", "createdAt": NOW, "xpReward": 25,
+        }
+        event_ref.get.return_value = event_snapshot
+
+        user_ref = collections[g.USERS].document.return_value
+        claim_collection, sidequest_collection = Mock(), Mock()
+        user_ref.collection.side_effect = lambda name: (
+            claim_collection if name == g.CLAIMS else sidequest_collection
+        )
+        claim_ref = claim_collection.document.return_value
+        claim_ref.get.return_value.exists = False
+        sidequest_collection.document.return_value.get.return_value.exists = False
+        profile = Mock(exists=True)
+        profile.to_dict.return_value = {"xp": 10, "dormId": "off_campus"}
+        user_ref.get.return_value = profile
+
+        dorm_ref = collections["dorms"].document.return_value
+        dorm_snapshot = Mock(exists=True)
+        dorm_snapshot.to_dict.return_value = {"xp": 100}
+        dorm_ref.get.return_value = dorm_snapshot
+        transaction = Mock()
+        db.transaction.return_value = transaction
+
+        with patch.object(g, "utc_now", return_value=NOW), \
+                patch.object(g.firestore, "transactional", side_effect=lambda callback: callback):
+            result = g.check_in(
+                db, "verified-user", "legacy-event",
+                g.CheckIn(latitude=29.65, longitude=-82.34, accuracy=10),
+            )
+
+        self.assertEqual(result["xpAwarded"], 0)
+        self.assertEqual(transaction.create.call_args.args[1]["xpAwarded"], 0)
+        self.assertIn(call(user_ref, {"xp": 10}), transaction.update.call_args_list)
+        self.assertIn(call(dorm_ref, {"xp": 100}), transaction.update.call_args_list)
+
 
 @unittest.skipUnless(os.environ.get("FIRESTORE_EMULATOR_HOST"), "Local emulator required")
 class GlobalQuestEmulatorTests(unittest.TestCase):
@@ -175,7 +224,7 @@ class GlobalQuestEmulatorTests(unittest.TestCase):
         self.clock = patch.object(g, "utc_now", return_value=NOW)
         self.clock.start(); self.addCleanup(self.clock.stop)
         self.env = patch.dict(os.environ, {
-            "GLOBAL_QUEST_DEFAULT_XP": "25", "GLOBAL_QUEST_RADIUS_METERS": "100",
+            "GLOBAL_QUEST_RADIUS_METERS": "100",
             "GLOBAL_QUEST_MAX_ACCURACY_METERS": "50", "GLOBAL_QUEST_VERIFICATION_MODE": "gps", "GLOBAL_QUEST_GRACE_MINUTES": "0",
         })
         self.env.start(); self.addCleanup(self.env.stop)
@@ -193,14 +242,14 @@ class GlobalQuestEmulatorTests(unittest.TestCase):
         personal = self.user_ref.collection("sidequests").document("unchanged")
         personal.set({"title": "Personal quest"}); self.addCleanup(personal.delete)
         result = g.check_in(self.db, self.uid, self.event.id, self.position)
-        self.assertEqual(result["xpAwarded"], 25)
-        self.assertEqual(self.balances(), (35, 125))
+        self.assertEqual(result["xpAwarded"], 0)
+        self.assertEqual(self.balances(), (10, 100))
         self.assertTrue(personal.get().exists)
         self.assertEqual(self.user_ref.get().to_dict()["preferences"], "Keep me")
         with self.assertRaises(HTTPException) as caught:
             g.check_in(self.db, self.uid, self.event.id, self.position)
         self.assertEqual(caught.exception.status_code, 409)
-        self.assertEqual(self.balances(), (35, 125))
+        self.assertEqual(self.balances(), (10, 100))
 
     def test_concurrent_check_ins_award_exactly_once(self):
         def attempt():
@@ -209,7 +258,7 @@ class GlobalQuestEmulatorTests(unittest.TestCase):
         with ThreadPoolExecutor(max_workers=2) as pool:
             results = list(pool.map(lambda _: attempt(), range(2)))
         self.assertCountEqual(results, ["completed", 409])
-        self.assertEqual(self.balances(), (35, 125))
+        self.assertEqual(self.balances(), (10, 100))
 
     def test_server_time_rejects_early_and_late_without_writes(self):
         for now in [self.event.startsAt - timedelta(seconds=1), self.event.endsAt + timedelta(seconds=1)]:
@@ -233,7 +282,8 @@ class GlobalQuestEmulatorTests(unittest.TestCase):
         self.addCleanup(self.db.collection(g.EVENTS).document(event.id).delete)
         self.addCleanup(self.user_ref.collection(g.CLAIMS).document(event.id).delete)
         self.assertEqual(self.event.verificationMode, "gps")
-        self.assertEqual(g.check_in(self.db, self.uid, event.id, g.CheckIn())["xpAwarded"], 40)
+        self.assertEqual(event.xpReward, 0)
+        self.assertEqual(g.check_in(self.db, self.uid, event.id, g.CheckIn())["xpAwarded"], 0)
 
     def test_non_admin_and_revoked_admin_cannot_publish(self):
         for uid in ["not-an-admin", self.uid]:

@@ -1,18 +1,82 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Preserve the pre-existing development policy outside the new feature.
-    // TODO: harden these legacy paths in a separate owner-scoped rules rollout.
-    match /{collection}/{document=**} {
-      allow read, write: if !(collection in ['Organizations', 'GlobalQuests', 'Users']);
+    function ownsUser(userId) {
+      return request.auth != null && request.auth.uid == userId;
     }
+
     match /Users/{userId} {
-      allow read, write: if true;
-      match /{subcollection}/{document=**} {
-        allow read, write: if subcollection != 'globalQuestCompletions';
+      allow read: if ownsUser(userId);
+      allow create: if ownsUser(userId)
+        && request.resource.data.keys().hasOnly(['preferences', 'goals'])
+        && (!('preferences' in request.resource.data)
+          || request.resource.data.preferences is string
+            && request.resource.data.preferences.size() <= 4000)
+        && (!('goals' in request.resource.data)
+          || request.resource.data.goals is list
+            && request.resource.data.goals.size() <= 20);
+      allow update: if ownsUser(userId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['preferences', 'goals'])
+        && (!('preferences' in request.resource.data)
+          || request.resource.data.preferences is string
+            && request.resource.data.preferences.size() <= 4000)
+        && (!('goals' in request.resource.data)
+          || request.resource.data.goals is list
+            && request.resource.data.goals.size() <= 20);
+      allow delete: if false;
+
+      match /sidequests/{questId} {
+        allow read: if ownsUser(userId);
+        allow write: if false;
+      }
+
+      match /vibes/{vibeId} {
+        allow read: if ownsUser(userId);
+        allow create: if ownsUser(userId)
+          && request.resource.data.keys().hasOnly([
+            'name', 'preferences', 'where', 'time', 'budget', 'distance',
+            'customTime', 'customBudget', 'customDistance', 'createdAt', 'updatedAt'
+          ])
+          && request.resource.data.keys().hasAll([
+            'name', 'preferences', 'where', 'time', 'budget', 'createdAt', 'updatedAt'
+          ])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() <= 100
+          && request.resource.data.preferences is string
+          && request.resource.data.preferences.size() <= 4000
+          && request.resource.data.where is string
+          && request.resource.data.where.size() <= 300
+          && request.resource.data.time is string
+          && request.resource.data.budget is string
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.updatedAt is timestamp;
+        allow update: if ownsUser(userId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'name', 'preferences', 'where', 'time', 'budget', 'distance',
+            'customTime', 'customBudget', 'customDistance', 'updatedAt'
+          ])
+          && request.resource.data.keys().hasOnly([
+            'name', 'preferences', 'where', 'time', 'budget', 'distance',
+            'customTime', 'customBudget', 'customDistance', 'createdAt', 'updatedAt'
+          ])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() <= 100
+          && request.resource.data.preferences is string
+          && request.resource.data.preferences.size() <= 4000
+          && request.resource.data.where is string
+          && request.resource.data.where.size() <= 300
+          && request.resource.data.time is string
+          && request.resource.data.budget is string
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.updatedAt is timestamp;
+        allow delete: if ownsUser(userId);
       }
     }
-    // No client grants for Organizations, GlobalQuests, or completion records.
-    // They are accessible only through FastAPI's Admin SDK.
+
+    // All XP, organization, global-event and other records are server-managed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
   }
 }

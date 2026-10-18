@@ -4,9 +4,10 @@ This section supersedes the single-active/replacement behavior in the historical
 integration notes below. Sidequest me and Generate another now **add** quests,
 up to three active quests total. They never replace an existing quest. Each card
 in Quick menu opens its own description, steps, original request, verified map,
-XP reward, GPS completion and confirmed Abandon controls. Completing/abandoning
-one removes only that quest and frees a slot. Generation/abandonment awards no XP;
-completion still awards user and dorm XP once with the existing GPS checks.
+proof-dependent XP estimate, GPS presence check and confirmed Abandon controls.
+Completing/abandoning one removes only that quest and frees a slot.
+Generation/abandonment awards no XP; GPS-only completion awards no XP, while
+accepted photo proof may award XP to the user and dorm.
 
 - `POST /quests/assign`: HTTP 201, unchanged saved-assignment JSON.
 - `POST /quests/{quest.id}/another`: HTTP 201, same JSON, source remains active.
@@ -26,9 +27,10 @@ remaining slots are based on the active list, never that counter.
 Manual test: refresh, generate until three active cards appear in Quick menu,
 select each and read its contents/steps. Refresh again. Abandon the second card;
 confirm only it disappears, XP is unchanged, and another generation is allowed.
-At three, Generate another is disabled and direct POSTs return 429. GPS completion
-of one selected quest awards its stored user/dorm reward once and leaves the
-other quests intact. After an ambiguous network error, reload the list before
+At three, Generate another is disabled and direct POSTs return 429. Completing
+one selected quest with accepted photo proof can award XP once and leaves the
+other quests intact. GPS-only completion records progress without an XP award.
+After an ambiguous network error, reload the list before
 retrying a POST, since it may already have committed.
 
 Validation: 209 backend tests passed with local Firestore emulator transactions;

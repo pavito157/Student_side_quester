@@ -45,13 +45,13 @@ function stopXpReward(
     (stepIndex) => stepDestinationIndexes[stepIndex] === index,
   )
   if (totalStops === 1) {
-    return proofMethods.some((method) => method !== 'recreation') && skippedPhotoSteps.length === 0
+    return proofMethods.includes('photo') && skippedPhotoSteps.length === 0
       ? totalXp : 0
   }
   const eligibleStops = Array.from({ length: totalStops }, (_, stopIndex) => stopIndex)
     .filter((stopIndex) => stepDestinationIndexes.some(
       (destinationIndex, stepIndex) => destinationIndex === stopIndex
-        && proofMethods[stepIndex] !== 'recreation',
+        && proofMethods[stepIndex] === 'photo',
     ))
   const rewardIndex = eligibleStops.indexOf(index)
   return rewardIndex < 0 || skippedThisStop || stopStepIndexes.length === 0
@@ -85,9 +85,9 @@ function getRewardProgress(
       ), 0,
     )
   const eligibleXp = totalStops === 1
-    ? proofMethods.some((method) => method !== 'recreation') ? totalXp : 0
+    ? proofMethods.includes('photo') ? totalXp : 0
     : stepDestinationIndexes.some((stopIndex) => stepDestinationIndexes.some(
-      (mappedStop, stepIndex) => mappedStop === stopIndex && proofMethods[stepIndex] !== 'recreation',
+      (mappedStop, stepIndex) => mappedStop === stopIndex && proofMethods[stepIndex] === 'photo',
     )) ? totalXp : 0
   return { earnedXp, nextStopXp, remainingXp: eligibleXp - earnedXp - forfeitedXp, forfeitedXp, eligibleXp }
 }
@@ -208,15 +208,21 @@ function SidequestDetailPage({
     try {
       const progress = await completeSidequest(userId, sidequestId, stopIndex, needsLocationForNextStep)
       if (progress.status === 'completed') {
-        setCompletionMessage(`Sidequest completed. You earned ${progress.xpAwardedSoFar} XP in total.`)
+        setCompletionMessage(progress.xpAwardedSoFar > 0
+          ? `Sidequest completed. You earned ${progress.xpAwardedSoFar} XP in total.`
+          : state.status === 'ready' && state.sidequest.sourceGlobalEventId
+            ? 'Event check-in recorded. It does not verify attendance or award XP.'
+            : 'Sidequest completed. No XP was awarded because this quest has no accepted photo proof.')
         setStoredState({ key: routeKey, status: 'not-found' })
       } else if (state.status === 'ready') {
         const skippedThisStop = state.sidequest.skippedPhotoSteps.some(
           (stepIndex) => state.sidequest.stepDestinationIndexes[stepIndex] === stopIndex,
         )
-        setCompletionMessage(progress.xpAwarded === 0 && skippedThisStop
-          ? `Stop ${stopIndex + 1} complete. No XP was awarded because photo proof was skipped.`
-          : `Stop ${stopIndex + 1} complete. You earned ${progress.xpAwarded} XP.`)
+        setCompletionMessage(progress.xpAwarded > 0
+          ? `Stop ${stopIndex + 1} complete. You earned ${progress.xpAwarded} XP.`
+          : skippedThisStop
+            ? `Stop ${stopIndex + 1} complete. No XP was awarded because photo proof was skipped.`
+            : `Stop ${stopIndex + 1} complete. No XP is available for this stop with its selected verification.`)
         setStoredState({
           key: routeKey,
           status: 'ready',
@@ -589,9 +595,9 @@ function SidequestDetailPage({
                             <p className="pt-1 text-sm leading-relaxed">{step}</p>
                             <p className="mt-1 text-xs font-semibold" style={{ color: colors.muted }}>
                               {sidequest.stepProofMethods[index] === 'photo'
-                                ? 'Photo verification · XP eligible'
+                                ? 'Photo verification · XP eligible after acceptance'
                                 : sidequest.stepProofMethods[index] === 'location'
-                                  ? 'Location verification · XP eligible'
+                                  ? 'Location check · presence only · no XP'
                                   : 'Recreation · no verification or XP'}
                             </p>
                             {sidequest.stepProofMethods[index] === 'photo' && (
@@ -675,7 +681,13 @@ function SidequestDetailPage({
                         backgroundColor: colors.errorBackground,
                       }}
                     >
-                      {sidequest.xpValue > 0 ? `+${sidequest.xpValue} XP` : 'Recreation · no XP'}
+                      {sidequest.xpValue > 0 && rewardProgress?.eligibleXp
+                        ? `Up to +${sidequest.xpValue} XP`
+                        : sidequest.sourceGlobalEventId
+                          ? 'Event check-in · no XP'
+                          : sidequest.stepProofMethods.includes('photo')
+                            ? 'Photo proof needed for XP'
+                            : 'No XP · location/recreation'}
                     </span>
                   </div>
                   <dl className="mt-4">
@@ -695,7 +707,9 @@ function SidequestDetailPage({
                       <div className="flex items-center justify-between gap-3 text-sm">
                         <span className="font-semibold">XP reward</span>
                         <span className="font-black" style={{ color: colors.secondary }}>
-                          {rewardProgress.earnedXp} / {sidequest.xpValue} XP earned
+                          {sidequest.xpValue > 0
+                            ? `${rewardProgress.earnedXp} / ${sidequest.xpValue} XP earned`
+                            : 'No XP available'}
                         </span>
                       </div>
                       {sidequest.xpValue > 0 && (
@@ -719,7 +733,13 @@ function SidequestDetailPage({
                       )}
                       <p className="mt-2 text-xs leading-relaxed" style={{ color: colors.muted }}>
                         {rewardProgress.eligibleXp === 0
-                          ? 'This recreation-only quest is for fun and does not award XP.'
+                          ? sidequest.sourceGlobalEventId
+                            ? 'Event check-ins record a claim but do not award XP until attendance can be verified by a trusted signal.'
+                            : sidequest.stepProofMethods.some((method) => method === 'photo')
+                              ? 'No XP is available because photo proof was skipped.'
+                              : sidequest.stepProofMethods.every((method) => method === 'recreation')
+                                ? 'This recreation-only quest is for fun and does not award XP.'
+                                : 'GPS checks presence only. Accepted photo proof is required to earn personal quest XP.'
                           : nextStopIndex >= sidequestStops.length
                             ? 'All XP for this sidequest has been earned.'
                             : rewardProgress.nextStopXp > 0

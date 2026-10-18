@@ -67,12 +67,12 @@ least one ordered action; multiple actions may share a stop. The
 `stepDestinationIndexes` array maps every action to its zero-based route stop.
 Stops are not forced to be nearest-first; each must contribute purposefully to
 the mission. Actions and route length scale to the time, budget, and objective.
-Each completed stop awards its share of saved XP when its action proofs are
-eligible; recreation-only stops award no XP. Photo proof is an alternative to
-location proof, is reviewed
-by Gemini, and only accepted step indexes are retained. Image bytes are never
-persisted. A user may skip a required photo when unable to take one; completing
-that single-stop quest or multi-stop stop then awards no XP.
+Only stops with accepted photo proof award their share of saved XP; location-only
+and recreation-only stops award no XP because browser GPS is spoofable and
+recreation has no verified outcome. Photo proof is reviewed by Gemini, and only
+accepted step indexes are retained. Image bytes are never persisted. A user may
+skip a required photo when unable to take one; completing that quest/stop then
+awards no XP.
 
 Response example/schema: `contracts/assignment.response.example.json` and
 `assignment.response.schema.json`. The example is illustrative, not seeded data.
@@ -107,8 +107,9 @@ review, then stores only `verifiedPhotoSteps` on acceptance. Rejected images
 are not stored. `skip-photo-proof` records only the skipped step index. The
 completion transaction requires accepted or skipped status for each photo step;
 skipping forfeits the single quest's XP, or the current multi-stop stop's XP.
-Location proof still uses fresh GPS. Photo and recreation methods do not require
-GPS; recreation is always fun-only and cannot earn XP.
+Location proof still uses fresh GPS for presence checks but does not award XP.
+Photo and recreation methods do not require GPS; recreation is always fun-only
+and cannot earn XP.
 
 `reusedExisting: false` accompanies new assignments (HTTP 201). Read endpoints
 set it to true for already saved quests. Each POST creates an independent quest;
@@ -222,9 +223,10 @@ with 409. Global collections are no longer written for new generated quests.
 The active list and detail page subscribe to this user subcollection and display
 the generated title, description, steps, verified destination, estimates and XP.
 There is no timed expiration of backend assignments. Completion gets a fresh
-browser GPS reading and calls FastAPI. Following the latest main behavior, one
-transaction deletes the completed assignment, clears its active pointer, and
-awards user/dorm XP once. Replaying a deleted quest returns 404 without XP.
+browser GPS reading and calls FastAPI. One transaction deletes the completed
+assignment and clears its active pointer. Only accepted photo proof awards
+user/dorm XP; location-only completion awards zero. Replaying a deleted quest
+returns 404 without XP.
 Abandon explicitly deletes only the selected active assignment without XP.
 Generate another keeps all existing quests active. Completing or abandoning any
 one frees a slot; the other quests remain viewable and actionable.

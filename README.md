@@ -28,9 +28,10 @@ ordinary afternoon feel like a small adventure.
 - **Personalized to the person and the moment.** Time, budget, interests, goals,
   vibe, and distance can shape the activity. A multi-stop option can build an
   ordered route from verified places.
-- **Designed to be completed.** Location and photo proof can support XP-eligible
-  steps; recreation-only quests are available for fun without verification or
-  XP. Estimates are checked against selected time and budget bounds.
+- **Designed to be completed.** GPS checks presence, while only accepted photo
+  evidence can support personal quest XP. Recreation-only quests are available
+  for fun without verification or XP. Estimates are checked against selected
+  time and budget bounds.
 - **Progress with a community angle.** Students can save quests, track active
   sidequests, earn XP for eligible completion, and compare individual or dorm
   leaderboards.
@@ -43,7 +44,8 @@ ordinary afternoon feel like a small adventure.
    routes and verification methods.
 4. Generate a sidequest. Guests see an unsaved preview; signed-in students can
    save it to their account.
-5. Follow the quest and complete its proof requirements to earn eligible XP.
+5. Follow the quest; accepted photo proof can earn personal quest XP. GPS checks
+   presence only, and organization-event check-ins currently award no XP.
 
 > Quest duration and cost are estimates, not guarantees. A verified destination
 > confirms the place and its location; GPS proximity does not prove that an
@@ -57,7 +59,7 @@ ordinary afternoon feel like a small adventure.
 | Verified destinations | Discover Gainesville places and check them against a city-limit boundary |
 | Multi-stop quests | Request an ordered route of verified destinations with steps mapped to each stop |
 | Quest progress | Keep up to three active personal quests, view details, and complete or abandon them |
-| Proof and XP | Use location or reviewed photo proof for eligible steps; choose recreation-only quests with no XP |
+| Proof and XP | Use GPS for presence checks and reviewed photo proof for personal XP; choose recreation-only quests with no XP |
 | Leaderboards | Compare individual XP or aggregate XP by UF residence |
 | Vibes and preferences | Save preferences and goals, then reuse a vibe to quickly shape a quest |
 | Organization board | Browse published public organization quests and accept an individualized version |
@@ -80,9 +82,17 @@ residence catalog, including “Off campus.”
 - Kept progress rules server-owned. Firestore transactions protect quest
   assignment and XP updates, including duplicate completion attempts; guests
   can try unsaved previews without receiving XP.
-- Implemented selectable proof methods. GPS proximity can verify presence;
-  Gemini can review an ephemeral photo for photo-eligible steps. Recreation-only
-  quests are available without proof or XP.
+- Implemented selectable proof methods. GPS proximity can check presence but
+  cannot award XP on its own; Gemini reviews ephemeral photos for XP-eligible
+  personal steps. Recreation-only quests are available without proof or XP.
+- Hardened Firestore access with a deny-by-default ruleset: users can access
+  their own profile, active quest reads, and saved vibes, while XP and quest
+  writes remain server-managed. The checked-in rules still need a reviewed
+  deployment before they can be treated as the live project's policy.
+- Kept Gemini's reviewer instructions separate from JSON-encoded, untrusted
+  quest text and the submitted image; malformed review output fails closed.
+  Global-event GPS check-ins currently award no XP until attendance can be
+  verified by a trusted server-side signal.
 - Connected Clerk sign-in to Firebase Auth with a backend-verified identity
   bridge, then use Firebase ID tokens for authenticated API calls.
 - Built individual and residence leaderboards, organization-published quest
@@ -151,10 +161,21 @@ in the API docs and the linked backend guides below.
 
 ### XP integrity
 
-Quest generation and saving do not award XP. Eligible completion is handled
-server-side in a Firestore transaction: quest progress and the user's and dorm's
-XP updates commit together, and a completed stop cannot be awarded twice.
-Multi-stop quests award their eligible share as stops are completed.
+Quest generation and saving do not award XP. XP-eligible photo completion is handled server-side in a Firestore transaction:
+quest progress and the user's and dorm's XP updates commit together, and a
+completed stop cannot be awarded twice. GPS-only and recreation-only completion
+can update quest progress but do not award XP. Global-event check-ins likewise
+award no XP while attendance depends on browser-reported GPS.
+
+### Security notes
+
+The backend receives identity from verified Firebase tokens, not request bodies,
+and Firebase Admin performs XP updates. Browser Firestore access is scoped to a
+student's own profile/preferences, saved vibes, and active-quest reads; other
+collections and client-side quest writes are denied by the checked-in policy at
+[`backend/security/firestore-global-quests.rules`](./backend/security/firestore-global-quests.rules).
+Review and deploy that ruleset through the project's normal release process; the
+repository copy alone does not confirm the currently deployed policy.
 
 ### Destination integrity
 

@@ -76,7 +76,7 @@ test('single campus event map uses GlobalQuests coordinates and marks current lo
   assert.ok(board.indexOf('<GlobalQuestMap quests={mapQuests ?? []} activeQuests={activeQuests} />') > board.indexOf('{currentFeed?.quests.map'))
   assert.equal((board.match(/<GlobalQuestMap/g) ?? []).length,1)
   assert.match(component,/position: \{ lat: quest\.latitude, lng: quest\.longitude \}/)
-  assert.match(component,/quest\.xpReward/)
+  assert.match(component,/attendance check-in/)
   assert.match(component,/quest\.locationName/)
   assert.match(component,/navigator\.geolocation\.getCurrentPosition/)
   assert.match(component,/navigateTo\(quest.path\)/)
@@ -107,6 +107,9 @@ async function view(organizations, signedIn=true, activities=null, adminRole='re
     if(name.endsWith('/firebaseSession'))return synthetic({getFirebaseIdToken:async()=> 'token'})
     if(name.endsWith('/OrganizationAdmin'))return synthetic({default:'OrganizationAdmin'})
     if(name.endsWith('/globalQuests'))return synthetic({getGlobalQuests:async()=>({quests:events,organizations,adminRole,defaults:{xpReward:25}}),getPublicGlobalQuests:async()=>[],createGlobalQuest:async()=>{},checkInGlobalQuest:async()=>{}})
+    if(name.endsWith('/AdventureDecor'))return synthetic({
+      PixelBranchIcon:()=>null, PixelCompassIcon:()=>null, PixelHangingVineIcon:()=>null,
+    })
     return synthetic({default:()=>null})
   });await mod.evaluate();const props = activities === null ? {activeQuests,onAcceptGlobalEvent:async()=>{},onAcceptOrganizationQuest:async()=>{}} : {userId:signedIn?'admin':null,activeQuests:[],onAccept:async()=>{}}
   cursor=0;mod.namespace.default(props);effects.forEach(fn=>fn());await new Promise(resolve=>setImmediate(resolve));cursor=0
@@ -119,9 +122,9 @@ test('only organization admins see Create event quest',async()=>{
 })
 
 
-test('event creation shows a fixed reward without an XP input', async () => {
+test('event creation explains attendance check-ins currently have no XP', async () => {
   const tree = await view([{id:'campus-events',name:'Campus Events'}])
-  assert.match(tree, /Attendance reward:/)
+  assert.match(tree, /Event check-ins currently award no XP/)
   assert.doesNotMatch(tree, /"name":"xpReward"/)
   assert.match(tree, /Campus quest board/)
   assert.doesNotMatch(tree, /Organization quest board/)
@@ -185,8 +188,8 @@ test('events can be added before their start and existing event quests remain vi
   assert.match(fullBoard,/View quest/)
   assert.match(fullBoard,/Maximum quests reached \(3\/3\)/)
   assert.doesNotMatch(fullBoard,/All 3 slots full/)
-  assert.match(fullBoard,/\"disabled\":false,\"children\":\"View quest\"/)
+  assert.match(fullBoard,/"disabled":false,"children":"View quest"/)
   active[0].sourceGlobalEventId='gbm'
   assert.match(await view([],true,null,'member',[event],active),/View quest/)
-  assert.match(await view([],true,null,'member',[{...event,completed:true}]),/Completed ✓/)
+  assert.match(await view([],true,null,'member',[{...event,completed:true}]),/Check-in recorded ✓/)
 })

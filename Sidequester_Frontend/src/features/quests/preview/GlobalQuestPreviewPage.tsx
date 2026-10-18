@@ -54,7 +54,7 @@ export default function GlobalQuestPreviewPage({ eventId, activeQuests, slotsLoa
           <dl className="mt-5 space-y-2 text-sm">
             <div><dt className="font-semibold">Venue</dt><dd>{event.locationName}</dd></div>
             <div><dt className="font-semibold">Event time</dt><dd>{new Date(event.startsAt).toLocaleString()} – {new Date(event.endsAt).toLocaleString()}</dd></div>
-            <div><dt className="font-semibold">Reward</dt><dd>+{event.xpReward} XP after verified attendance · once per person</dd></div>
+            <div><dt className="font-semibold">XP</dt><dd>No XP for GPS-based check-ins until attendance can be verified by a trusted signal.</dd></div>
           </dl>
           <h2 className="mt-6 text-lg font-bold">What you’ll do</h2>
           <ol className="mt-3 list-decimal space-y-2 pl-5">

@@ -112,28 +112,28 @@ export default function GlobalQuests({ activeQuests = [], onAcceptGlobalEvent }:
           const existing = activeQuests.find((active) => active.sourceGlobalEventId === quest.id)
           const ended = clock > Date.parse(quest.endsAt) + quest.graceMinutes * 60000
           return <article key={quest.id} className="quest-subpanel p-4">
-            <p className="text-xs font-semibold text-secondary">{quest.organizationName} · Event · +{quest.xpReward} XP</p>
+            <p className="text-xs font-semibold text-secondary">{quest.organizationName} · Event · attendance only · no XP</p>
             <h3 className="mt-1 font-bold text-lg">{quest.title}</h3>
             <p className="mt-2 text-sm whitespace-pre-wrap break-words">{quest.description}</p>
             <p className="mt-3 text-sm font-semibold">{quest.locationName}</p>
             {quest.source === 'uf-calendar' && quest.sourceUrl?.startsWith('https://calendar.ufl.edu/') &&
               <a className="text-sm underline" href={quest.sourceUrl} target="_blank" rel="noreferrer">From UF Calendar ↗</a>}
             <p className="mt-1 text-xs text-muted">{eventDate(quest.startsAt)} – {eventDate(quest.endsAt)}</p>
-            <p className="mt-2 text-xs text-muted">{quest.verificationMode === 'gps' ? `GPS check-in within ${quest.radiusMeters}m during the event.` : 'Confirm attendance during the event.'} One reward per person.</p>
+            <p className="mt-2 text-xs text-muted">{quest.verificationMode === 'gps' ? `GPS presence check within ${quest.radiusMeters}m during the event.` : 'Self-reported attendance check-in during the event.'} Check-ins are not independently verified and do not award XP.</p>
             <div className="mt-4 flex flex-wrap gap-3 items-center">
               <button type="button" className="magic-cta rounded-lg px-4 py-2 text-sm font-semibold" disabled={Boolean(busy) || quest.completed || ended} onClick={() => existing ? navigateTo(`/sidequests/${encodeURIComponent(existing.id)}`) : activeQuests.length >= 3 ? navigateTo(`/global-quests/${encodeURIComponent(quest.id)}`) : void accept(quest)}>
-                {quest.completed ? 'Completed ✓' : existing ? 'View quest' : busy === quest.id ? 'Preparing event quest…' : ended ? 'Event ended' : activeQuests.length >= 3 ? 'View quest' : 'Add to my quests'}
+                {quest.completed ? 'Check-in recorded ✓' : existing ? 'View quest' : busy === quest.id ? 'Preparing event quest…' : ended ? 'Event ended' : activeQuests.length >= 3 ? 'View quest' : 'Add to my quests'}
               </button>
               <a className="text-sm underline" href={`https://www.google.com/maps/search/?api=1&query=${quest.latitude},${quest.longitude}`} target="_blank" rel="noreferrer">View venue ↗</a>
             </div>
           </article>
         })}
       </div>
-      <p className="mt-3 text-xs text-muted">Event quests use one of your three slots. Everyone receives the same event tasks; check in at the venue during its scheduled time.</p>
+      <p className="mt-3 text-xs text-muted">Event quests use one of your three slots. Everyone receives the same event tasks; check-in records a claim but does not verify attendance or award XP.</p>
     </>}
     <div className="mt-5">
       <h3 className="text-sm font-bold">Global quest map</h3>
-      <p className="mt-1 text-xs text-muted">Campus and organization events only. Select an orange XP pin to view a global quest.</p>
+      <p className="mt-1 text-xs text-muted">Campus and organization events only. Select an orange check-in pin to view an event quest.</p>
       {mapQuests === null && !mapError && <p role="status" className="mt-3 text-sm text-muted">Loading event locations…</p>}
       {mapError && <p role="alert" className="mt-3 text-sm" style={{ color: 'var(--color-error)' }}>Event locations could not load: {mapError}</p>}
       <GlobalQuestMap quests={mapQuests ?? []} activeQuests={activeQuests} />
@@ -149,7 +149,7 @@ export default function GlobalQuests({ activeQuests = [], onAcceptGlobalEvent }:
           <label className="block text-sm font-semibold">What’s happening?<textarea name="description" required minLength={10} maxLength={3000} className="global-event-input" rows={3} placeholder="Tell students what to expect and where to meet." /></label>
           <div className="text-sm"><p className="font-semibold mb-2">Event venue</p><WhereButton autoLocate={false} value={location} onChange={(value, point) => { setLocation(value); setCoordinates(point) }} /><p className="mt-1 text-xs text-muted">Choose a place from search so GPS check-in has an exact destination.</p></div>
           <p className="text-xs text-muted">Enter times in your local timezone ({Intl.DateTimeFormat().resolvedOptions().timeZone}). Times are saved in UTC.</p>
-          <p className="text-sm text-secondary font-semibold">Attendance reward: {currentFeed?.defaults.xpReward} XP · awarded once per attendee.</p>
+          <p className="text-sm text-secondary font-semibold">Event check-ins currently award no XP because attendance cannot be verified from browser GPS alone.</p>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="text-sm font-semibold">Starts<input name="startsAt" type="datetime-local" required className="global-event-input" /></label>
             <label className="text-sm font-semibold">Ends<input name="endsAt" type="datetime-local" required className="global-event-input" /></label>

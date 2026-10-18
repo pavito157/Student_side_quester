@@ -15,10 +15,9 @@ UF Calendar listing; this is source attribution, not an organization endorsement
 - Cancelled events are rejected. Feed entries without coordinates are skipped,
   rather than guessed/geocoded. This deliberately imports a subset of UF events.
 
-Published quests use the existing server-configured reward (25 XP by default), GPS
-radius, accuracy, grace and verification policy. Updates preserve an occurrence's
-original reward policy. Existing once-only check-in transactions award both user
-and residence XP. No browser can set import provenance or reward values.
+Published quests retain their GPS radius, accuracy, grace and verification policy
+for attendance check-in. Browser-reported GPS is spoofable, so check-ins currently
+award no XP. No browser can set import provenance or reward values.
 
 UF LiveWhale event IDs identify ordinary events even if rescheduled. Recurring
 instances use the original recurrence timestamp as well, so each occurrence has

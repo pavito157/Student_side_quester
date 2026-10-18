@@ -28,7 +28,7 @@ def utc_now():
 
 class EventPolicy(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    xpReward: int = Field(default=25, strict=True, ge=1, le=500)
+    xpReward: int = Field(default=0, strict=True, ge=0, le=500)
     radiusMeters: int = Field(default=100, strict=True, ge=10, le=1000)
     maxAccuracyMeters: int = Field(default=50, strict=True, ge=1, le=200)
     verificationMode: Literal["gps", "honor"] = "gps"
@@ -38,7 +38,6 @@ class EventPolicy(BaseModel):
 def default_policy():
     try:
         return EventPolicy(
-            xpReward=int(os.getenv("GLOBAL_QUEST_DEFAULT_XP", "25")),
             radiusMeters=int(os.getenv("GLOBAL_QUEST_RADIUS_METERS", "100")),
             maxAccuracyMeters=int(os.getenv("GLOBAL_QUEST_MAX_ACCURACY_METERS", "50")),
             verificationMode=os.getenv("GLOBAL_QUEST_VERIFICATION_MODE", "gps"),
@@ -73,7 +72,7 @@ class GlobalEvent(CreateEvent, EventPolicy):
     organizationName: str
     createdBy: str
     createdAt: AwareDatetime
-    xpReward: int = Field(strict=True, ge=1, le=500)
+    xpReward: int = Field(strict=True, ge=0, le=500)
     status: Literal["published", "cancelled"] = "published"
     source: Optional[Literal["uf-calendar"]] = None
     sourceUrl: Optional[str] = None
@@ -92,7 +91,7 @@ class PublicGlobalEvent(BaseModel):
     longitude: float = Field(strict=True, ge=-180, le=180, allow_inf_nan=False)
     startsAt: AwareDatetime
     endsAt: AwareDatetime
-    xpReward: int = Field(strict=True, ge=1, le=500)
+    xpReward: int = Field(strict=True, ge=0, le=500)
     graceMinutes: int = Field(strict=True, ge=0, le=60)
 
 
@@ -181,7 +180,7 @@ def check_in(db, uid, event_id, position, require_assignment=False):
             user_xp, dorm_xp = read_xp(user), read_xp(dorm_snapshot.to_dict())
         except ValueError:
             raise HTTPException(409, "User or residence XP balance needs repair.") from None
-        reward = event.xpReward
+        reward = 0
         if any(balance + reward > 2**63 - 1 for balance in (user_xp, dorm_xp)):
             raise HTTPException(409, "XP balance exceeds the supported total.")
         transaction.create(claim_ref, {"eventId": event_id, "userId": uid,
@@ -229,7 +228,7 @@ def list_public_events(db=Depends(get_db)):
                 longitude=event.longitude,
                 startsAt=event.startsAt,
                 endsAt=event.endsAt,
-                xpReward=event.xpReward,
+                xpReward=0,
                 graceMinutes=event.graceMinutes,
             ))
         events.sort(key=lambda event: event.startsAt)
@@ -249,7 +248,10 @@ def get_public_event(event_id: str, db=Depends(get_db)):
         event = GlobalEvent.model_validate(snapshot.to_dict())
         if event.status != "published" or event.endsAt <= utc_now():
             raise HTTPException(404, "This event is no longer available.")
-        return PublicGlobalEvent.model_validate({key: getattr(event, key) for key in PublicGlobalEvent.model_fields})
+        return PublicGlobalEvent.model_validate({
+            **{key: getattr(event, key) for key in PublicGlobalEvent.model_fields},
+            "xpReward": 0,
+        })
     except (GoogleAPICallError, RetryError):
         raise HTTPException(503, "Event details are temporarily unavailable.") from None
 
@@ -267,7 +269,14 @@ def list_events(uid: str = Depends(current_uid), db=Depends(get_db)):
             if event.status != "published" or event.endsAt + timedelta(minutes=event.graceMinutes) < now:
                 continue
             completed = db.collection(USERS).document(uid).collection(CLAIMS).document(snapshot.id).get().exists
-            events.append({**event.model_dump(mode="json"), "completed": completed})
+            events.append({
+                **event.model_dump(
+                    mode="json",
+                    exclude={"createdBy", "createdAt", "questTemplate"},
+                ),
+                "xpReward": 0,
+                "completed": completed,
+            })
             if len(events) >= 50:
                 break
         events.sort(key=lambda event: event["startsAt"])

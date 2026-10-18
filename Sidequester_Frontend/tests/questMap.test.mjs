@@ -22,7 +22,7 @@ test('global-only map excludes personal quests and all their stops while retaini
   assert.equal(pins.some(pin=>pin.questId==='route'),false)
   assert.equal(pins.find(pin=>pin.questId==='gbm').path,'/sidequests/accepted-event')
   assert.equal(pins.find(pin=>pin.questId==='open').path,'/global-quests/open')
-  assert.ok(pins.every(pin=>pin.label==='+25 XP' && pin.color==='#e88932'))
+  assert.ok(pins.every(pin=>pin.label==='Check-in' && pin.xpReward===0 && pin.color==='#e88932'))
   assert.equal(api.buildQuestMapPins([],[quest('route'),accepted]).length,0)
 })
 
@@ -70,6 +70,6 @@ test('global XP pins navigate to quest pages, separate overlapping venues and ex
   assert.notEqual(sameVenue[0].content.style.transform,sameVenue[1].content.style.transform)
   for(const marker of markers)marker.content.children[0].events.click()
   assert.deepEqual(navigations,['/sidequests/saved-event','/global-quests/open'])
-  assert.ok(markers.every(marker=>marker.content.children[0].textContent==='+25 XP'))
+  assert.ok(markers.every(marker=>marker.content.children[0].textContent==='Check-in'))
   cleanup();assert.ok(markers.every(marker=>marker.map===null));assert.equal(lines.length,0)
 })

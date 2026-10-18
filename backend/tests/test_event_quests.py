@@ -55,7 +55,7 @@ class EventAcceptanceTests(unittest.TestCase):
         self.assertEqual(first.quest.xpReward,25)
         self.assertEqual(self.user_ref.get().to_dict()['xp'],10)
         result = complete_quest(self.db,self.uid,first.quest.id,29.65,-82.34,5)
-        self.assertEqual(result['xpAwarded'],25)
+        self.assertEqual(result['xpAwarded'],0)
         self.assertEqual(self.dorm_ref.get().to_dict()['xp'],125)
         self.assertFalse(self.user_ref.collection('sidequests').document(first.quest.id).get().exists)
         with self.assertRaises(HTTPException): g.check_in(self.db,self.uid,self.event.id,g.CheckIn(latitude=29.65,longitude=-82.34,accuracy=5))

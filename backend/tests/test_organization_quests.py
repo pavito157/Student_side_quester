@@ -8,10 +8,12 @@ from unittest.mock import patch
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from backend import firebase_helpers, organization_quest_routes, organization_quests
-from backend.organization_quests import StoredOrganizationQuest
-from backend.quest_contracts import AssignQuestResponse, AssignedQuest, SavedAssignment
-from backend.quest_persistence import _check_organization_duplicate
+from backend.auth import firebase_helpers
+from backend.api import organization_quest_routes
+from backend.organizations import organization_quests
+from backend.organizations.organization_quests import StoredOrganizationQuest
+from backend.quests.quest_contracts import AssignQuestResponse, AssignedQuest, SavedAssignment
+from backend.quests.quest_persistence import _check_organization_duplicate
 
 
 ORGANIZATION_ID = "community"

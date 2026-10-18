@@ -19,10 +19,11 @@ from google.cloud.firestore import Client
 from google.api_core.exceptions import ServiceUnavailable
 from firebase_admin import firestore
 
-from backend import quest_generation as generation, quest_persistence as persistence
-from backend import firebase_helpers
-from backend.quest_completion import CompletionError, complete_quest
-from backend.quest_contracts import GenerateQuestRequest, GeneratedQuestProposal, ResolvedDestination
+from backend.quests import quest_generation as generation
+from backend.quests import quest_persistence as persistence
+from backend.auth import firebase_helpers
+from backend.quests.quest_completion import CompletionError, complete_quest
+from backend.quests.quest_contracts import GenerateQuestRequest, GeneratedQuestProposal, ResolvedDestination
 from main import app
 
 
@@ -661,7 +662,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
     @contextmanager
     def wired_resolver_client(self):
         """Real routes, resolver, models and DB; only auth/provider I/O is doubled."""
-        from backend import destination_resolver
+        from backend.quests import destination_resolver
         with ExitStack() as stack:
             folder = stack.enter_context(tempfile.TemporaryDirectory())
             boundary = Path(folder) / "synthetic-test-only.geojson"
@@ -688,7 +689,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
             stack.enter_context(patch.object(firebase_helpers.auth, "verify_id_token", return_value={
                 "uid": self.uid, "email": "student@ufl.edu", "email_verified": True,
             }))
-            stack.enter_context(patch("backend.quest_assignment_routes.get_db", return_value=self.db))
+            stack.enter_context(patch("backend.api.quest_assignment_routes.get_db", return_value=self.db))
             app.dependency_overrides[firebase_helpers.get_db] = lambda: self.db
             self.addCleanup(app.dependency_overrides.clear)
             client = stack.enter_context(TestClient(app))
@@ -711,7 +712,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
             self.assertEqual(result.headers["cache-control"], "no-store")
             self.assertIn("resolver;dur=", result.headers["server-timing"])
             saved = result.json()
-            from backend.quest_contracts import AssignQuestResponse
+            from backend.quests.quest_contracts import AssignQuestResponse
             AssignQuestResponse.model_validate(saved)
             self.assertEqual(saved["quest"]["placeId"], "provider-test-place")
             self.assertEqual(saved["assignment"]["userId"], self.uid)
@@ -771,7 +772,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
                 patch.object(firebase_helpers, "get_firebase_app"), \
                 patch.object(firebase_helpers.auth, "verify_id_token", return_value={
                     "uid": self.uid, "email": "student@ufl.edu", "email_verified": True,
-                }), patch("backend.quest_assignment_routes.get_db", return_value=self.db):
+                }), patch("backend.api.quest_assignment_routes.get_db", return_value=self.db):
             headers = {"Authorization": "Bearer firebase-test-token"}
             body = {"location": "Anywhere", "time": {"selection": "60"}, "budget": {"selection": "0"}}
             first = client.post("/quests/assign", json=body, headers=headers)

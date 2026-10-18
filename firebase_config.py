@@ -5,7 +5,7 @@ Existing `from firebase_config import db` callers still obtain the shared client
 New routes should use Depends(get_db) so authentication runs before DB access.
 """
 
-from backend.firebase_helpers import get_db, get_firebase_app
+from backend.auth.firebase_helpers import get_db, get_firebase_app
 
 
 def __getattr__(name):

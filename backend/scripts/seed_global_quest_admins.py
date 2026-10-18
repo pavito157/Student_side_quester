@@ -1,7 +1,7 @@
 """Explicit one-time membership grant. Run: python -m backend.scripts.seed_global_quest_admins."""
 from dotenv import load_dotenv
 from firebase_admin import firestore
-from backend.firebase_helpers import get_db
+from backend.auth.firebase_helpers import get_db
 
 ORGANIZATION_ID = "campus-events"
 ADMIN_IDS = ["user_3KnxdJw5EezulC4qR3fF1Lv3Mkc", "user_3KpQRFpXWJtJoOZLnxrdo7movV0"]

@@ -32,15 +32,14 @@ async function fixture() {
     context,
     initializeImportMeta(meta) { meta.env = { VITE_API_BASE_URL: 'http://localhost:8000/' } },
   })
-  await module.link(async (name) => {
-    if (name.endsWith('/types/sidequest')) {
-      const types = await readFile(new URL('../src/types/sidequest.ts', import.meta.url), 'utf8')
-      return new vm.SourceTextModule(ts.transpileModule(types, {compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText,{context})
-    }
-    return new vm.SyntheticModule(['getFirebaseIdToken'], function () {
-    this.setExport('getFirebaseIdToken', (...args) => state.getToken(...args))
-  }, { context })
-  })
+  await module.link((name) => name === '../types/sidequest'
+    ? new vm.SyntheticModule(['MAX_QUEST_STEPS', 'MAX_QUEST_STOPS'], function () {
+      this.setExport('MAX_QUEST_STEPS', 10)
+      this.setExport('MAX_QUEST_STOPS', 10)
+    }, { context })
+    : new vm.SyntheticModule(['getFirebaseIdToken'], function () {
+      this.setExport('getFirebaseIdToken', (...args) => state.getToken(...args))
+    }, { context }))
   await module.evaluate()
   return { api: module.namespace, state, calls }
 }

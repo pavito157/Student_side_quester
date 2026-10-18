@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
-from backend import firebase_helpers
+from backend.auth import firebase_helpers
 from main import app
 
 
@@ -126,7 +126,7 @@ class BackendMergeTests(unittest.TestCase):
         self.assertIn("Server-Timing", response.headers.get("access-control-expose-headers", ""))
 
     def test_custom_origin_configuration_is_shared_by_cors_and_clerk_bridge(self):
-        from backend.auth_routes import frontend_origins
+        from backend.api.auth_routes import frontend_origins
         from fastapi import FastAPI
         with patch.dict("os.environ", {"FRONTEND_ORIGINS": "https://preview.example"}):
             configured = FastAPI()

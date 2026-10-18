@@ -46,7 +46,10 @@ test('feed rejects malformed data rather than rendering incorrect roles',async()
 
 async function view(organizations, signedIn=true, activities=null, adminRole='regular_admin') {
   const file = activities === null ? 'GlobalQuests' : 'OrganizationQuestBoard'
-  const input=await readFile(new URL(`../src/componenets/main-ui/${file}.tsx`,import.meta.url),'utf8')
+  const path = file === 'GlobalQuests'
+    ? `../src/features/quests/detail/${file}.tsx`
+    : `../src/features/organization-quests/${file}.tsx`
+  const input=await readFile(new URL(path,import.meta.url),'utf8')
   let cursor=0,slots=[],effects=[]
   const jsx=(type,props)=>({type,props:props??{}})
   const context=vm.createContext({Date,Intl,AbortController,window:{setInterval(){return 1},clearInterval(){}}})

@@ -1,36 +1,39 @@
-# React + TypeScript + Vite
+# Sidequester frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React, TypeScript, Vite, Tailwind CSS, Clerk, and Firebase client application.
+
+## Project structure
+
+- `src/app/` - application-level types and setup
+- `src/components/` - shared navigation and decorative components
+- `src/features/` - feature-owned pages, components, and UI
+- `src/services/` - API, Firebase, and browser integrations
+- `src/types/` - shared domain types
 
 ## Google Places setup
 
 Copy `.env.example` to `.env.local` and set `VITE_GOOGLE_MAPS_API_KEY` to a
-Google Maps API key. Enable Maps JavaScript API and Places API (New) for the
-key's Google Cloud project. Enable Maps JavaScript API, Places API (New),
-Geocoding API, and Routes API. The detail and guest-preview maps use the Routes
-library to compute walking routes from the saved/requested origin to the first
-verified destination. Restrict the key to this app's HTTP referrers and the APIs the
-app uses before deploying. Browser API keys are visible to users in the client
-bundle, so do not use an unrestricted key.
+Google Maps API key. Enable Maps JavaScript API, Places API (New), Geocoding
+API, and Routes API. Detail and guest-preview maps use Routes for walking
+directions to the first verified destination. Restrict the key to this app's
+HTTP referrers and the APIs it uses; browser API keys are visible in the client
+bundle.
 
 The Where field uses Google Places autocomplete and biases suggestions toward
 Gainesville, Florida. Its “Use my location” button requires browser location
-permission and a secure context (HTTPS or localhost). Sidequest suggestions
-are currently available for the campus locations listed in
-`src/componenets/Buttons/QuestFilterButtons.tsx`.
+permission and a secure context (HTTPS or localhost). Campus suggestions are
+listed in `src/features/quest-generation/QuestFilterButtons.tsx`.
 
 ## Backend API
 
-The leaderboard and quest flows use the FastAPI backend. Set
-`VITE_API_BASE_URL` in this frontend's `.env.local` to the backend origin when
-it is not running at `http://127.0.0.1:8000`, then restart Vite so it reloads
-the setting. The leaderboard requires a signed-in account connected through
-the Firebase session bridge.
+Set `VITE_API_BASE_URL` in `.env.local` when the backend is not running at
+`http://127.0.0.1:8000`, then restart Vite. The leaderboard and quest flows use
+the FastAPI backend; signed-in requests use the Firebase session bridge.
 
-The dorm leaderboard sums XP for profiles with a valid `dormId` that matches
-a dorm in the backend catalog. The available halls, including “Off campus,”
-are listed in `backend/dorm_catalog.py`. New signed-in users are prompted to
-choose one; they can change it later under Settings → Residence.
+The dorm leaderboard sums XP for profiles with a valid `dormId` matching the
+backend catalog. The catalog, including “Off campus,” is defined in
+`backend/users/dorm_catalog.py`. New signed-in users are prompted to choose a
+residence and can change it later under Settings → Residence.
 
 ## User preferences and goals
 
@@ -39,34 +42,8 @@ For signed-in users, general preferences are stored as plain text in the
 stored separately as a string array in that document's `goals` field. Both use
 the Firebase client SDK; Firestore security rules are managed separately.
 
-Currently, two official plugins are available:
+## Development
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
-
-Note: This will impact Vite dev & build performances.
-You can also try [the experimental native React Compiler support in plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md#rust-react-compiler) by using `compiler: true` in the plugin options instead of using the Babel plugin.
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Run the app from this directory with `npm run dev`; use `npm run lint` and
+`npm run build` for checks. Run the Node-based frontend tests with
+`node --experimental-vm-modules --test tests/*.test.mjs`.

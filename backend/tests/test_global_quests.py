@@ -11,7 +11,7 @@ from google.auth.credentials import AnonymousCredentials
 from google.cloud.firestore import Client
 
 from backend import global_quests as g
-from backend.firebase_helpers import current_uid, get_db
+from backend.auth.firebase_helpers import current_uid, get_db
 
 NOW = datetime(2026, 10, 18, 18, tzinfo=timezone.utc)
 

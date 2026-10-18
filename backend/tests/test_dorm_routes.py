@@ -4,9 +4,9 @@ from unittest.mock import Mock, patch
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from backend import dorm_routes
-from backend.dorm_catalog import DORM_OPTIONS
-from backend.firebase_helpers import current_uid, get_db
+from backend.api import dorm_routes
+from backend.users.dorm_catalog import DORM_OPTIONS
+from backend.auth.firebase_helpers import current_uid, get_db
 
 
 class DormRouteTests(unittest.TestCase):

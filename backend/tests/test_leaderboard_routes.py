@@ -6,9 +6,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from google.api_core.exceptions import GoogleAPICallError
 
-from backend import leaderboard_routes
-from backend.firebase_helpers import current_uid, get_db
-from backend.dorm_catalog import DORM_CATALOG
+from backend.api import leaderboard_routes
+from backend.auth.firebase_helpers import current_uid, get_db
+from backend.users.dorm_catalog import DORM_CATALOG
 
 
 class Snapshot:

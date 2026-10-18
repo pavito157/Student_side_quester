@@ -50,7 +50,7 @@ async function fixture() {
     return mod
   }
   const api = await load('services/questApi.ts'); await api.evaluate(); f.api = api.namespace
-  const component = await load('componenets/main-ui/CompleteQuestButton.tsx'); await component.evaluate()
+  const component = await load('features/quests/components/CompleteQuestButton.tsx'); await component.evaluate()
   const nodes = (node) => !node || typeof node !== 'object' ? []
     : [node, ...[node.props?.children].flat(Infinity).flatMap(nodes)]
   f.render = () => {

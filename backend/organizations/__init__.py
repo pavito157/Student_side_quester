@@ -1,0 +1,1 @@
+"""Organization quest board logic."""

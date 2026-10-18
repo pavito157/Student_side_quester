@@ -8,10 +8,10 @@ from firebase_admin import firestore
 from google.api_core.exceptions import GoogleAPICallError, RetryError
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
-from .firebase_helpers import USERS, current_uid, get_db
-from .dorm_catalog import DORM_NAME_BY_ID
-from .quest_validation import calculate_distance
-from .xp import read_xp
+from backend.auth.firebase_helpers import USERS, current_uid, get_db
+from backend.users.dorm_catalog import DORM_NAME_BY_ID
+from backend.quests.quest_validation import calculate_distance
+from backend.users.xp import read_xp
 from .organization_access import authorize_publishing, publishing_organizations
 
 router = APIRouter(tags=["Global quests"])

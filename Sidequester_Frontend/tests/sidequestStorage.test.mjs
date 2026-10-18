@@ -51,6 +51,10 @@ async function fixture() {
       onSnapshot: (ref, callback) => { state.callbacks.push(callback); return () => {} }, Timestamp,
     }
     else if (name.endsWith('FirebaseConfig')) exports = { db: {} }
+    else if (name.endsWith('/types/sidequest')) exports = {
+      MAX_QUEST_STEPS: 10,
+      MAX_QUEST_STOPS: 10,
+    }
     else exports = {
       MAX_QUEST_REPLACEMENTS: 3,
       requestQuestCompletion: async (...args) => {

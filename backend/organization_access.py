@@ -5,7 +5,7 @@ from firebase_admin import firestore
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Literal
 
-from .firebase_helpers import current_uid, get_db, USERS
+from backend.auth.firebase_helpers import current_uid, get_db, USERS
 
 ORGANIZATIONS = "Organizations"
 PLATFORM_ACCESS_ID = "_platform_access"

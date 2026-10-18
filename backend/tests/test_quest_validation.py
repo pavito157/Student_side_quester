@@ -1,7 +1,7 @@
 import math
 import unittest
 
-from backend.quest_validation import calculate_distance, valid_number, validate_completion
+from backend.quests.quest_validation import calculate_distance, valid_number, validate_completion
 
 
 class DistanceTests(unittest.TestCase):

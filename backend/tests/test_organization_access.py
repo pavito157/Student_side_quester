@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from backend import organization_access as access
 from backend import global_quests as quests
 from backend.tests import test_global_quests as fixture
-from backend.firebase_helpers import current_uid, get_db
+from backend.auth.firebase_helpers import current_uid, get_db
 
 
 class OrganizationAccessRouteTests(unittest.TestCase):

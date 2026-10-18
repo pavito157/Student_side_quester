@@ -10,8 +10,9 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from backend import firebase_helpers, quest_generation as generation
-from backend.quest_contracts import GenerateQuestRequest, GeneratedQuestProposal, ResolvedDestination, SelectedDestination
+from backend.auth import firebase_helpers
+from backend.quests import quest_generation as generation
+from backend.quests.quest_contracts import GenerateQuestRequest, GeneratedQuestProposal, ResolvedDestination, SelectedDestination
 from main import app
 
 HTTP_CLIENT = httpx.Client
@@ -108,6 +109,10 @@ class GenerationTests(unittest.TestCase):
         self.assertIn("concrete, visible artifact", body["systemInstruction"]["parts"][0]["text"])
         self.assertIn("location, photo", body["systemInstruction"]["parts"][0]["text"])
         self.assertIn("about 70%", body["systemInstruction"]["parts"][0]["text"])
+        self.assertIn("getting out, exploring the actual", body["systemInstruction"]["parts"][0]["text"])
+        self.assertIn("vibePreferences meaningfully influence", body["systemInstruction"]["parts"][0]["text"])
+        self.assertIn("Goals are the softest signal", body["systemInstruction"]["parts"][0]["text"])
+        self.assertIn("never make a hobby, personal goal", body["systemInstruction"]["parts"][0]["text"])
         self.assertEqual(context["proofOptions"], ["location", "photo"])
 
     def test_generation_rejects_methods_outside_user_selected_options(self):

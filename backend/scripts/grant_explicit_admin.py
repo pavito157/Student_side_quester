@@ -3,7 +3,7 @@ import argparse
 import re
 from dotenv import load_dotenv
 from firebase_admin import firestore
-from backend.firebase_helpers import get_db
+from backend.auth.firebase_helpers import get_db
 from backend.organization_access import PLATFORM_ACCESS_ID, ORGANIZATIONS
 
 

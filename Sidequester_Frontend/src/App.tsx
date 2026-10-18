@@ -82,7 +82,6 @@ function HomePage({ onStartQuestGeneration, activeSidequestsState }: HomePagePro
         onSettingsClick={() => openSettings()}
         onMenuClick={() => setIsVibesSidebarOpen(true)}
       />
-      <CinematicHero />
       <VibesSidebar
         isOpen={isVibesSidebarOpen}
         onClose={() => setIsVibesSidebarOpen(false)}
@@ -287,7 +286,12 @@ function AccountRoutes() {
     <DormSelectionGate>
       <div key={pathname} className="route-transition">
         {celebration?.path === pathname && <QuestConfetti key={celebration.id} />}
-        {pathname === '/leaderboard' ? (
+        {pathname === '/welcome' ? (
+          <>
+            <Header activeSidequestCount={activeQuestCount} />
+            <main><CinematicHero /></main>
+          </>
+        ) : pathname === '/leaderboard' ? (
           <LeaderboardPage />
         ) : pathname === '/sidequests/generating' ? (
           <SidequestDetailPage

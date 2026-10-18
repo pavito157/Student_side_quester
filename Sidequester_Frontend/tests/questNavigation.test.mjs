@@ -286,3 +286,13 @@ test('quest flags cannot be selected during loading or a subscription error', as
   f.slotsLoading = false; f.slotsError = 'Unavailable'; f.render()
   assert.ok(f.allButtons().every((button) => button.disabled))
 })
+
+
+test('welcome route contains the separate hero and main route goes directly to the quest board', async () => {
+  const board = await fixture('App.tsx', '/')
+  assert.ok(board.props('HomePage'))
+  assert.equal(board.props('CinematicHero'), undefined)
+  const welcome = await fixture('App.tsx', '/welcome')
+  assert.ok(welcome.props('CinematicHero'))
+  assert.equal(welcome.props('HomePage'), undefined)
+})

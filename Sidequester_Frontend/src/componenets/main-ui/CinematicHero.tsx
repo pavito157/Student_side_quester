@@ -14,12 +14,12 @@ import {
 } from 'framer-motion'
 
 import { AccentStrokes, SparkleIcon } from './AdventureDecor'
+import { navigateTo } from '../../services/navigation'
 
 const GuildhallCanvas = lazy(() => import('./GuildhallCanvas'))
 
 function CinematicHero() {
   const stageRef = useRef<HTMLElement>(null)
-  const hasStartedJourney = useRef(false)
   const prefersReducedMotion = useReducedMotion() === true
   const { scrollYProgress } = useScroll({
     target: stageRef,
@@ -36,7 +36,6 @@ function CinematicHero() {
   const contentY = useTransform(scrollYProgress, [0, 1], [0, -36])
 
   useMotionValueEvent(scrollYProgress, 'change', (value) => {
-    if (hasStartedJourney.current) return
     if (prefersReducedMotion) sceneProgress.jump(value)
     else sceneProgress.set(value)
   })
@@ -54,16 +53,7 @@ function CinematicHero() {
   }
 
   function beginJourney() {
-    hasStartedJourney.current = true
-    if (prefersReducedMotion) sceneProgress.jump(1)
-    else sceneProgress.set(1)
-    document.getElementById('quest-terminal')?.scrollIntoView({
-      behavior: prefersReducedMotion ? 'auto' : 'smooth',
-      block: 'start',
-    })
-    window.setTimeout(() => {
-      hasStartedJourney.current = false
-    }, 1600)
+    navigateTo('/')
   }
 
   return (

@@ -32,6 +32,8 @@ All endpoints require the existing verified Firebase ID token in `Authorization:
 - `GET /global-quests`: `{quests, organizations, defaults}`. Includes at most 50 events whose
   event/grace window has not ended; `completed` is private to the caller. `organizations`
   includes only active organizations the caller administers; no member list is exposed.
+- `GET /global-quests/public`: unauthenticated map-safe event details for the same upcoming
+  events. It omits attendance state, creator identity, and check-in policy.
 - `POST /global-quests`: admin-only. Body example below. Returns 201 with the event JSON.
   Backend rechecks membership inside the publish transaction. Event end must be in the future
   and after start, within seven days. Frontend times are local, converted to UTC before POST.
@@ -117,6 +119,9 @@ Organization activities. There is one Refresh board action. Empty organization a
 feeds add no duplicate card or empty-state panel. Admin-only Create event quest publishes
 straight to the event feed; it does not create a second organization activity or consume a
 personal sidequest slot. The form displays the fixed attendance reward without an XP input.
+The campus map uses the scheduled events returned from `GlobalQuests`, including each
+event's stored `latitude`, `longitude`, `locationName`, and `xpReward`; reusable activities
+remain a separate feed and are not substituted for event pins.
 
 ## Admin tiers
 

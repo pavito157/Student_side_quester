@@ -34,6 +34,11 @@ QUEST_RECORD = {
     "summary": "Explore a public place.",
     "details": "Notice something interesting and document it.",
     "published": True,
+    "mapLocation": {
+        "name": "Campus Commons",
+        "latitude": 29.6516,
+        "longitude": -82.3248,
+    },
     "questRequest": QUEST_REQUEST,
 }
 
@@ -150,9 +155,91 @@ class OrganizationQuestTests(unittest.TestCase):
         self.assertEqual(result[0].organizationName, self.organization["name"])
         self.assertEqual(result[0].questId, self.quest_id)
         self.assertEqual(result[0].timeLabel, "Up to 60 minutes")
+        self.assertEqual(result[0].mapLocation.name, "Campus Commons")
+        self.assertEqual(result[0].mapLocationStatus, "available")
+        self.assertEqual(result[0].xpPotential, 20)
         self.assertNotIn("privateInternalNote", result[0].model_dump())
         self.assertNotIn("questRequest", result[0].model_dump())
         self.assertNotIn("secret", result[0].model_dump())
+
+    def test_legacy_listings_without_map_locations_remain_browsable(self):
+        record = {key: value for key, value in self.quest.items() if key != "mapLocation"}
+        self.db.quest_snapshots[0] = Snapshot(self.public_snapshot.reference.path, record)
+
+        result = organization_quests.list_organization_quests(self.db)
+
+        self.assertEqual(len(result), 1)
+        self.assertIsNone(result[0].mapLocation)
+        self.assertEqual(result[0].mapLocationStatus, "missing")
+
+    def test_board_uses_top_level_firestore_coordinates(self):
+        record = {
+            key: value for key, value in self.quest.items()
+            if key != "mapLocation"
+        }
+        record.update({
+            "locationName": "Campus Commons",
+            "latitude": 29.6516,
+            "longitude": -82.3248,
+        })
+        self.db.quest_snapshots[0] = Snapshot(self.public_snapshot.reference.path, record)
+
+        result = organization_quests.list_organization_quests(self.db)
+
+        self.assertEqual(result[0].mapLocation.name, "Campus Commons")
+        self.assertEqual(result[0].mapLocation.latitude, 29.6516)
+        self.assertEqual(result[0].mapLocation.longitude, -82.3248)
+        self.assertEqual(result[0].mapLocationStatus, "available")
+
+    def test_partial_top_level_firestore_coordinates_are_invalid(self):
+        record = {key: value for key, value in self.quest.items() if key != "mapLocation"}
+        record["latitude"] = 29.6516
+        self.db.quest_snapshots[0] = Snapshot(self.public_snapshot.reference.path, record)
+
+        result = organization_quests.list_organization_quests(self.db)
+
+        self.assertIsNone(result[0].mapLocation)
+        self.assertEqual(result[0].mapLocationStatus, "invalid")
+
+    def test_xp_potential_uses_existing_reward_formula_and_time_ceiling(self):
+        for selection, custom_minutes, expected in (
+            ("30", None, 10),
+            ("60", None, 20),
+            ("custom", 45, 15),
+            ("120", None, 50),
+            ("any", None, 50),
+        ):
+            with self.subTest(selection=selection):
+                request = {
+                    **QUEST_REQUEST,
+                    "time": {"selection": selection, **(
+                        {"customMinutes": custom_minutes} if custom_minutes is not None else {}
+                    )},
+                }
+                stored = StoredOrganizationQuest.model_validate({
+                    **self.quest,
+                    "questRequest": request,
+                })
+                self.assertEqual(organization_quests._xp_potential(stored.questRequest), expected)
+
+    def test_invalid_organization_map_coordinates_remain_visible_without_a_pin(self):
+        self.db.quest_snapshots[0] = Snapshot(
+            self.public_snapshot.reference.path,
+            {
+                **self.quest,
+                "mapLocation": {
+                    "name": "Somewhere",
+                    "latitude": 91.0,
+                    "longitude": -82.0,
+                },
+            },
+        )
+
+        result = organization_quests.list_organization_quests(self.db)
+
+        self.assertEqual(len(result), 1)
+        self.assertIsNone(result[0].mapLocation)
+        self.assertEqual(result[0].mapLocationStatus, "invalid")
 
     def test_unpublished_quest_cannot_be_loaded_for_acceptance(self):
         self.db.organizations[self.org_id]["quests"] = {
@@ -254,6 +341,9 @@ class OrganizationQuestRouteTests(unittest.TestCase):
             summary="A short summary.",
             details="More details.",
             timeLabel="Up to 60 minutes",
+            mapLocation=None,
+            mapLocationStatus="missing",
+            xpPotential=20,
         )
         with patch.object(organization_quest_routes, "get_db", return_value=object()), \
                 patch.object(organization_quest_routes, "list_organization_quests", return_value=[item]):

@@ -450,15 +450,34 @@ test('active list is authenticated and validates ownership, unique IDs and three
 
 test('organization board browses publicly and rejects duplicate or malformed entries', async () => {
   const f = await fixture()
-  const item = {organizationId:'club',organizationName:'Campus club',questId:'gbm',title:'Meet the club',summary:'Meet other students',details:'Visit the campus event.',timeLabel:'Up to 30 minutes'}
+  const item = {
+    organizationId:'club',organizationName:'Campus club',questId:'gbm',title:'Meet the club',
+    summary:'Meet other students',details:'Visit the campus event.',timeLabel:'Up to 30 minutes',
+    mapLocation:{name:'Campus Commons',latitude:29.6516,longitude:-82.3248},
+    mapLocationStatus:'available',xpPotential:10,
+  }
   f.state.fetch = async (url, options) => {f.calls.push(['fetch',url,options]);return {ok:true,status:200,json:async()=>[item]}}
   const board = await f.api.getOrganizationQuestBoard()
   assert.equal(board[0].questId, 'gbm')
+  assert.equal(board[0].xpPotential, 10)
+  assert.deepEqual(board[0].mapLocation, item.mapLocation)
   assert.equal(f.calls[0][0], 'fetch')
   assert.equal(f.calls[0][1], 'http://localhost:8000/organization-quests')
   assert.equal(f.calls[0][2].headers.Authorization, undefined)
   f.state.fetch = async () => ({ok:true,status:200,json:async()=>[item,item]})
   await assert.rejects(f.api.getOrganizationQuestBoard(), /invalid organization quest board/)
+  for (const invalidItem of [
+    {...item,xpPotential:51},
+    {...item,mapLocation:{...item.mapLocation,latitude:91}},
+    {...item,mapLocationStatus:'invalid'},
+  ]) {
+    f.state.fetch = async () => ({ok:true,status:200,json:async()=>[invalidItem]})
+    await assert.rejects(f.api.getOrganizationQuestBoard(), /invalid organization quest board/)
+  }
+  f.state.fetch = async () => ({ok:true,status:200,json:async()=>[{
+    ...item,mapLocation:null,mapLocationStatus:'missing',
+  }]})
+  assert.equal((await f.api.getOrganizationQuestBoard())[0].mapLocation, null)
 })
 
 test('organization acceptance validates the saved source and propagates request cancellation', async () => {

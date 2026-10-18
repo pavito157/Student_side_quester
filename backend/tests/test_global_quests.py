@@ -57,6 +57,34 @@ class GlobalQuestRouteTests(unittest.TestCase):
             self.assertEqual(response.status_code, 403)
             self.assertEqual(publish.call_args.args[1], "verified-user")
 
+    def test_public_event_feed_is_unauthenticated_and_allowlisted(self):
+        snapshot = Mock()
+        snapshot.to_dict.return_value = {
+            **payload().model_dump(),
+            **g.default_policy().model_dump(),
+            "id": "public-event",
+            "organizationName": "Campus Events",
+            "createdBy": "private-admin-id",
+            "createdAt": NOW,
+            "status": "published",
+        }
+        self.db.collection.return_value.where.return_value.order_by.return_value.limit.return_value.stream.return_value = [snapshot]
+        self.app.dependency_overrides.pop(current_uid)
+
+        with patch.object(g, "utc_now", return_value=NOW):
+            response = self.client.get("/global-quests/public")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 1)
+        event = response.json()[0]
+        self.assertEqual(event["latitude"], 29.65)
+        self.assertEqual(event["longitude"], -82.34)
+        self.assertEqual(event["locationName"], "Campus meeting room")
+        self.assertNotIn("createdBy", event)
+        self.assertNotIn("createdAt", event)
+        self.assertNotIn("radiusMeters", event)
+        self.assertNotIn("verificationMode", event)
+
     def test_all_routes_require_auth(self):
         self.app.dependency_overrides.pop(current_uid)
         for method, path, body in [("GET", "/global-quests", None), ("POST", "/global-quests", payload().model_dump(mode="json")),

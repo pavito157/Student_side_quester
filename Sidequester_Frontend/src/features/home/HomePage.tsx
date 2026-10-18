@@ -120,14 +120,30 @@ function HomePage({
             </div>
           </section>
 
-          <div className="personalization-grid mt-6 grid w-full grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-            <div className="min-w-0">
-              <GoalsSidebar />
+          <details
+            className="mt-6 rounded-xl border"
+            style={{ borderColor: colors.border, backgroundColor: colors.surface }}
+          >
+            <summary className="cursor-pointer px-4 py-3 text-sm font-semibold sm:px-5">
+              <span>Optional personalization</span>
+              <span className="ml-2 text-xs font-normal" style={{ color: colors.muted }}>
+                Goals and preferences
+              </span>
+            </summary>
+            <div className="border-t px-4 py-4 sm:px-5" style={{ borderColor: colors.border }}>
+              <p className="mb-4 text-xs" style={{ color: colors.muted }}>
+                Your adventures come first. Add these details only if you want them to shape suggestions.
+              </p>
+              <div className="personalization-grid grid w-full grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                <div className="min-w-0">
+                  <GoalsSidebar />
+                </div>
+                <section className="flex min-w-0 flex-col gap-5">
+                  <UserPreferencesSummary onEdit={() => openSettings('preferences')} />
+                </section>
+              </div>
             </div>
-            <section className="flex min-w-0 flex-col gap-5">
-              <UserPreferencesSummary onEdit={() => openSettings('preferences')} />
-            </section>
-          </div>
+          </details>
           <GlobalQuests
             key={userId ?? 'guest'}
             activeQuests={currentActiveSidequests.sidequests}

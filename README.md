@@ -25,6 +25,8 @@ callers; new code should import from the backend packages.
 
 Deployment instructions for Firebase Hosting and the Ubuntu/Tailscale API are in
 [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md).
+Organization quest venue fields and map XP estimates are described in
+[docs/organization-quest-map.md](./docs/organization-quest-map.md).
 
 ## Development
 

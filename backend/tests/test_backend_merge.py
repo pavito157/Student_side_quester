@@ -115,7 +115,8 @@ class BackendMergeTests(unittest.TestCase):
         layers = [item for item in app.user_middleware if item.cls is CORSMiddleware]
         self.assertEqual(len(layers), 1)
         for origin in ["http://localhost:5173", "http://127.0.0.1:5173",
-                       "http://localhost:5174", "http://127.0.0.1:5174"]:
+                       "http://localhost:5174", "http://127.0.0.1:5174",
+                       "http://localhost:5175", "http://127.0.0.1:5175"]:
             response = self.client.options("/quests/example/complete", headers={
                 "Origin": origin, "Access-Control-Request-Method": "POST",
                 "Access-Control-Request-Headers": "authorization,content-type",

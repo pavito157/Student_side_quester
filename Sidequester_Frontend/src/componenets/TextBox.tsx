@@ -21,18 +21,18 @@ function TextBox({
   return (
     <section
       aria-labelledby={`${id}-title`}
-      className="rpg-panel p-4 sm:p-5"
+      className={`rpg-panel p-5 sm:p-6 ${id === 'user-preferences' ? 'preferences-widget' : ''}`}
       style={{
         backgroundColor: colors.surface,
         borderColor: colors.border,
       }}
     >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 id={`${id}-title`} className="text-sm font-semibold">
-          {title}
+        <h2 id={`${id}-title`} className="widget-title">
+          {id === 'user-preferences' && <span aria-hidden="true" className="preferences-icon">⚙</span>}{title}
         </h2>
         {caption && (
-          <span className="text-xs" style={{ color: colors.secondary }}>
+          <span className="text-xs" style={{ color: colors.muted }}>
             {caption}
           </span>
         )}
@@ -40,7 +40,7 @@ function TextBox({
       <div
         aria-labelledby={`${id}-title`}
         aria-readonly="true"
-        className="quest-subpanel max-h-48 min-h-14 overflow-auto p-3 text-xs leading-relaxed whitespace-pre-wrap break-words"
+        className="quest-subpanel max-h-48 min-h-24 overflow-auto p-4 text-sm leading-relaxed whitespace-pre-wrap break-words"
         role="textbox"
         tabIndex={0}
         style={{

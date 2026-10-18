@@ -64,6 +64,7 @@ async function fixture() {
       if (name === 'react') return synthetic(react)
       if (name === 'react/jsx-runtime') return synthetic({ jsx, jsxs: jsx })
       if (name === '@clerk/clerk-react') return synthetic({ useUser: () => f.auth })
+      if (name.endsWith('/AdventureDecor')) return synthetic({ PixelLeafIcon: () => null })
       if (name.endsWith('/colors')) return synthetic({ colors: {} })
       if (name.endsWith('/questAssignment')) return synthetic({ MAX_ACTIVE_QUESTS: 3 })
       if (name.endsWith('/sidequestJson')) return load('services/sidequestJson.ts')

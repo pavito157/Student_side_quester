@@ -79,7 +79,7 @@ function CurrentLocationButton({ autoLocate, onLocationFound }: CurrentLocationB
         onClick={() => void handleCurrentLocation()}
         disabled={isManualLocating}
         aria-busy={isLocating}
-        className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-70"
+        className="current-location-button inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-70"
         style={{
           color: colors.foreground,
           borderColor: colors.border,
@@ -92,7 +92,7 @@ function CurrentLocationButton({ autoLocate, onLocationFound }: CurrentLocationB
           viewBox="0 0 20 20"
           fill="none"
           className="h-4 w-4 shrink-0"
-          style={{ color: colors.primary }}
+          style={{ color: colors.secondary }}
         >
           <circle cx="10" cy="10" r="5.75" stroke="currentColor" strokeWidth="1.5" />
           <circle cx="10" cy="10" r="1.75" fill="currentColor" />

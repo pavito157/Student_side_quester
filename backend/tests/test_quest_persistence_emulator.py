@@ -595,6 +595,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
             lookup.side_effect = lambda *args, **kwargs: io.BytesIO(json.dumps({"places": [place, other_place]}).encode())
             self.provider.return_value = self.proposal.model_copy(update={
                 "steps": ["Perform a small movement sequence at the first stop.", "Find three shapes at the second stop."],
+                "stepProofMethods": ["location", "location"],
             })
             body = {"location": "Origin", "originCoordinates": {"latitude": 29.65, "longitude": -82.34},
                     "time": {"selection": "60"}, "budget": {"selection": "0"}, "multiQuest": True}
@@ -639,7 +640,10 @@ class PersistenceEmulatorTests(unittest.TestCase):
             second = {**place, "id": "second-place", "displayName": {"text": "Second verified stop"},
                       "location": {"latitude": 29.655, "longitude": -82.345}}
             lookup.side_effect = lambda *args, **kwargs: io.BytesIO(json.dumps({"places": [place, second]}).encode())
-            self.provider.return_value = self.proposal.model_copy(update={"steps": ["Try the first task.", "Try the second task."]})
+            self.provider.return_value = self.proposal.model_copy(update={
+                "steps": ["Try the first task.", "Try the second task."],
+                "stepProofMethods": ["location", "location"],
+            })
             result = client.post("/quests/generate", json={
                 "location": "Origin", "originCoordinates": {"latitude": 29.65, "longitude": -82.34},
                 "time": {"selection": "60"}, "budget": {"selection": "0"}, "multiQuest": True,

@@ -1,3 +1,4 @@
+import { SparkleIcon } from '../main-ui/AdventureDecor'
 import { colors } from '../../constants/colors'
 
 type SidequestMeButtonProps = {
@@ -12,7 +13,7 @@ function SidequestMeButton({ onClick, isLoading = false, disabled = false }: Sid
       type="button"
       disabled={isLoading || disabled}
       aria-busy={isLoading}
-      className="magic-cta group inline-flex min-h-14 w-full cursor-pointer touch-manipulation items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-black uppercase tracking-[0.12em] transition-all hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0 active:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-70"
+      className="magic-cta group inline-flex min-h-14 w-full cursor-pointer touch-manipulation items-center justify-center gap-2 rounded-lg px-5 py-3 text-base font-semibold transition-all hover:brightness-110 active:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-70"
       style={{
         backgroundColor: colors.primaryHover,
         borderColor: colors.primary,
@@ -21,17 +22,9 @@ function SidequestMeButton({ onClick, isLoading = false, disabled = false }: Sid
       }}
       onClick={onClick}
     >
-      <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="size-5 transition-transform group-hover:rotate-12 group-hover:scale-125">
-        <path
-          d="m10 1.8 1.85 5.45L17.3 9.1l-5.45 1.85L10 16.4l-1.85-5.45L2.7 9.1l5.45-1.85L10 1.8Z"
-          fill={colors.secondary}
-        />
-        <path
-          d="m16 13 .9 2.1L19 16l-2.1.9L16 19l-.9-2.1L13 16l2.1-.9L16 13Z"
-          fill={colors.secondary}
-        />
-      </svg>
+      <SparkleIcon className="size-6 shrink-0" />
       {isLoading ? 'Finding your quest…' : 'Sidequest me'}
+      <span aria-hidden="true" className="ml-1 text-xl">→</span>
     </button>
   )
 }

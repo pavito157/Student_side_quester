@@ -367,9 +367,21 @@ input, textarea, select { accent-color: var(--color-secondary); }
 @media (max-width: 639px) {
   .brand-sparkle { width: .9rem; height: .9rem; }
   .hud-header { padding-inline: .75rem; }
-  .hud-header .header-content { grid-template-columns: minmax(2.5rem,1fr) auto minmax(2.5rem,1fr); gap: .35rem; }
+  .hud-header .header-content { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .35rem; }
+  .hud-header .header-content > button.hud-button,
+  .hud-header .header-content > a:not(.brand-title) { grid-column: 1; justify-self: start; }
+  .hud-header .header-content > div:last-child { grid-column: 3; justify-self: end; gap: .25rem; }
+  .hud-header .brand-title { position: absolute; top: 50%; left: calc(50vw - .75rem); width: max-content; max-width: calc(100vw - 11rem); font-size: 1.05rem; gap: .25rem; transform: translate(-50%, -50%); }
+  .hud-header .brand-icon { width: 1.15rem; height: 1.15rem; }
   .hud-button { border-radius: 8px; }
+  .hud-header .header-content > button.hud-button,
+  .hud-header .header-content > div:last-child > .hud-button,
+  .hud-header .header-content > div:last-child > a[aria-label="Leaderboard"],
+  .hud-header .header-content > div:last-child > .relative > .hud-button,
+  .hud-header .header-content > div:last-child > div.inline-flex { width: 2.25rem; height: 2.25rem; }
   .sidebar-modal { inset: max(.25rem, env(safe-area-inset-top, 0px)) auto max(.25rem, env(safe-area-inset-bottom, 0px)) 0; width: calc(100vw - max(.75rem, env(safe-area-inset-right, 0px))); height: auto; max-width: calc(100vw - max(.75rem, env(safe-area-inset-right, 0px))); max-height: calc(100dvh - .5rem); border-radius: 0 18px 18px 0; }
+  .trail-map-panel .trail-map-shell { height: 100%; }
+  .trail-map-panel .trail-map-content { flex: 1 1 auto; max-height: none; }
   .trail-map-shell { min-height: 0; }
   .trail-map-header { min-height: 4.25rem; padding: .8rem 1rem; }
   .trail-map-content { padding: 1rem; }
@@ -395,8 +407,32 @@ input, textarea, select { accent-color: var(--color-secondary); }
   .personalization-grid .preferences-widget { min-height: 0; }
 }
 @media (max-width: 420px) {
+  .hud-header .brand-title { font-size: 1rem; }
+  .hud-header .brand-icon { width: 1rem; height: 1rem; }
+  .hud-header .brand-sparkle { width: .75rem; height: .75rem; }
   .trail-map-editor-content .location-actions { grid-template-columns: minmax(0, 1fr); }
   .trail-map-editor-content .vibe-editor-actions:has(.vibe-delete-action) { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 380px) {
+  .hud-header .header-content > button.hud-button,
+  .hud-header .header-content > div:last-child > .hud-button,
+  .hud-header .header-content > div:last-child > a[aria-label="Leaderboard"],
+  .hud-header .header-content > div:last-child > .relative > .hud-button,
+  .hud-header .header-content > div:last-child > div.inline-flex { width: 2rem; height: 2rem; }
+  .hud-header .header-content > div:last-child { gap: .125rem; }
+}
+@media (max-width: 359px) {
+  .hud-header { padding-inline: .5rem; }
+  .hud-header .header-content > button.hud-button,
+  .hud-header .header-content > div:last-child > .hud-button,
+  .hud-header .header-content > div:last-child > a[aria-label="Leaderboard"],
+  .hud-header .header-content > div:last-child > .relative > .hud-button,
+  .hud-header .header-content > div:last-child > div.inline-flex { width: 1.875rem; height: 1.875rem; }
+  .hud-header .header-content > div:last-child { gap: .125rem; }
+  .hud-header .brand-title { max-width: calc(100vw - 8rem); gap: .12rem; font-size: .95rem; }
+  .hud-header .brand-title { left: calc(50vw - .5rem); }
+  .hud-header .brand-icon { width: 1rem; height: 1rem; }
+  .hud-header .brand-sparkle { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .falling-leaves { display: none; }
@@ -408,6 +444,7 @@ input, textarea, select { accent-color: var(--color-secondary); }
   .trail-map-note, .trail-map-footer::before, .trail-action-leaf,
   .journal-leaf, .journal-firefly, .journal-bookmark,
   .brand-icon, .brand-sparkle, .hud-button:hover > svg, .hud-button:focus-visible > svg { animation: none; }
+  .trail-map-action:hover, .trail-map-action:active { transform: none; }
   .trail-map-content .quest-tag:hover, .trail-map-content .quest-subpanel:hover,
   .trail-map-content button:hover, .trail-map-content button:active { transform: none; filter: none; }
   button:not(:disabled):hover, button:not(:disabled):active { translate: none; }

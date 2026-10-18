@@ -30,7 +30,7 @@ function GuestQuestPreviewPage({
         <div className="mx-auto w-full max-w-5xl space-y-4 sm:space-y-5">
           <button
             type="button"
-            onClick={() => navigateTo('/')}
+            onClick={() => navigateTo('/home')}
             className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
             style={{ color: colors.foreground, borderColor: colors.border, outlineColor: colors.secondary }}
           >
@@ -165,7 +165,7 @@ function GuestQuestPreviewPage({
                   <SignedIn>
                     <button
                       type="button"
-                      onClick={() => navigateTo('/')}
+                      onClick={() => navigateTo('/home')}
                       className="min-h-11 w-full cursor-pointer rounded-xl px-4 py-2.5 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
                       style={{
                         backgroundColor: colors.primary,
@@ -178,7 +178,7 @@ function GuestQuestPreviewPage({
                   </SignedIn>
                   <button
                     type="button"
-                    onClick={() => navigateTo('/')}
+                    onClick={() => navigateTo('/home')}
                     className="min-h-11 w-full cursor-pointer rounded-xl border px-4 py-2.5 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2"
                     style={{
                       borderColor: colors.border,
@@ -199,7 +199,7 @@ function GuestQuestPreviewPage({
               </p>
               <button
                 type="button"
-                onClick={() => navigateTo('/')}
+                onClick={() => navigateTo('/home')}
                 className="mt-4 min-h-11 w-full cursor-pointer rounded-xl px-4 py-2.5 text-sm font-bold sm:w-auto"
                 style={{ backgroundColor: colors.primary, color: colors.primaryForeground }}
               >

@@ -416,8 +416,8 @@ function SidequestDetailPage({
         <div className="mx-auto w-full max-w-6xl">
           <button
             type="button"
-            onClick={() => navigateTo('/')}
-            className="sidequest-control mb-5 inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+            onClick={() => navigateTo('/home')}
+            className="mb-5 inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
             style={{
               color: colors.foreground,
               borderColor: colors.border,
@@ -500,8 +500,8 @@ function SidequestDetailPage({
               </p>
               <button
                 type="button"
-                onClick={() => navigateTo('/')}
-                className="sidequest-control sidequest-control-primary mt-6 min-h-11 cursor-pointer rounded-xl px-5 py-2.5 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
+                onClick={() => navigateTo('/home')}
+                className="mt-6 min-h-11 cursor-pointer rounded-xl px-5 py-2.5 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
                 style={{
                   backgroundColor: colors.primary,
                   color: colors.primaryForeground,

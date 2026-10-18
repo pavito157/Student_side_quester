@@ -104,11 +104,11 @@ function Header({
           </button>
           {!onMenuClick && (
             <a
-              href="/"
+              href="/home"
               onClick={(event) => {
                 if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
                 event.preventDefault()
-                navigateTo('/')
+                navigateTo('/home')
               }}
               aria-label="Quest board"
               title="Quest board"

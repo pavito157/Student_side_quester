@@ -149,6 +149,26 @@
           "title": "Stepproofmethods",
           "type": "array"
         },
+        "stepDestinationIndexes": {
+          "items": {
+            "maximum": 9,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 10,
+          "title": "Stepdestinationindexes",
+          "type": "array"
+        },
+        "routeCandidateIndexes": {
+          "items": {
+            "maximum": 19,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 10,
+          "title": "Routecandidateindexes",
+          "type": "array"
+        },
         "locationName": {
           "maxLength": 300,
           "minLength": 1,
@@ -520,7 +540,7 @@
       "items": {
         "$ref": "#/$defs/ResolvedDestination"
       },
-      "maxItems": 3,
+      "maxItems": 10,
       "title": "Destinations",
       "type": "array"
     },

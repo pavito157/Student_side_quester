@@ -6,6 +6,7 @@
     "Sketch a nature journal interface, then implement one small feature."
   ],
   "stepProofMethods": ["location", "photo"],
+  "stepDestinationIndexes": [0, 0],
   "verifiedPhotoSteps": [],
   "skippedPhotoSteps": [],
   "locationName": "Example UF destination",

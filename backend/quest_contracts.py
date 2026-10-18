@@ -18,8 +18,26 @@ class ContractModel(BaseModel):
 DocumentId = Annotated[str, StringConstraints(min_length=1, max_length=128, pattern=r"^[^/]+$")]
 GoalText = Annotated[str, StringConstraints(min_length=1, max_length=500)]
 StepText = Annotated[str, StringConstraints(min_length=1, max_length=1000)]
-PhotoStepIndex = Annotated[int, Field(strict=True, ge=0, le=9)]
+MAX_QUEST_STEPS = 10
+MAX_QUEST_DESTINATIONS = 10
+MAX_DESTINATION_CANDIDATES = 20
+PhotoStepIndex = Annotated[int, Field(strict=True, ge=0, le=MAX_QUEST_STEPS - 1)]
+DestinationIndex = Annotated[int, Field(strict=True, ge=0, le=MAX_QUEST_DESTINATIONS - 1)]
+CandidateIndex = Annotated[int, Field(strict=True, ge=0, le=MAX_DESTINATION_CANDIDATES - 1)]
 QuestProofMethod = Literal["location", "photo", "recreation"]
+
+
+def _validate_step_destinations(step_indexes: list[int], step_count: int, destination_count: int):
+    if not step_indexes:
+        if destination_count > 1 and step_count == destination_count:
+            step_indexes.extend(range(destination_count))
+        else:
+            step_indexes.extend([0] * step_count)
+    if (len(step_indexes) != step_count
+            or any(index >= destination_count for index in step_indexes)
+            or step_indexes != sorted(step_indexes)
+            or set(step_indexes) != set(range(destination_count))):
+        raise ValueError("Every destination must have one or more ordered quest steps")
 
 
 class Coordinates(ContractModel):
@@ -221,18 +239,23 @@ class AssignQuestRequest(ContractModel):
 
 class AssignedQuest(ContractModel):
     id: DocumentId
+    sourceOrganizationId: Optional[DocumentId] = None
+    sourceOrganizationQuestId: Optional[DocumentId] = None
     title: str = Field(min_length=1, max_length=160)
     description: str = Field(min_length=1, max_length=4000)
-    steps: List[StepText] = Field(min_length=1, max_length=10)
-    stepProofMethods: List[QuestProofMethod] = Field(default_factory=list, max_length=10)
-    verifiedPhotoSteps: List[PhotoStepIndex] = Field(default_factory=list, max_length=10)
-    skippedPhotoSteps: List[PhotoStepIndex] = Field(default_factory=list, max_length=10)
+    steps: List[StepText] = Field(min_length=1, max_length=MAX_QUEST_STEPS)
+    stepProofMethods: List[QuestProofMethod] = Field(default_factory=list, max_length=MAX_QUEST_STEPS)
+    stepDestinationIndexes: List[DestinationIndex] = Field(
+        default_factory=list, max_length=MAX_QUEST_STEPS,
+    )
+    verifiedPhotoSteps: List[PhotoStepIndex] = Field(default_factory=list, max_length=MAX_QUEST_STEPS)
+    skippedPhotoSteps: List[PhotoStepIndex] = Field(default_factory=list, max_length=MAX_QUEST_STEPS)
     locationName: str = Field(min_length=1, max_length=300)
     placeId: Optional[str] = Field(default=None, min_length=1, max_length=300)
     latitude: float = Field(strict=True, ge=-90, le=90, allow_inf_nan=False)
     longitude: float = Field(strict=True, ge=-180, le=180, allow_inf_nan=False)
-    destinations: List[ResolvedDestination] = Field(default_factory=list, max_length=3)
-    completedStops: List[int] = Field(default_factory=list, max_length=3)
+    destinations: List[ResolvedDestination] = Field(default_factory=list, max_length=MAX_QUEST_DESTINATIONS)
+    completedStops: List[int] = Field(default_factory=list, max_length=MAX_QUEST_DESTINATIONS)
     radiusMeters: float = Field(strict=True, gt=0, allow_inf_nan=False)
     xpReward: int = Field(strict=True, ge=0, le=2**63 - 1)
     isActive: bool = Field(strict=True, json_schema_extra={"const": True})
@@ -244,6 +267,8 @@ class AssignedQuest(ContractModel):
     def active_quest(self):
         if not self.isActive:
             raise ValueError("An assigned quest must be active")
+        if (self.sourceOrganizationId is None) != (self.sourceOrganizationQuestId is None):
+            raise ValueError("Organization quest provenance must include both IDs")
         if self.destinations:
             first = self.destinations[0]
             if (first.locationName != self.locationName or first.placeId != self.placeId
@@ -253,6 +278,8 @@ class AssignedQuest(ContractModel):
                     or len({stop.placeId for stop in self.destinations if stop.placeId}) !=
                     len([stop for stop in self.destinations if stop.placeId])):
                 raise ValueError("Route stops must be unique")
+        destination_count = len(self.destinations) or 1
+        _validate_step_destinations(self.stepDestinationIndexes, len(self.steps), destination_count)
         if self.completedStops != list(range(len(self.completedStops))):
             raise ValueError("Completed stops must be sequential")
         if self.destinations and any(index >= len(self.destinations) for index in self.completedStops):
@@ -349,8 +376,14 @@ class GeneratedQuestProposal(ContractModel):
 
     title: str = Field(min_length=1, max_length=160)
     description: str = Field(min_length=1, max_length=4000)
-    steps: List[StepText] = Field(min_length=1, max_length=10)
-    stepProofMethods: List[QuestProofMethod] = Field(default_factory=list, max_length=10)
+    steps: List[StepText] = Field(min_length=1, max_length=MAX_QUEST_STEPS)
+    stepProofMethods: List[QuestProofMethod] = Field(default_factory=list, max_length=MAX_QUEST_STEPS)
+    stepDestinationIndexes: List[DestinationIndex] = Field(
+        default_factory=list, max_length=MAX_QUEST_STEPS,
+    )
+    routeCandidateIndexes: List[CandidateIndex] = Field(
+        default_factory=list, max_length=MAX_QUEST_DESTINATIONS, exclude=True,
+    )
     locationName: str = Field(min_length=1, max_length=300)
     locationAddress: str = Field(min_length=1, max_length=500)
     estimatedMinutes: int = Field(strict=True, gt=0)
@@ -362,6 +395,16 @@ class GeneratedQuestProposal(ContractModel):
             self.stepProofMethods = ["location"] * len(self.steps)
         if len(self.stepProofMethods) != len(self.steps):
             raise ValueError("Each quest step must have exactly one proof method")
+        route_count = (
+            len(self.routeCandidateIndexes) if self.routeCandidateIndexes
+            else max(self.stepDestinationIndexes, default=0) + 1
+        )
+        if self.routeCandidateIndexes:
+            if (len(self.routeCandidateIndexes) < 2
+                    or len(set(self.routeCandidateIndexes)) != len(self.routeCandidateIndexes)):
+                raise ValueError("Route candidate indexes must be unique")
+            route_count = len(self.routeCandidateIndexes)
+        _validate_step_destinations(self.stepDestinationIndexes, len(self.steps), route_count)
         return self
 
 
@@ -371,13 +414,20 @@ class GeminiActivityDraft(ContractModel):
     title: str = Field(min_length=1, max_length=160)
     description: str = Field(min_length=1, max_length=500,
                              description="One literal action objective with a count or result, not atmospheric prose.")
-    steps: List[StepText] = Field(min_length=2, max_length=3)
+    steps: List[StepText] = Field(min_length=2, max_length=MAX_QUEST_STEPS)
     stepProofMethods: List[QuestProofMethod] = Field(
-        min_length=2, max_length=3,
+        min_length=2, max_length=MAX_QUEST_STEPS,
         description=(
             "Exactly one method per step, in order, chosen from request proofOptions. "
             "Location and photo are XP-eligible verification; photo requires visible "
             "evidence. Recreation is fun-only, requires no proof, and awards no XP."
+        ),
+    )
+    stepDestinationIndexes: List[DestinationIndex] = Field(
+        min_length=2, max_length=MAX_QUEST_STEPS,
+        description=(
+            "One zero-based route-stop index per action step. Keep indexes in "
+            "nondecreasing order, start at zero, and use every route stop."
         ),
     )
     estimatedMinutes: int = Field(strict=True, gt=0)
@@ -389,7 +439,10 @@ class GeminiActivityDraft(ContractModel):
 
 
 class GeminiMultiStopDraft(GeminiActivityDraft):
-    steps: List[StepText] = Field(min_length=2, max_length=3)
+    routeCandidateIndexes: List[CandidateIndex] = Field(
+        min_length=2, max_length=MAX_QUEST_DESTINATIONS,
+        description="Unique zero-based candidate indexes in the chosen route order.",
+    )
 
 
 class GeminiQuestDraft(GeminiActivityDraft):
@@ -403,6 +456,10 @@ class SelectedDestination(ResolvedDestination):
     """Internal provider-selected venue; its address is not Gemini-authored."""
 
     locationAddress: str = Field(min_length=1, max_length=500)
+    rating: Optional[float] = Field(default=None, ge=0, le=5, allow_inf_nan=False)
+    userRatingCount: Optional[int] = Field(default=None, strict=True, ge=0)
+    priceLevel: Optional[str] = Field(default=None, min_length=1, max_length=40)
+    discoveryProfiles: List[Literal["popular", "niche", "user", "surprise"]] = Field(default_factory=list)
 
 
 class GeneratedQuestResponse(ContractModel):
@@ -413,7 +470,9 @@ class GeneratedQuestResponse(ContractModel):
     distanceStatus: Literal["not_requested", "pending", "verified"]
     distanceMeters: Optional[float] = Field(default=None, strict=True, ge=0, allow_inf_nan=False)
     destination: Optional[ResolvedDestination] = None
-    destinations: List[ResolvedDestination] = Field(default_factory=list, max_length=3)
+    destinations: List[ResolvedDestination] = Field(
+        default_factory=list, max_length=MAX_QUEST_DESTINATIONS,
+    )
     message: str
     quest: GeneratedQuestProposal
     normalizedPreferences: NormalizedQuestPreferences
@@ -427,9 +486,15 @@ class GeneratedQuestResponse(ContractModel):
         if self.destinations and (self.destination is None or self.destinations[0] != self.destination):
             raise ValueError("The first verified stop must match the primary destination")
         if self.destinationVerified:
-            expected_stops = 2 <= len(self.destinations) <= 3 if self.normalizedPreferences.multiQuest else len(self.destinations) == 1
+            expected_stops = (
+                2 <= len(self.destinations) <= MAX_QUEST_DESTINATIONS
+                if self.normalizedPreferences.multiQuest else len(self.destinations) == 1
+            )
             if not expected_stops:
                 raise ValueError("Verified destination count must match the requested quest type")
+            _validate_step_destinations(
+                self.quest.stepDestinationIndexes, len(self.quest.steps), len(self.destinations),
+            )
             if (len({(stop.latitude, stop.longitude) for stop in self.destinations}) != len(self.destinations)
                     or len({stop.placeId for stop in self.destinations if stop.placeId}) !=
                     len([stop for stop in self.destinations if stop.placeId])):

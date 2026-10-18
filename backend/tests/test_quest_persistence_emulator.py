@@ -596,6 +596,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
             self.provider.return_value = self.proposal.model_copy(update={
                 "steps": ["Perform a small movement sequence at the first stop.", "Find three shapes at the second stop."],
                 "stepProofMethods": ["location", "location"],
+                "stepDestinationIndexes": [0, 1], "routeCandidateIndexes": [0, 1],
             })
             body = {"location": "Origin", "originCoordinates": {"latitude": 29.65, "longitude": -82.34},
                     "time": {"selection": "60"}, "budget": {"selection": "0"}, "multiQuest": True}
@@ -643,6 +644,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
             self.provider.return_value = self.proposal.model_copy(update={
                 "steps": ["Try the first task.", "Try the second task."],
                 "stepProofMethods": ["location", "location"],
+                "stepDestinationIndexes": [0, 1], "routeCandidateIndexes": [0, 1],
             })
             result = client.post("/quests/generate", json={
                 "location": "Origin", "originCoordinates": {"latitude": 29.65, "longitude": -82.34},
@@ -720,7 +722,8 @@ class PersistenceEmulatorTests(unittest.TestCase):
             self.assertEqual(again.status_code, 201)
             self.assertFalse(again.json()["reusedExisting"])
             self.assertEqual(client.get("/me/quest", headers=headers).json()["quest"], again.json()["quest"])
-            self.assertEqual(lookup.call_count, 2)
+            # Each of the two assignments runs four distinct discovery profiles.
+            self.assertEqual(lookup.call_count, 8)
             self.assertEqual(self.provider.call_count, 2)
             url = f"/quests/{saved['quest']['id']}/complete"
             location = {"latitude": 29.65, "longitude": -82.34, "accuracy": 10}

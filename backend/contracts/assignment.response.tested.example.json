@@ -7,6 +7,7 @@
       "Draw three leaves."
     ],
     "stepProofMethods": ["location"],
+    "stepDestinationIndexes": [0],
     "verifiedPhotoSteps": [],
     "skippedPhotoSteps": [],
     "locationName": "AI proposed name",

@@ -59,11 +59,16 @@ optional `originCoordinates` and `multiQuest` (defaults to false), and `proofOpt
 requires no evidence and earns no XP. Gemini may assign different enabled
 methods to individual steps. Coordinates of the selected search origin are
 required when `distance` is non-null. Defaults/time/budget meanings are unchanged.
-When `multiQuest` is true, `originCoordinates` is required and generation returns
-two or three distinct, resolver-verified destinations in nearest-first order.
-Generated steps correspond one-to-one with route stops. Each completed stop
-awards its share of the saved XP when its method is location or photo; recreation
-stops award no XP. Photo proof is an alternative to location proof, is reviewed
+When `multiQuest` is true, `originCoordinates` is required and generation gives
+Gemini a diverse pool of verified candidates, then saves an ordered route of
+two to ten distinct destinations (maximum 10). Each destination must have at
+least one ordered action; multiple actions may share a stop. The
+`stepDestinationIndexes` array maps every action to its zero-based route stop.
+Stops are not forced to be nearest-first; each must contribute purposefully to
+the mission. Actions and route length scale to the time, budget, and objective.
+Each completed stop awards its share of saved XP when its action proofs are
+eligible; recreation-only stops award no XP. Photo proof is an alternative to
+location proof, is reviewed
 by Gemini, and only accepted step indexes are retained. Image bytes are never
 persisted. A user may skip a required photo when unable to take one; completing
 that single-stop quest or multi-stop stop then awards no XP.

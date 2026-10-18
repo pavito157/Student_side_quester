@@ -11,6 +11,36 @@
           "title": "Id",
           "type": "string"
         },
+        "sourceOrganizationId": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[^/]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sourceorganizationid"
+        },
+        "sourceOrganizationQuestId": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[^/]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sourceorganizationquestid"
+        },
         "title": {
           "maxLength": 160,
           "minLength": 1,
@@ -45,6 +75,16 @@
           },
           "maxItems": 10,
           "title": "Stepproofmethods",
+          "type": "array"
+        },
+        "stepDestinationIndexes": {
+          "items": {
+            "maximum": 9,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 10,
+          "title": "Stepdestinationindexes",
           "type": "array"
         },
         "verifiedPhotoSteps": {
@@ -103,7 +143,7 @@
           "items": {
             "$ref": "#/$defs/ResolvedDestination"
           },
-          "maxItems": 3,
+          "maxItems": 10,
           "title": "Destinations",
           "type": "array"
         },
@@ -111,7 +151,7 @@
           "items": {
             "type": "integer"
           },
-          "maxItems": 3,
+          "maxItems": 10,
           "title": "Completedstops",
           "type": "array"
         },

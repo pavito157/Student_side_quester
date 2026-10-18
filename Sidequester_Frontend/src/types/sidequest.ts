@@ -16,6 +16,8 @@ export type DistanceConstraint = {
 } | null
 
 export type QuestProofMethod = 'location' | 'photo' | 'recreation'
+export const MAX_QUEST_STOPS = 10
+export const MAX_QUEST_STEPS = 10
 
 export type SidequestRequestInput = {
   preferences: string
@@ -59,10 +61,13 @@ export type SavedSidequestRequest = {
 
 export type ActiveSidequest = {
   id: string
+  sourceOrganizationId?: string | null
+  sourceOrganizationQuestId?: string | null
   title: string
   description: string
   steps: string[]
   stepProofMethods: QuestProofMethod[]
+  stepDestinationIndexes: number[]
   verifiedPhotoSteps: number[]
   skippedPhotoSteps: number[]
   locationName: string

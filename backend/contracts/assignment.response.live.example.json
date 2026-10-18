@@ -10,6 +10,7 @@
       "You're done when you have written down three distinct historical years from the park markers."
     ],
     "stepProofMethods": ["location", "location", "location", "location"],
+    "stepDestinationIndexes": [0, 0, 0, 0],
     "verifiedPhotoSteps": [],
     "skippedPhotoSteps": [],
     "locationName": "Boulware Springs Park",

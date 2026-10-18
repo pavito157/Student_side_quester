@@ -55,6 +55,7 @@ class GenerationTests(unittest.TestCase):
         return {
             **self.proposal,
             "stepProofMethods": ["location", "photo"],
+            "stepDestinationIndexes": [0, 0],
             "completionCriteria": "you have three labeled sketches.",
         }
 
@@ -78,8 +79,8 @@ class GenerationTests(unittest.TestCase):
         self.assertIsNone(result.destination)
         self.assertEqual(result.distanceStatus, "not_requested")
         self.assertEqual(result.quest.title, "Plant patterns")
-        self.assertEqual(result.quest.steps[-1], "You're done when you have three labeled sketches.")
-        self.assertEqual(result.quest.stepProofMethods, ["location", "photo", "location"])
+        self.assertEqual(result.quest.steps[-1], "Sketch a pattern. You're done when you have three labeled sketches.")
+        self.assertEqual(result.quest.stepProofMethods, ["location", "photo"])
         self.assertNotIn("completionCriteria", result.quest.model_dump())
         for forbidden in ["id", "sourceQuestId", "latitude", "longitude", "radiusMeters", "xpReward"]:
             self.assertNotIn(forbidden, result.quest.model_dump())
@@ -103,9 +104,10 @@ class GenerationTests(unittest.TestCase):
         self.assertIn("schema", body["generationConfig"]["responseFormat"]["text"])
         self.assertEqual(body["generationConfig"]["responseFormat"]["text"]["mimeType"], "APPLICATION_JSON")
         self.assertEqual(body["generationConfig"]["thinkingConfig"], {"thinkingLevel": "LOW"})
-        self.assertIn("exactly one stepProofMethods value per step", body["systemInstruction"]["parts"][0]["text"])
+        self.assertIn("exactly one stepProofMethods and one stepDestinationIndexes", body["systemInstruction"]["parts"][0]["text"])
         self.assertIn("concrete, visible artifact", body["systemInstruction"]["parts"][0]["text"])
         self.assertIn("location, photo", body["systemInstruction"]["parts"][0]["text"])
+        self.assertIn("about 70%", body["systemInstruction"]["parts"][0]["text"])
         self.assertEqual(context["proofOptions"], ["location", "photo"])
 
     def test_generation_rejects_methods_outside_user_selected_options(self):
@@ -124,14 +126,25 @@ class GenerationTests(unittest.TestCase):
                 self.assertEqual(timeout["read"], seconds)
                 self.assertEqual(timeout["connect"], 5)
 
-    def test_model_settings_keep_fast_lite_minimal_and_other_flash_low(self):
-        for model, thinking in [("gemini-3.5-flash-lite", "MINIMAL"), ("gemini-3.8-flash", "LOW")]:
-            with self.subTest(model=model), patch.dict(os.environ, {"GEMINI_MODEL": model}):
-                self.http()
-                self.generate()
-                config = json.loads(self.requests[0].content)["generationConfig"]
-                self.assertEqual(config["thinkingConfig"]["thinkingLevel"], thinking)
-                self.assertEqual(config["maxOutputTokens"], 3072)
+    def test_model_settings_use_gemini_flash_with_low_thinking(self):
+        with patch.dict(os.environ, {"GEMINI_MODEL": "gemini-3.8-flash"}):
+            self.http()
+            self.generate()
+            config = json.loads(self.requests[0].content)["generationConfig"]
+            self.assertEqual(config["thinkingConfig"]["thinkingLevel"], "LOW")
+            self.assertEqual(config["maxOutputTokens"], 3072)
+
+    def test_model_default_is_gemini_flash(self):
+        with patch.dict(os.environ, {
+            "GEMINI_API_KEY": "secret-test-key",
+            "GEMINI_TIMEOUT_SECONDS": "20",
+        }, clear=True):
+            self.http()
+            self.generate()
+            self.assertIn(
+                "/models/gemini-3.8-flash:generateContent",
+                str(self.requests[0].url),
+            )
 
     def test_truncated_and_safety_blocked_responses_have_actionable_errors(self):
         for finish_reason, message in [
@@ -229,7 +242,13 @@ class GenerationTests(unittest.TestCase):
         self.assertNotIn("locationAddress", fields)
         context = json.loads(body["contents"][0]["parts"][0]["text"])
         self.assertEqual(context["verifiedDestination"], {
-            "locationName": selected.locationName, "locationAddress": selected.locationAddress,
+            "candidateIndex": 0,
+            "locationName": selected.locationName,
+            "locationAddress": selected.locationAddress,
+            "rating": None,
+            "userRatingCount": None,
+            "priceLevel": None,
+            "discoveryProfiles": [],
         })
         self.assertNotIn("latitude", json.dumps(context))
         self.assertNotIn("placeId", json.dumps(context))
@@ -238,20 +257,35 @@ class GenerationTests(unittest.TestCase):
     def test_multi_stop_prompt_combines_route_order_and_previous_activity_without_private_metadata(self):
         self.proposal.pop("locationName")
         self.proposal.pop("locationAddress")
-        self.http()
+        draft = {
+            **self.provider_draft(),
+            "steps": [
+                "Use the first stop's architecture as the opening clue.",
+                "Compare another detail at the first stop.",
+                "Use the second stop to finish the pattern.",
+            ],
+            "stepProofMethods": ["location", "photo", "location"],
+            "stepDestinationIndexes": [0, 0, 1],
+            "routeCandidateIndexes": [0, 1],
+        }
+        self.http(body={"candidates": [{"finishReason": "STOP", "content": {
+            "parts": [{"text": json.dumps(draft)}],
+        }}]})
         first = SelectedDestination(**self.destination.model_dump(), locationAddress="First provider address")
         second = first.model_copy(update={"locationName": "Second venue", "locationAddress": "Second provider address",
                                           "latitude": 29.65, "longitude": -82.34, "placeId": "second-id"})
         previous = GeneratedQuestProposal(**{**self.proposal, "locationName": "Previous venue", "locationAddress": "Previous address"})
         result = generation.call_gemini(self.preferences, [first, second], previous_quest=previous)
-        self.assertEqual(len(result.steps), 2)
+        self.assertEqual(len(result.steps), 3)
+        self.assertEqual(result.routeCandidateIndexes, [0, 1])
+        self.assertEqual(result.stepDestinationIndexes, [0, 0, 1])
         body = json.loads(self.requests[-1].content)
         instruction = body["systemInstruction"]["parts"][0]["text"]
-        self.assertIn("exactly 2 short action steps", instruction)
+        self.assertIn("2-10 distinct candidateIndex values", instruction)
         self.assertIn("different primary challenge", instruction)
         self.assertNotIn("Keep every required step\nat that one destination", instruction)
         context = json.loads(body["contents"][0]["parts"][0]["text"])
-        self.assertEqual(len(context["verifiedDestinations"]), 2)
+        self.assertEqual(len(context["verifiedDestinationCandidates"]), 2)
         self.assertEqual(context["previousActivity"]["steps"], previous.steps)
         for field in ["latitude", "longitude", "placeId", "xpReward", "Private Student"]:
             self.assertNotIn(field, json.dumps(context))
@@ -272,7 +306,7 @@ class GenerationTests(unittest.TestCase):
         body = json.loads(self.requests[-1].content)
         instruction = body["systemInstruction"]["parts"][0]["text"]
         self.assertIn("Use only that place", instruction)
-        self.assertIn("Do not return location fields", instruction)
+        self.assertIn("Do not invent or return location fields", instruction)
         self.assertNotIn("full street address", instruction)
         self.assertNotIn("Choose one real", instruction)
         for rules in [draft_instruction, instruction]:
@@ -303,8 +337,11 @@ class GenerationTests(unittest.TestCase):
 
     def test_identical_replacement_activity_is_rejected_before_persistence(self):
         from types import SimpleNamespace
-        previous = SimpleNamespace(title="Old title", description=self.proposal["description"],
-                                   steps=[*self.proposal["steps"], "You're done when you have three labeled sketches."])
+        previous = SimpleNamespace(
+            title="Old title", description=self.proposal["description"],
+            steps=[self.proposal["steps"][0],
+                   "Sketch a pattern. You're done when you have three labeled sketches."],
+        )
         self.http()
         self.assert_status(502, lambda: generation.generate_preview(self.preferences, previous_quest=previous))
 

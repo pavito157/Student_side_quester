@@ -13,16 +13,20 @@ not `backend/.env` or the frontend `.env.local`. Restart FastAPI after changes.
 
 ```dotenv
 GEMINI_API_KEY=your-key-from-google-ai-studio
-GEMINI_MODEL=gemini-3.5-flash-lite
+GEMINI_MODEL=gemini-3.8-flash
 GEMINI_TIMEOUT_SECONDS=20
 ```
 
 No additional dependencies are required. The existing HTTP client calls Gemini's
 REST API with structured JSON output, then Pydantic validates the result.
-The default is now `gemini-3.5-flash-lite`, selected by live comparisons for this
-short structured task. It uses MINIMAL thinking; other Gemini 3 configurations use
-LOW. The model remains configurable. Requests use a compact prompt and a 3,072-token
-output cap, asking for 2-3 short actions plus one explicit completion instruction.
+The default is `gemini-3.8-flash` for generation and photo review. Gemini 3
+requests use LOW thinking; the model remains configurable. Requests use a
+compact, shared mission-design prompt and a 3,072-token output cap. It prioritizes
+locally grounded new experiences, then user preferences and a safe surprise;
+stops must have distinct purpose, while ordered actions may share a destination.
+Actions and route length scale to the request, with a ten-step/ten-stop ceiling
+and no fixed count. Multi-stop generation selects from a bounded, verified pool
+of up to 20 candidate places, rather than trusting model-authored destinations.
 The backend uses a reusable HTTP connection pool, closed at app shutdown.
 The REST `responseFormat.text.mimeType` uses the `APPLICATION_JSON` enum.
 The provider read timeout defaults to 20 seconds (configurable from 5 to 120);
@@ -38,7 +42,8 @@ error, or credential is returned to the frontend.
 
 ## Response and current boundary
 
-The frontend receives `title`, `description`, `steps`, per-step `stepProofMethods`, `locationName`,
+The frontend receives `title`, `description`, `steps`, per-step `stepProofMethods`
+and `stepDestinationIndexes`, `locationName`,
 `locationAddress`, `estimatedMinutes`, and `estimatedCostDollars`. Internally Gemini
 also returns `completionCriteria`; the backend formats that into the final
 "You're done when ..." step and does not expose an extra frontend field. It cannot provide GPS coordinates,
@@ -59,8 +64,8 @@ activity minutes, `30`/`60`/custom mean maximum minutes, and budget `10` means
 strictly under $10. Travel time is excluded. These remain AI estimates, not
 verified durations, prices, hours, events, or availability.
 
-Until Backend 1's destination resolver is connected, success is an **unverified
-preview** with:
+Without a configured destination resolver, success is an **unverified preview**
+with:
 
 ```json
 {
@@ -74,11 +79,9 @@ preview** with:
 }
 ```
 
-With a distance limit, `distanceStatus` is `pending` instead. The prompt asks for
-UF campus venues, but this is not a verified city-scope check. No coordinates
-are invented to make the preview look verified. Such a preview cannot be used
-for GPS completion or persisted as a verified assignment. Step 5 implements saving, active-assignment reuse, radius/XP policy and
-completion integration separately; new saves remain gated on the real resolver.
+With a distance limit, `distanceStatus` is `pending` instead. Such a preview
+cannot be used for GPS completion or persisted as a verified assignment. Current
+assignment generation requires the real resolver; see [TASK5_API.md](TASK5_API.md).
 
 ## Backend 1 handoff: destination resolver
 

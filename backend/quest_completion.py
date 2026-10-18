@@ -4,6 +4,7 @@ from firebase_admin import firestore
 
 from .quest_validation import validate_completion
 from .firebase_helpers import USERS
+from .quest_contracts import MAX_QUEST_DESTINATIONS, MAX_QUEST_STEPS
 from .xp import read_xp, xp_for_stop
 
 ASSIGNMENTS = "userQuests"
@@ -59,7 +60,8 @@ def complete_quest(
                 "latitude": quest.get("latitude"),
                 "longitude": quest.get("longitude"),
             }]
-        if (not isinstance(destinations, list) or not 1 <= len(destinations) <= 3
+        if (not isinstance(destinations, list)
+                or not 1 <= len(destinations) <= MAX_QUEST_DESTINATIONS
                 or type(stop_index) is not int or not 0 <= stop_index < len(destinations)):
             raise CompletionError(409, "The quest stop information is invalid.")
         completed_stops = quest.get("completedStops", [])
@@ -86,6 +88,13 @@ def complete_quest(
                 steps = ["Legacy location-verified quest"]
         if not isinstance(steps, list):
             raise CompletionError(409, "The quest step information is invalid.")
+        step_destinations = quest.get("stepDestinationIndexes")
+        if step_destinations is None:
+            step_destinations = (
+                list(range(len(destinations)))
+                if len(destinations) > 1 and len(steps) == len(destinations)
+                else [0] * len(steps)
+            )
         proof_methods = quest.get("stepProofMethods", ["location"] * (len(steps) or 1))
         if not isinstance(proof_methods, list):
             raise CompletionError(409, "The quest step proof information is invalid.")
@@ -101,25 +110,24 @@ def complete_quest(
                 or len(set([*verified_photo_steps, *skipped_photo_steps]))
                    != len([*verified_photo_steps, *skipped_photo_steps])):
             raise CompletionError(409, "The quest step proof information is invalid.")
-        if len(destinations) > 1 and len(steps) != len(destinations):
-            raise CompletionError(409, "Each multi-stop destination must match exactly one quest step.")
-        if len(destinations) > 1:
-            required_photo_steps = [
-                stop_index for step_index, method in enumerate(proof_methods)
-                if method == "photo" and step_index == stop_index
-            ]
-        else:
-            required_photo_steps = [
-                step_index for step_index, method in enumerate(proof_methods)
-                if method == "photo"
-            ]
+        if (not isinstance(step_destinations, list) or len(step_destinations) != len(steps)
+                or len(steps) > MAX_QUEST_STEPS
+                or any(type(index) is not int or not 0 <= index < len(destinations)
+                       for index in step_destinations)
+                or step_destinations != sorted(step_destinations)
+                or set(step_destinations) != set(range(len(destinations)))):
+            raise CompletionError(409, "The quest step-to-destination information is invalid.")
+        stop_step_indexes = [
+            index for index, destination_index in enumerate(step_destinations)
+            if destination_index == stop_index
+        ]
+        required_photo_steps = [
+            index for index in stop_step_indexes if proof_methods[index] == "photo"
+        ]
         if any(step_index not in verified_photo_steps and step_index not in skipped_photo_steps
                for step_index in required_photo_steps):
             raise CompletionError(409, "Submit photo proof or explicitly skip it before completing this step.")
-        needs_location = (
-            proof_methods[stop_index] == "location" if len(destinations) > 1
-            else "location" in proof_methods
-        )
+        needs_location = any(proof_methods[index] == "location" for index in stop_step_indexes)
         if needs_location:
             stop_quest = {
                 **quest,
@@ -137,27 +145,31 @@ def complete_quest(
         if type(total_reward) is not int or total_reward < 0:
             raise CompletionError(409, "The quest XP reward is not configured correctly.")
         stop_count = len(destinations)
-        eligible_steps = [
-            index for index, method in enumerate(proof_methods)
-            if method in ("location", "photo")
+        eligible_stops = [
+            index for index in range(stop_count)
+            if any(
+                method in ("location", "photo")
+                for step_index, method in enumerate(proof_methods)
+                if step_destinations[step_index] == index
+            )
         ]
+        skipped_stops = {step_destinations[index] for index in skipped_photo_steps}
         if stop_count > 1:
-            eligible_stops = [index for index in eligible_steps if index < stop_count]
             reward = (
-                0 if stop_index not in eligible_stops or stop_index in skipped_photo_steps
+                0 if stop_index not in eligible_stops or stop_index in skipped_stops
                 else xp_for_stop(total_reward, len(eligible_stops), eligible_stops.index(stop_index))
             )
         else:
-            reward = 0 if skipped_photo_steps or not eligible_steps else total_reward
+            reward = 0 if skipped_stops or not eligible_stops else total_reward
         updated_stops = [*completed_stops, stop_index]
         if stop_count > 1:
             total_awarded = sum(
-                0 if index not in eligible_stops or index in skipped_photo_steps
+                0 if index not in eligible_stops or index in skipped_stops
                 else xp_for_stop(total_reward, len(eligible_stops), eligible_stops.index(index))
                 for index in updated_stops
             )
         else:
-            total_awarded = 0 if skipped_photo_steps else total_reward
+            total_awarded = 0 if skipped_stops else total_reward
         quest_complete = len(updated_stops) == stop_count
 
         user_snapshot = user_ref.get(transaction=transaction)

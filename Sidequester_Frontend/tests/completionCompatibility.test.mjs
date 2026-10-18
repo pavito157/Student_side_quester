@@ -44,6 +44,7 @@ async function fixture() {
       if (name === 'firebase/firestore') return synthetic({ collection() {}, doc() {}, onSnapshot() {}, Timestamp: class {} })
       if (name.endsWith('FirebaseConfig')) return synthetic({ db: {} })
       if (name.endsWith('firebaseSession')) return synthetic({ getFirebaseIdToken: async (uid) => { f.tokens.push(uid); return f.getToken(uid) } })
+      if (name.endsWith('/types/sidequest')) return load('types/sidequest.ts')
       return load(`services/${name.split('/').at(-1)}.ts`)
     })
     return mod

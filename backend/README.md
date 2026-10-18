@@ -9,14 +9,17 @@ New saves use the connected Gainesville destination resolver. `/quests/generate`
 and the original fixed test moved to `/quests/preview`. GET/completion routes are
 now mounted. The frontend button, quick menu and detail pages are connected.
 Guests can generate unsaved previews; signed-in users can save quests. Optional
-`multiQuest: true` requests two or three verified stops and requires an explicit
-origin. A multi-stop quest occupies one active slot; GPS verifies each stop in
+`multiQuest: true` requests a purposefully connected route of two to ten
+verified stops and requires an explicit origin. Ordered actions map to stops,
+with multiple actions allowed at each stop. A multi-stop quest occupies one active slot; GPS verifies each stop in
 order and awards its share of XP to both the user and dorm. Public deployments
 should enforce edge rate limits and provider quotas for guest generation.
 
 See [AUTH_SETUP.md](AUTH_SETUP.md) for Clerk-to-Firebase sign-in and
 [TASK4_GEMINI.md](TASK4_GEMINI.md) for backend-only Gemini configuration. The
 canonical profile collection is `Users`. JSON contracts live in [contracts](contracts/README.md).
+See [ORGANIZATION_QUESTS.md](ORGANIZATION_QUESTS.md) for the public organization
+quest board schema and endpoints.
 
 ## What is available
 
@@ -52,16 +55,13 @@ update both a user's XP and the stored dorm total.
 
 Both leaderboard endpoints require a valid Firebase ID token:
 
-- `GET /leaderboard` returns `{"leaderboard": [{"userId", "username", "xp"}],
-  "skippedUsers": n}`. A non-empty `username` is preferred; `displayName` is
-  used when username is absent. Profiles without either display name are
-  counted in `skippedUsers`.
+- `GET /leaderboard` returns `{"leaderboard": [{"userId", "username", "xp"}]}`.
+  A non-empty `username` is preferred; `displayName` is used when username is
+  absent. Profiles without either display name are not listed.
 - `GET /leaderboard/dorms` returns
-  `{"leaderboard": [{"dormId", "dormName", "xp", "memberCount"}],
-  "unassignedUsers": n}`. Each score is the sum of the XP balances of users
-  whose stored `dormId` matches a document in `dorms`. Dorms with no members
-  remain on the board with zero XP. Missing, malformed, and unknown dorm IDs
-  are counted in `unassignedUsers`.
+  `{"leaderboard": [{"dormId", "dormName", "xp", "memberCount"}]}`. Each score
+  is the sum of the XP balances of users whose stored `dormId` matches a
+  document in `dorms`. Dorms with no members remain on the board with zero XP.
 
 `xp` is canonical; legacy `totalXp` is read only when `xp` is absent, following
 the shared `backend/xp.py` contract. Invalid XP data or Firestore read failures

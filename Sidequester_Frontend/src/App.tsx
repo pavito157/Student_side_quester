@@ -1,5 +1,6 @@
 import GlobalQuests from './componenets/main-ui/GlobalQuests'
 import QuestSlots from './componenets/main-ui/QuestSlots'
+import OrganizationQuestBoard from './componenets/main-ui/OrganizationQuestBoard'
 import { QuestConfetti } from './componenets/main-ui/AdventureDecor'
 import { useEffect, useRef, useState } from 'react'
 import { useUser } from '@clerk/clerk-react'
@@ -19,7 +20,7 @@ import type { Vibe } from './types/vibe'
 import { subscribeToActiveSidequests } from './services/sidequests'
 import type { ActiveSidequest } from './types/sidequest'
 import { colors } from './constants/colors'
-import { getActiveQuests, requestAssignedQuest, requestAdditionalQuest, requestGeneratedQuest, type GeneratedQuestResponse, type GenerateQuestPayload } from './services/questAssignment'
+import { getActiveQuests, requestAssignedQuest, requestAdditionalQuest, requestGeneratedQuest, requestOrganizationQuest, type GeneratedQuestResponse, type GenerateQuestPayload } from './services/questAssignment'
 import { navigateTo } from './services/navigation'
 import { getUserGoals, getUserPreferences } from './services/userPreferences'
 
@@ -39,9 +40,14 @@ type QuestGenerationState =
 type HomePageProps = {
   activeSidequestsState: ActiveSidequestsState
   onStartQuestGeneration: (userId: string | null, payload: GenerateQuestPayload) => Promise<void>
+  onAcceptOrganizationQuest: (userId: string, organizationId: string, questId: string) => Promise<void>
 }
 
-function HomePage({ onStartQuestGeneration, activeSidequestsState }: HomePageProps) {
+function HomePage({
+  onStartQuestGeneration,
+  onAcceptOrganizationQuest,
+  activeSidequestsState,
+}: HomePageProps) {
   const { user } = useUser()
   const userId = user?.id
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
@@ -146,6 +152,11 @@ function HomePage({ onStartQuestGeneration, activeSidequestsState }: HomePagePro
             </section>
           </div>
           <GlobalQuests key={userId ?? 'guest'} />
+          <OrganizationQuestBoard
+            userId={userId ?? null}
+            activeQuests={currentActiveSidequests.sidequests}
+            onAccept={onAcceptOrganizationQuest}
+          />
         </div>
       </main>
       <SettingsModal
@@ -284,6 +295,26 @@ function AccountRoutes() {
     return startQuestGeneration(userId, payload, questId)
   }
 
+  async function acceptOrganizationQuest(userId: string, organizationId: string, questId: string) {
+    if (!activeRef.current || userId !== user?.id) throw new Error('Your account changed. Reload the quest board and try again.')
+    generationControllerRef.current?.abort()
+    const controller = new AbortController()
+    const generationId = generationIdRef.current + 1
+    generationIdRef.current = generationId
+    generationControllerRef.current = controller
+    try {
+      const saved = await requestOrganizationQuest(userId, organizationId, questId, { signal: controller.signal })
+      if (!activeRef.current || controller.signal.aborted || generationIdRef.current !== generationId) return
+      const path = `/sidequests/${encodeURIComponent(saved.quest.id)}`
+      setCelebration({ id: generationId, path })
+      navigateTo(path)
+    } catch (error) {
+      if (!controller.signal.aborted && activeRef.current) throw error
+    } finally {
+      if (generationControllerRef.current === controller) generationControllerRef.current = null
+    }
+  }
+
   return (
     <DormSelectionGate>
       <div key={pathname} className="route-transition">
@@ -317,6 +348,7 @@ function AccountRoutes() {
           <HomePage
             activeSidequestsState={activeSidequestsState}
             onStartQuestGeneration={startQuestGeneration}
+            onAcceptOrganizationQuest={acceptOrganizationQuest}
           />
         )}
       </div>

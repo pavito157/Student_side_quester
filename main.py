@@ -15,6 +15,7 @@ from backend.global_quests import router as global_quest_router
 from backend.dorm_routes import router as dorm_router
 from backend.leaderboard_routes import router as leaderboard_router
 from backend.quest_assignment_routes import router as quest_assignment_router
+from backend.organization_quest_routes import router as organization_quest_router
 from backend.quest_routes import router as quest_router
 from backend.request_timing import measure_quest_request
 from backend.quest_generation import close_gemini_http_client
@@ -39,6 +40,7 @@ app.include_router(dorm_router)
 app.include_router(global_quest_router)
 app.include_router(leaderboard_router)
 app.include_router(quest_assignment_router)
+app.include_router(organization_quest_router)
 app.include_router(quest_router)
 
 

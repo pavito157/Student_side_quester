@@ -7,7 +7,10 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from backend.quest_contracts import AssignQuestRequest, AssignQuestResponse, GenerateQuestRequest, NormalizedQuestPreferences
+from backend.quest_contracts import (
+    AssignQuestRequest, AssignQuestResponse, GenerateQuestRequest,
+    GeminiMultiStopDraft, NormalizedQuestPreferences,
+)
 
 
 CONTRACTS = Path(__file__).resolve().parents[1] / "contracts"
@@ -285,6 +288,48 @@ class ResponseContractTests(unittest.TestCase):
                        {"estimatedCostDollars": float("nan")}, {"steps": []}]:
             with self.subTest(change=change), self.assertRaises(ValidationError):
                 AssignQuestResponse.model_validate({**self.body, "quest": {**self.body["quest"], **change}})
+
+
+class MultiStopGenerationContractTests(unittest.TestCase):
+    def test_ten_stops_and_actions_are_supported_without_a_fixed_three_step_shape(self):
+        draft = GeminiMultiStopDraft.model_validate({
+            "title": "A connected ten-stop mission",
+            "description": "Build one result from distinct local discoveries.",
+            "steps": [f"Complete stage {index + 1}." for index in range(10)],
+            "stepProofMethods": ["location"] * 10,
+            "stepDestinationIndexes": list(range(10)),
+            "routeCandidateIndexes": list(range(10)),
+            "estimatedMinutes": 120,
+            "estimatedCostDollars": 0.0,
+            "completionCriteria": "you have connected all ten discoveries",
+        })
+        self.assertEqual(len(draft.steps), 10)
+        self.assertEqual(draft.routeCandidateIndexes, list(range(10)))
+
+    def test_multi_stop_output_rejects_more_than_ten_actions_or_destinations(self):
+        values = {
+            "title": "A connected mission",
+            "description": "Build one result from local discoveries.",
+            "steps": [f"Complete stage {index + 1}." for index in range(10)],
+            "stepProofMethods": ["location"] * 10,
+            "stepDestinationIndexes": list(range(10)),
+            "routeCandidateIndexes": list(range(10)),
+            "estimatedMinutes": 120,
+            "estimatedCostDollars": 0.0,
+            "completionCriteria": "you have connected all discoveries",
+        }
+        with self.assertRaises(ValidationError):
+            GeminiMultiStopDraft.model_validate({
+                **values,
+                "steps": [*values["steps"], "Complete one more stage."],
+                "stepProofMethods": ["location"] * 11,
+                "stepDestinationIndexes": list(range(11)),
+            })
+        with self.assertRaises(ValidationError):
+            GeminiMultiStopDraft.model_validate({
+                **values,
+                "routeCandidateIndexes": list(range(11)),
+            })
 
 
 if __name__ == "__main__":

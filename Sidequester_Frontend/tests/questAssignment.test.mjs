@@ -32,9 +32,15 @@ async function fixture() {
     context,
     initializeImportMeta(meta) { meta.env = { VITE_API_BASE_URL: 'http://localhost:8000/' } },
   })
-  await module.link(() => new vm.SyntheticModule(['getFirebaseIdToken'], function () {
+  await module.link(async (name) => {
+    if (name.endsWith('/types/sidequest')) {
+      const types = await readFile(new URL('../src/types/sidequest.ts', import.meta.url), 'utf8')
+      return new vm.SourceTextModule(ts.transpileModule(types, {compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText,{context})
+    }
+    return new vm.SyntheticModule(['getFirebaseIdToken'], function () {
     this.setExport('getFirebaseIdToken', (...args) => state.getToken(...args))
-  }, { context }))
+  }, { context })
+  })
   await module.evaluate()
   return { api: module.namespace, state, calls }
 }
@@ -92,16 +98,16 @@ test('network failures identify the backend connection without including credent
   const f = await fixture()
   f.state.fetch = async () => { throw new TypeError('Failed to fetch') }
   await assert.rejects(f.api.requestTestQuest('user_student', payload), (error) => {
-    assert.match(error.message, /Could not reach FastAPI/)
+    assert.match(error.message, /Could not connect right now/)
     assert.equal(error.message.includes('firebase-id-token'), false)
     return true
   })
 })
 
-test('non-JSON responses explain a possible backend URL mismatch', async () => {
+test('non-JSON responses give actionable retry feedback', async () => {
   const f = await fixture()
   f.state.fetch = async () => ({ ok: true, status: 200, json: async () => { throw new SyntaxError('HTML') } })
-  await assert.rejects(f.api.requestTestQuest('user_student', payload), /non-JSON response.*VITE_API_BASE_URL/)
+  await assert.rejects(f.api.requestTestQuest('user_student', payload), /Something went wrong while loading your quest.*try again/)
 })
 
 test('saved assignments and malformed responses cannot masquerade as integration previews', async () => {
@@ -433,4 +439,35 @@ test('active list is authenticated and validates ownership, unique IDs and three
   }
   response = []
   assert.equal((await f.api.getActiveQuests(savedExample.assignment.userId)).length, 0)
+})
+
+test('organization board browses publicly and rejects duplicate or malformed entries', async () => {
+  const f = await fixture()
+  const item = {organizationId:'club',organizationName:'Campus club',questId:'gbm',title:'Meet the club',summary:'Meet other students',details:'Visit the campus event.',timeLabel:'Up to 30 minutes'}
+  f.state.fetch = async (url, options) => {f.calls.push(['fetch',url,options]);return {ok:true,status:200,json:async()=>[item]}}
+  const board = await f.api.getOrganizationQuestBoard()
+  assert.equal(board[0].questId, 'gbm')
+  assert.equal(f.calls[0][0], 'fetch')
+  assert.equal(f.calls[0][1], 'http://localhost:8000/organization-quests')
+  assert.equal(f.calls[0][2].headers.Authorization, undefined)
+  f.state.fetch = async () => ({ok:true,status:200,json:async()=>[item,item]})
+  await assert.rejects(f.api.getOrganizationQuestBoard(), /invalid organization quest board/)
+})
+
+test('organization acceptance validates the saved source and propagates request cancellation', async () => {
+  const f = await fixture()
+  const saved = structuredClone(savedExample)
+  saved.quest.sourceOrganizationId = 'club'
+  saved.quest.sourceOrganizationQuestId = 'gbm'
+  saved.reusedExisting = false
+  f.state.fetch = async (url, options) => {f.calls.push(['accepted',url,options]);return {ok:true,status:201,json:async()=>saved}}
+  const controller = new AbortController()
+  await f.api.requestOrganizationQuest(saved.assignment.userId,'club','gbm',{signal:controller.signal})
+  const request = f.calls.find(([name])=>name==='accepted')
+  assert.equal(request[1], 'http://localhost:8000/organization-quests/club/gbm/accept')
+  assert.equal(request[2].signal,controller.signal)
+  assert.equal(request[2].headers.Authorization,'Bearer firebase-id-token')
+  assert.deepEqual(JSON.parse(request[2].body),{})
+  saved.quest.sourceOrganizationQuestId = 'other'
+  await assert.rejects(f.api.requestOrganizationQuest(saved.assignment.userId,'club','gbm'),/invalid organization quest assignment/)
 })

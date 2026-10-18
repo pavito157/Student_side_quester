@@ -187,7 +187,9 @@ Saved at `Users/{uid}/sidequests/{questId}` alongside ordinary quests, with
 `sourceGlobalEventId`, `eventStartsAt`, and `eventEndsAt`. Acceptance checks the
 three-slot limit inside the existing transaction, including concurrent requests.
 Repeated acceptance returns the existing assignment, even when all slots are full.
-The Campus board offers **Add to my quests**, **View quest**, or **All 3 slots full**.
+The Campus board always keeps events visible. At capacity it offers **View quest**
+and a maximum-quests notice; the event preview disables **Add sidequest** until a
+slot is free.
 Detail view supports instructions, steps, directions and abandonment. Generate another adds a separate personal quest using the user’s saved filters/preferences;
 the original event’s shared tasks stay fixed.
 
@@ -216,20 +218,18 @@ capacity, and global-event suites. Provider responses are mocked; Firestore writ
 run only against the local demo emulator. No production XP is used for tests.
 
 
-## Combined quest map and event preview
+## Global quest map and event preview
 
-The bottom map combines all accepted personal quests (including every numbered
-multi-location stop) with all published upcoming global events. Accepted events
-appear once as a personal quest, not again as an available event. Color and letter
-labels identify each accepted quest; numbers show stop order and connecting lines
-show the itinerary. XP in the legend is the total for the quest, not per marker.
-Overlapping venues use offset pins while preserving real coordinates.
+The bottom map shows only upcoming published global quests from campus events and
+organizations, including imported UF events. Every event uses an orange XP pin;
+personal quests and their multi-stop routes are not displayed on this map.
+Your current location remains a separate blue marker. Overlapping venues use
+separate offset pins while preserving their real coordinates.
 
-Marker activation opens `/sidequests/{id}` for accepted quests or
-`/global-quests/{eventId}` for an unaccepted event. The latter loads public event
-facts via `GET /global-quests/public/{eventId}`, shows an attendance preview and
-Add sidequest, and disables acceptance while slots are loading, unavailable or
-full. Acceptance uses the same authenticated transactional API and then navigates
-to the saved quest detail with complete/generate another/abandon actions.
-The public map feed includes all upcoming published events, without the old
-50-event map cap; the authenticated board card feed retains its 50-card limit.
+A global quest pin opens `/sidequests/{id}` when already accepted, or
+`/global-quests/{eventId}` otherwise. The latter loads public event facts via
+`GET /global-quests/public/{eventId}`, shows an attendance preview and Add sidequest,
+and disables acceptance while slots are loading, unavailable or full. Acceptance
+uses the authenticated transactional API and opens the saved quest detail with
+complete/generate another/abandon actions. The public map feed includes all upcoming
+published events; the authenticated board card feed retains its 50-card limit.

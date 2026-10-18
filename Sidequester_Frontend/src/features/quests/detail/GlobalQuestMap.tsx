@@ -33,14 +33,13 @@ function GlobalQuestMap({ quests, activeQuests = EMPTY_ACTIVE }: GlobalQuestMapP
   useEffect(() => {
     let isCurrent = true
     let infoWindow: google.maps.InfoWindow | undefined
-    const routes: google.maps.Polyline[] = []
     const markers: google.maps.marker.AdvancedMarkerElement[] = []
 
     async function mountMap() {
       if (!mapElementRef.current) return
 
       try {
-        const [{ Map, InfoWindow, Polyline }, { AdvancedMarkerElement }] = await Promise.all([
+        const [{ Map, InfoWindow }, { AdvancedMarkerElement }] = await Promise.all([
           loadMapsLibrary(),
           google.maps.importLibrary('marker') as Promise<google.maps.MarkerLibrary>,
         ])
@@ -66,12 +65,6 @@ function GlobalQuestMap({ quests, activeQuests = EMPTY_ACTIVE }: GlobalQuestMapP
         const questInfoWindow = new InfoWindow()
         infoWindow = questInfoWindow
 
-        for (const group of new Set(mappableQuests.filter(pin => pin.kind === 'accepted').map(pin => pin.group))) {
-          const stops = mappableQuests.filter(pin => pin.kind === 'accepted' && pin.group === group)
-          if (stops.length > 1) routes.push(new Polyline({map:mapInstance,
-            path:stops.map(pin => ({lat:pin.latitude,lng:pin.longitude})),
-            strokeColor:stops[0].color,strokeOpacity:0.55,strokeWeight:3,clickable:false}))
-        }
         const overlaps = new globalThis.Map<string, number>()
         for (const quest of mappableQuests) {
           const pointKey = `${quest.latitude},${quest.longitude}`
@@ -83,15 +76,15 @@ function GlobalQuestMap({ quests, activeQuests = EMPTY_ACTIVE }: GlobalQuestMapP
           if (samePlace > 1) markerContent.style.transform = `translateX(${(ordinal - (samePlace - 1) / 2) * 72}px)`
           const pin = document.createElement('button')
           pin.type = 'button'
-          pin.textContent = quest.kind === 'available' ? `+${quest.xpReward} XP` : `${quest.label}${quest.completed ? ' ✓' : ''}`
+          pin.textContent = `+${quest.xpReward} XP`
           pin.setAttribute(
             'aria-label',
-            `${quest.title}, stop ${quest.stopNumber} of ${quest.totalStops}, at ${quest.locationName}. Open quest.`,
+            `${quest.title} at ${quest.locationName}, ${quest.xpReward} XP. Open global quest.`,
           )
           pin.style.cssText = [
             'min-height:40px', 'padding:0 12px',
             'border:3px solid #fff', 'border-radius:9999px',
-            `background:${quest.color}`, `color:${quest.kind === 'accepted' ? '#fff' : '#1e2c22'}`,
+            `background:${quest.color}`, 'color:#1e2c22',
             'font:900 13px system-ui,sans-serif',
             'box-shadow:0 0 0 3px #e8893266,0 3px 10px #0009',
             'cursor:pointer', 'white-space:nowrap',
@@ -106,7 +99,7 @@ function GlobalQuestMap({ quests, activeQuests = EMPTY_ACTIVE }: GlobalQuestMapP
           const title = document.createElement('strong')
           title.textContent = quest.title
           const organization = document.createElement('p')
-          organization.textContent = quest.kind === 'accepted' ? `Your quest ${quest.group} · Stop ${quest.stopNumber} of ${quest.totalStops}` : 'Available global quest'
+          organization.textContent = quest.organizationName
           organization.style.cssText = 'margin:4px 0 0;font-size:12px'
           const location = document.createElement('p')
           location.textContent = `${quest.locationName} · ${quest.xpReward} XP total for this quest`
@@ -159,7 +152,7 @@ function GlobalQuestMap({ quests, activeQuests = EMPTY_ACTIVE }: GlobalQuestMapP
           frameEventLocations()
           setMapStatus({
             key: mapKey,
-            location: 'Current location is unavailable; quest locations are shown.',
+            location: 'Current location is unavailable; global quest venues are shown.',
             error: '',
           })
           return
@@ -200,7 +193,7 @@ function GlobalQuestMap({ quests, activeQuests = EMPTY_ACTIVE }: GlobalQuestMapP
             }
             setMapStatus({
               key: mapKey,
-              location: 'Your location and all quest locations are shown.',
+              location: 'Your location and global quest venues are shown.',
               error: '',
             })
           },
@@ -209,7 +202,7 @@ function GlobalQuestMap({ quests, activeQuests = EMPTY_ACTIVE }: GlobalQuestMapP
             frameEventLocations()
             setMapStatus({
               key: mapKey,
-              location: 'Current location is unavailable; quest locations are shown.',
+              location: 'Current location is unavailable; global quest venues are shown.',
               error: '',
             })
           },
@@ -231,34 +224,26 @@ function GlobalQuestMap({ quests, activeQuests = EMPTY_ACTIVE }: GlobalQuestMapP
       isCurrent = false
       infoWindow?.close()
       for (const marker of markers) marker.map = null
-      for (const route of routes) route.setMap(null)
     }
   }, [mapKey, mappableQuests])
 
   return (
     <div className="mt-4 overflow-hidden rounded-xl border border-border">
       <div aria-label="Map key" className="flex flex-wrap gap-3 border-b border-border px-3 py-3 text-xs">
-        <span><span aria-hidden="true" style={{color:'#e88932'}}>●</span> Orange XP pins: available global quests</span>
+        <span><span aria-hidden="true" style={{color:'#e88932'}}>●</span> Orange XP pins: campus and organization global quests</span>
         <span><span aria-hidden="true" style={{color:'#0861e8'}}>●</span> You: current location</span>
-        <span>Matching letters/colors belong to one quest. Numbers show stop order; lines connect stops.</span>
-        {Array.from(new Set(mappableQuests.filter(pin => pin.kind === 'accepted').map(pin => pin.group))).map(group => {
-          const pin = mappableQuests.find(pin => pin.kind === 'accepted' && pin.group === group)!
-          return <button type="button" key={group} onClick={() => navigateTo(pin.path)} className="hud-button px-2 py-1 text-left">
-            <strong style={{color:pin.color}}>{group}</strong> · {pin.title} · {pin.totalStops} {pin.totalStops === 1 ? 'stop' : 'stops'} · {pin.xpReward} XP total
-          </button>
-        })}
       </div>
       <div
         ref={mapElementRef}
         role="region"
-        aria-label="Quest map with accepted quests, numbered stops, and available global events."
+        aria-label="Global quest map: campus and organization events with XP pins."
         className="h-[min(62vh,34rem)] min-h-72 w-full"
       />
       {mappableQuests.length === 0 && (
         <p className="border-t border-border px-3 py-2 text-xs text-muted">
           {quests.length
             ? 'No valid venue coordinates are available for these events.'
-            : 'No quests or upcoming events are available to pin yet.'}
+            : 'No upcoming global quests are available to pin yet.'}
         </p>
       )}
       {currentStatus.location && (

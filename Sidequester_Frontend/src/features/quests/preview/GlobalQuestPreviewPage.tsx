@@ -69,7 +69,7 @@ export default function GlobalQuestPreviewPage({ eventId, activeQuests, slotsLoa
             {user ? <button type="button" onClick={() => void accept()} disabled={busy || full || slotsLoading || Boolean(slotsError)} style={full ? {filter:'grayscale(1)'} : undefined} className="magic-cta rounded-xl px-4 py-4 font-bold disabled:cursor-not-allowed disabled:opacity-40">
               {busy ? 'Preparing event quest…' : full ? 'Add sidequest · All 3 slots full' : slotsLoading ? 'Loading your quests…' : 'Add sidequest'}
             </button> : <SignInButton mode="modal"><button className="magic-cta rounded-xl px-4 py-4 font-bold">Sign in to add sidequest</button></SignInButton>}
-            {full && <p className="text-sm text-muted">Complete or abandon a quest to make room.</p>}
+            {full && <p className="text-sm text-muted">Maximum quests reached (3/3). Complete or abandon a quest before adding this global quest.</p>}
             {(error || slotsError) && <p role="alert" className="text-sm" style={{color:'var(--color-error)'}}>{error || slotsError}</p>}
           </div>
         </section> : state.key === eventId && state.error ? <section className="rpg-panel p-5"><p role="alert">{state.error}</p><button className="hud-button mt-3 px-4 py-2" onClick={() => setAttempt(value => value+1)}>Retry</button></section> : <p role="status">Loading global quest…</p>}

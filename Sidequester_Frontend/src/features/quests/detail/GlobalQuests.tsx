@@ -5,7 +5,6 @@ import { createGlobalQuest, getGlobalQuests, getPublicGlobalQuests,
   type GlobalQuestFeed, type GlobalQuest, type PublicGlobalQuest } from '../../../services/globalQuests'
 import { navigateTo } from '../../../services/navigation'
 import WhereButton from '../../quest-generation/inputs/buttons/WhereButton'
-import OrganizationQuestBoard from '../../organization-quests/OrganizationQuestBoard'
 import GlobalQuestMap from './GlobalQuestMap'
 import OrganizationAdmin from './OrganizationAdmin'
 import type { ActiveSidequest } from '../../../types/sidequest'
@@ -15,7 +14,7 @@ const eventDate = (value: string) => new Date(value).toLocaleString(undefined, {
   month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
 })
 
-export default function GlobalQuests({ activeQuests = [], onAcceptOrganizationQuest, onAcceptGlobalEvent }: {
+export default function GlobalQuests({ activeQuests = [], onAcceptGlobalEvent }: {
   activeQuests?: ActiveSidequest[]
   onAcceptOrganizationQuest: (userId: string, organizationId: string, questId: string) => Promise<void>
   onAcceptGlobalEvent: (userId: string, eventId: string) => Promise<void>
@@ -103,6 +102,7 @@ export default function GlobalQuests({ activeQuests = [], onAcceptOrganizationQu
     <p className="text-xs font-bold uppercase tracking-widest text-secondary">Adventure, together</p>
     <h2 id="global-quests-title" className="mt-1 text-xl font-bold">Campus quest board</h2>
     <p className="mt-2 text-sm text-muted">Events and activities from campus organizations and sponsors. Find something worth showing up for.</p>
+    {uid && activeQuests.length >= 3 && <p role="status" className="mt-3 text-sm text-muted">Maximum quests reached (3/3). You can still browse global quests. Complete or abandon a quest before adding another.</p>}
     <button type="button" className="hud-button mt-4 px-3 py-2 text-sm" disabled={Boolean(busy)} onClick={() => setAttempt((value) => value + 1)}>Refresh board</button>
     {!uid ? <div className="mt-4"><SignInButton mode="modal"><button className="hud-button px-4 py-2 font-semibold">Sign in to add event quests</button></SignInButton></div> : <>
       {!currentFeed && !error && <p role="status" className="mt-4 text-sm text-muted">Loading campus events…</p>}
@@ -121,8 +121,8 @@ export default function GlobalQuests({ activeQuests = [], onAcceptOrganizationQu
             <p className="mt-1 text-xs text-muted">{eventDate(quest.startsAt)} – {eventDate(quest.endsAt)}</p>
             <p className="mt-2 text-xs text-muted">{quest.verificationMode === 'gps' ? `GPS check-in within ${quest.radiusMeters}m during the event.` : 'Confirm attendance during the event.'} One reward per person.</p>
             <div className="mt-4 flex flex-wrap gap-3 items-center">
-              <button type="button" className="magic-cta rounded-lg px-4 py-2 text-sm font-semibold" disabled={Boolean(busy) || quest.completed || ended || (!existing && activeQuests.length >= 3)} onClick={() => existing ? navigateTo(`/sidequests/${encodeURIComponent(existing.id)}`) : void accept(quest)}>
-                {quest.completed ? 'Completed ✓' : existing ? 'View quest' : busy === quest.id ? 'Preparing event quest…' : ended ? 'Event ended' : activeQuests.length >= 3 ? 'All 3 slots full' : 'Add to my quests'}
+              <button type="button" className="magic-cta rounded-lg px-4 py-2 text-sm font-semibold" disabled={Boolean(busy) || quest.completed || ended} onClick={() => existing ? navigateTo(`/sidequests/${encodeURIComponent(existing.id)}`) : activeQuests.length >= 3 ? navigateTo(`/global-quests/${encodeURIComponent(quest.id)}`) : void accept(quest)}>
+                {quest.completed ? 'Completed ✓' : existing ? 'View quest' : busy === quest.id ? 'Preparing event quest…' : ended ? 'Event ended' : activeQuests.length >= 3 ? 'View quest' : 'Add to my quests'}
               </button>
               <a className="text-sm underline" href={`https://www.google.com/maps/search/?api=1&query=${quest.latitude},${quest.longitude}`} target="_blank" rel="noreferrer">View venue ↗</a>
             </div>
@@ -132,14 +132,12 @@ export default function GlobalQuests({ activeQuests = [], onAcceptOrganizationQu
       <p className="mt-3 text-xs text-muted">Event quests use one of your three slots. Everyone receives the same event tasks; check in at the venue during its scheduled time.</p>
     </>}
     <div className="mt-5">
-      <h3 className="text-sm font-bold">Explore your quest map</h3>
-      <p className="mt-1 text-xs text-muted">Select a marker to open a quest. Your accepted quests and available global events share this map.</p>
+      <h3 className="text-sm font-bold">Global quest map</h3>
+      <p className="mt-1 text-xs text-muted">Campus and organization events only. Select an orange XP pin to view a global quest.</p>
       {mapQuests === null && !mapError && <p role="status" className="mt-3 text-sm text-muted">Loading event locations…</p>}
       {mapError && <p role="alert" className="mt-3 text-sm" style={{ color: 'var(--color-error)' }}>Event locations could not load: {mapError}</p>}
       <GlobalQuestMap quests={mapQuests ?? []} activeQuests={activeQuests} />
     </div>
-    <OrganizationQuestBoard userId={uid ?? null} activeQuests={activeQuests}
-      onAccept={onAcceptOrganizationQuest} refreshKey={attempt} />
     {uid && <>
       {currentFeed?.adminRole === 'explicit_admin' && <OrganizationAdmin userId={uid} refreshKey={attempt} onChanged={() => setAttempt(value=>value+1)} />}
       {Boolean(currentFeed?.organizations.length) && <details className="mt-6 border-t pt-5 border-border">

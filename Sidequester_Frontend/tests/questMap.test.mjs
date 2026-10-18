@@ -10,37 +10,30 @@ async function dataFixture(context=vm.createContext({})) {
   await module.link(()=>{throw new Error('Unexpected map data import')}); await module.evaluate()
   return module.namespace
 }
-const event = (id='event') => ({id,title:'Club meeting',description:'Meet the club.',locationName:'Union',latitude:29.65,longitude:-82.34,xpReward:25})
+const event = (id='event') => ({id,organizationName:'Campus Club',title:'Club meeting',description:'Meet the club.',locationName:'Union',latitude:29.65,longitude:-82.34,xpReward:25})
 const quest = (id='quest') => ({id,title:'Visit two places',description:'Explore the campus.',locationName:'Union',latitude:29.65,longitude:-82.34,xpValue:30,
   destinations:[{locationName:'Union',latitude:29.65,longitude:-82.34},{locationName:'Library',latitude:29.66,longitude:-82.33}],completedStops:[0]})
 
-test('combined map includes every accepted stop, event, route and completion marker without duplicating accepted global events',async()=>{
+test('global-only map excludes personal quests and all their stops while retaining accepted global events',async()=>{
   const api = await dataFixture()
   const accepted = {...quest('accepted-event'),sourceGlobalEventId:'gbm',destinations:[]}
   const pins = api.buildQuestMapPins([event('gbm'),event('open')],[quest('route'),accepted])
-  assert.equal(pins.length,4)
-  assert.equal(pins.filter(pin=>pin.kind==='available').length,1)
-  const route = pins.filter(pin=>pin.questId==='route')
-  assert.deepEqual(Array.from(route,pin=>pin.stopNumber),[1,2])
-  assert.equal(route[0].completed,true)
-  assert.equal(route[0].color,route[1].color)
-  assert.notEqual(route[0].color,pins.find(pin=>pin.questId==='accepted-event').color)
-  assert.equal(route[0].path,'/sidequests/route')
-  assert.equal(pins.find(pin=>pin.kind==='available').path,'/global-quests/open')
-  assert.equal(route[1].xpReward,30) // Total reward, never multiplied per marker.
+  assert.equal(pins.length,2)
+  assert.equal(pins.some(pin=>pin.questId==='route'),false)
+  assert.equal(pins.find(pin=>pin.questId==='gbm').path,'/sidequests/accepted-event')
+  assert.equal(pins.find(pin=>pin.questId==='open').path,'/global-quests/open')
+  assert.ok(pins.every(pin=>pin.label==='+25 XP' && pin.color==='#e88932'))
+  assert.equal(api.buildQuestMapPins([],[quest('route'),accepted]).length,0)
 })
 
-test('map letters remain stable when active order changes and invalid coordinates never reach Google Maps',async()=>{
+test('global map ignores invalid venue coordinates and safely encodes quest links',async()=>{
   const api = await dataFixture()
-  const active=[quest('b'),quest('a')]
-  const one = api.buildQuestMapPins([event('event/with spaces'),{...event('bad'),latitude:91}],active)
-  const two = api.buildQuestMapPins([],active.reverse())
-  assert.equal(one.find(pin=>pin.questId==='a').label,two.find(pin=>pin.questId==='a').label)
-  assert.equal(one.some(pin=>pin.questId==='bad'),false)
-  assert.equal(one.find(pin=>pin.kind==='available').path,'/global-quests/event%2Fwith%20spaces')
+  const pins = api.buildQuestMapPins([event('event/with spaces'),{...event('bad'),latitude:91}],[quest()])
+  assert.equal(pins.length,1)
+  assert.equal(pins[0].path,'/global-quests/event%2Fwith%20spaces')
 })
 
-test('Google map pins navigate to quest pages, separate overlapping venues and clean up connecting lines',async()=>{
+test('global XP pins navigate to quest pages, separate overlapping venues and exclude personal routes',async()=>{
   const markers=[], lines=[], effects=[], navigations=[]
   class Element {
     style={}; children=[]; events={}
@@ -69,13 +62,14 @@ test('Google map pins navigate to quest pages, separate overlapping venues and c
     if(name.endsWith('/colors'))return synthetic({colors:{}})
     throw new Error(name)
   });await module.evaluate()
-  module.namespace.default({quests:[event()],activeQuests:[quest()]})
+  module.namespace.default({quests:[event('accepted'),event('open')],activeQuests:[quest(),{...quest('saved-event'),sourceGlobalEventId:'accepted'}]})
   const cleanup=effects[0]();await new Promise(resolve=>setImmediate(resolve))
-  assert.equal(markers.length,3)
-  assert.equal(lines.length,1)
+  assert.equal(markers.length,2)
+  assert.equal(lines.length,0)
   const sameVenue=markers.filter(marker=>marker.position.lat===29.65)
   assert.notEqual(sameVenue[0].content.style.transform,sameVenue[1].content.style.transform)
   for(const marker of markers)marker.content.children[0].events.click()
-  assert.deepEqual(navigations,['/sidequests/quest','/sidequests/quest','/global-quests/event'])
-  cleanup();assert.ok(markers.every(marker=>marker.map===null));assert.equal(lines[0].map,null)
+  assert.deepEqual(navigations,['/sidequests/saved-event','/global-quests/open'])
+  assert.ok(markers.every(marker=>marker.content.children[0].textContent==='+25 XP'))
+  cleanup();assert.ok(markers.every(marker=>marker.map===null));assert.equal(lines.length,0)
 })

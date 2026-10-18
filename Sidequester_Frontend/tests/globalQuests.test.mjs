@@ -180,7 +180,12 @@ test('events can be added before their start and existing event quests remain vi
     verificationMode:'gps',radiusMeters:100,xpReward:25}
   assert.match(await view([],true,null,'member',[event]),/Add to my quests/)
   const active = [{id:'one'},{id:'two'},{id:'three'}]
-  assert.match(await view([],true,null,'member',[event],active),/All 3 slots full/)
+  const fullBoard = await view([],true,null,'member',[event],active)
+  assert.match(fullBoard,/Club GBM/)
+  assert.match(fullBoard,/View quest/)
+  assert.match(fullBoard,/Maximum quests reached \(3\/3\)/)
+  assert.doesNotMatch(fullBoard,/All 3 slots full/)
+  assert.match(fullBoard,/\"disabled\":false,\"children\":\"View quest\"/)
   active[0].sourceGlobalEventId='gbm'
   assert.match(await view([],true,null,'member',[event],active),/View quest/)
   assert.match(await view([],true,null,'member',[{...event,completed:true}]),/Completed ✓/)

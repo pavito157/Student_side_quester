@@ -389,10 +389,6 @@ function SidequestDetailPage({
     ? formatRequestedDistance(userRequest.distance)
     : null
   const destinationQuery = sidequest ? `${sidequest.latitude},${sidequest.longitude}` : ''
-  const destinationUrl = sidequest
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destinationQuery)}`
-      + (sidequest.placeId ? `&query_place_id=${encodeURIComponent(sidequest.placeId)}` : '')
-    : null
   const directionsUrl = sidequest
     ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destinationQuery)}`
       + (sidequest.placeId ? `&destination_place_id=${encodeURIComponent(sidequest.placeId)}` : '')
@@ -772,22 +768,6 @@ function SidequestDetailPage({
                     </div>
                   )}
                   <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                    {destinationUrl && (
-                      <a
-                        href={destinationUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 py-2 text-sm font-bold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
-                        style={{
-                          color: colors.secondary,
-                          borderColor: colors.secondary,
-                          outlineColor: colors.secondary,
-                        }}
-                      >
-                        Open destination
-                        <span aria-hidden="true">↗</span>
-                      </a>
-                    )}
                     {directionsUrl && sidequest.locationName !== 'Anywhere' && (
                       <a
                         href={directionsUrl}

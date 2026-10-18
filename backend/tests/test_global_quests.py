@@ -103,7 +103,7 @@ class GlobalQuestRouteTests(unittest.TestCase):
             "status": "published",
             "questTemplate": {"steps": ["Internal-only step"]},
         }
-        self.db.collection.return_value.where.return_value.order_by.return_value.limit.return_value.stream.return_value = [snapshot]
+        self.db.collection.return_value.where.return_value.order_by.return_value.stream.return_value = [snapshot]
 
         with (
             patch.object(g, "utc_now", return_value=NOW),

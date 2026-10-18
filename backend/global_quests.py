@@ -79,6 +79,18 @@ class GlobalEvent(CreateEvent, EventPolicy):
     sourceUrl: Optional[str] = None
     questTemplate: Optional[EventInstructions] = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def tolerate_legacy_instruction_cache(cls, data):
+        # Older deployments saved partial cache shapes. They are not event facts;
+        # ignore a malformed cache and let acceptance rebuild it through Gemini.
+        if isinstance(data, dict) and data.get("questTemplate") is not None:
+            try:
+                EventInstructions.model_validate(data["questTemplate"]).checked()
+            except (ValueError, TypeError):
+                return {**data, "questTemplate": None}
+        return data
+
 
 class PublicGlobalEvent(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -267,7 +279,7 @@ def list_events(uid: str = Depends(current_uid), db=Depends(get_db)):
             if event.status != "published" or event.endsAt + timedelta(minutes=event.graceMinutes) < now:
                 continue
             completed = db.collection(USERS).document(uid).collection(CLAIMS).document(snapshot.id).get().exists
-            events.append({**event.model_dump(mode="json"), "completed": completed})
+            events.append({**event.model_dump(mode="json", exclude={"questTemplate"}), "completed": completed})
             if len(events) >= 50:
                 break
         events.sort(key=lambda event: event["startsAt"])

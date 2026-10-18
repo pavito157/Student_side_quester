@@ -135,3 +135,13 @@ class EventAcceptanceTests(unittest.TestCase):
             with self.assertRaises(HTTPException) as error: self.accept()
         self.assertEqual(error.exception.status_code,409)
         self.assertEqual(len(list(self.user_ref.collection('sidequests').stream())),0)
+
+
+    def test_legacy_partial_cache_is_rebuilt_without_breaking_event_lists(self):
+        self.event_ref.update({'questTemplate':{'steps':['Old partial cache']}})
+        self.assertTrue(any(event['id'] == self.event.id for event in g.list_events(self.uid,self.db)['quests']))
+        with patch.object(e,'generate_instructions',return_value=INSTRUCTIONS) as generate:
+            result = self.accept()
+        self.assertEqual(generate.call_count,1)
+        self.assertEqual(result.quest.steps,INSTRUCTIONS.steps)
+        self.assertEqual(self.event_ref.get().to_dict()['questTemplate'],INSTRUCTIONS.model_dump())

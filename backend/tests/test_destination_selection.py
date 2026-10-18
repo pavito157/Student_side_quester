@@ -7,7 +7,9 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 from backend import destination_resolver as resolver, quest_generation as generation
-from backend.quest_contracts import GenerateQuestRequest, GeneratedQuestProposal, SelectedDestination
+from backend.quest_contracts import (
+    GenerateQuestRequest, GeneratedQuestProposal, GeneratedQuestResponse, SelectedDestination,
+)
 
 
 class DestinationSelectionTests(unittest.TestCase):
@@ -36,7 +38,8 @@ class DestinationSelectionTests(unittest.TestCase):
             locationName='Invented venue', locationAddress='999 Wrong Street',
         )
         def generate(preferences, selected):
-            self.search.assert_called_once()  # Already verified before the AI call.
+            self.assertEqual(self.search.call_count, 4)  # Candidate profiles are verified before generation.
+            self.assertEqual(preferences, self.preferences)
             self.assertEqual(selected.placeId, 'test-depot')
             return proposal
         with patch.object(generation, 'call_gemini', side_effect=generate) as provider:
@@ -73,9 +76,12 @@ class DestinationSelectionTests(unittest.TestCase):
             title='Observe three parks', description='Complete one nature observation at each stop.',
             steps=[
                 'Observe plants at the first stop.',
-                'Compare plants at the second stop.',
+                'Find a related pattern at the same first stop.',
+                'Compare that pattern at the second stop.',
                 'Record one final observation at the third stop.',
             ],
+            stepDestinationIndexes=[0, 0, 1, 2],
+            routeCandidateIndexes=[0, 1, 2],
             estimatedMinutes=30, estimatedCostDollars=0,
             locationName='Provider must override this', locationAddress='Provider must override this',
         )
@@ -83,13 +89,17 @@ class DestinationSelectionTests(unittest.TestCase):
             result = generation.generate_preview(preferences, self.selector)
         self.assertEqual(len(result.destinations), 3)
         self.assertEqual(result.destination, result.destinations[0])
-        self.assertEqual(len(result.quest.steps), len(result.destinations))
+        self.assertEqual(result.quest.stepDestinationIndexes, [0, 0, 1, 2])
         self.assertTrue(result.destinationVerified)
         self.assertEqual(provider.call_count, 1)
         stops_sent = provider.call_args.args[1]
-        self.assertEqual({stop.placeId for stop in stops_sent}, {
-            'test-depot', 'test-park-two', 'test-park-three',
-        })
+        self.assertTrue({'test-depot', 'test-park-two', 'test-park-three'}.issubset(
+            {stop.placeId for stop in stops_sent}
+        ))
+        self.assertEqual(
+            GeneratedQuestResponse.model_validate(result.model_dump()).quest.stepDestinationIndexes,
+            [0, 0, 1, 2],
+        )
 
     def test_outside_city_candidate_is_filtered_before_random_choice(self):
         outside = {**self.place, 'id': 'outside', 'displayName': {'text': 'Outside park'}, 'location': {'latitude': 28.54, 'longitude': -81.38}}

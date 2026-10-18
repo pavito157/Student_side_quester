@@ -47,6 +47,16 @@
           "title": "Stepproofmethods",
           "type": "array"
         },
+        "stepDestinationIndexes": {
+          "items": {
+            "maximum": 9,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 10,
+          "title": "Stepdestinationindexes",
+          "type": "array"
+        },
         "verifiedPhotoSteps": {
           "items": {
             "maximum": 9,
@@ -103,7 +113,7 @@
           "items": {
             "$ref": "#/$defs/ResolvedDestination"
           },
-          "maxItems": 3,
+          "maxItems": 10,
           "title": "Destinations",
           "type": "array"
         },
@@ -111,7 +121,7 @@
           "items": {
             "type": "integer"
           },
-          "maxItems": 3,
+          "maxItems": 10,
           "title": "Completedstops",
           "type": "array"
         },

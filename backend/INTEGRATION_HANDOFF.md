@@ -44,7 +44,7 @@ and behavior below describe the implementation at the time they were recorded.
 
 Merged `origin/main` at `cca22a3` while retaining the three-independent-quests
 workflow. Guest generation opens an unsaved preview and never creates an active
-assignment. Signed-in generation can request a two- or three-stop route with
+assignment. Signed-in generation can request a two-to-ten-stop route with
 `multiQuest: true` and an explicit origin. A route occupies one active slot,
 keeps its own ordered `destinations`/`completedStops`, and remains active after
 partial completion. Each GPS-verified stop awards its share of the stored reward
@@ -192,9 +192,10 @@ uses paid providers, production deployments should enforce edge rate limits and
 provider quotas.
 
 The request's optional `multiQuest` flag defaults to false. When true, include
-`originCoordinates`; the generated preview contains two or three distinct,
-resolver-verified destinations in nearest-first order, with one generated step
-per stop. Saved multi-stop assignments persist ordered `destinations`,
+`originCoordinates`; Gemini selects a purposeful route of two to ten distinct,
+resolver-verified destinations from a diversified candidate pool. The ordered
+`stepDestinationIndexes` mapping groups one or more action steps with each
+route stop. Saved multi-stop assignments persist ordered `destinations`,
 `completedStops` (zero-based indexes), and `xpAwardedSoFar`. The map shows the
 origin and every stop and draws a walking route to the first stop. Completion
 requires the next `stopIndex` and a fresh GPS reading; each stop awards its XP

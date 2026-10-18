@@ -32,16 +32,27 @@ function formatDate(date: string): string {
 
 function stopXpReward(
   totalXp: number, totalStops: number, index: number,
-  proofMethods: ActiveSidequest['stepProofMethods'], skippedPhotoSteps: number[],
+  proofMethods: ActiveSidequest['stepProofMethods'],
+  stepDestinationIndexes: ActiveSidequest['stepDestinationIndexes'],
+  skippedPhotoSteps: number[],
 ): number {
+  const stopStepIndexes = stepDestinationIndexes.flatMap(
+    (destinationIndex, stepIndex) => destinationIndex === index ? [stepIndex] : [],
+  )
+  const skippedThisStop = skippedPhotoSteps.some(
+    (stepIndex) => stepDestinationIndexes[stepIndex] === index,
+  )
   if (totalStops === 1) {
     return proofMethods.some((method) => method !== 'recreation') && skippedPhotoSteps.length === 0
       ? totalXp : 0
   }
-  const eligibleStops = proofMethods.flatMap((method, stepIndex) =>
-    stepIndex < totalStops && method !== 'recreation' ? [stepIndex] : [])
+  const eligibleStops = Array.from({ length: totalStops }, (_, stopIndex) => stopIndex)
+    .filter((stopIndex) => stepDestinationIndexes.some(
+      (destinationIndex, stepIndex) => destinationIndex === stopIndex
+        && proofMethods[stepIndex] !== 'recreation',
+    ))
   const rewardIndex = eligibleStops.indexOf(index)
-  return rewardIndex < 0 || skippedPhotoSteps.includes(index)
+  return rewardIndex < 0 || skippedThisStop || stopStepIndexes.length === 0
     ? 0
     : Math.floor(totalXp / eligibleStops.length) + (rewardIndex < totalXp % eligibleStops.length ? 1 : 0)
 }
@@ -49,24 +60,33 @@ function stopXpReward(
 function getRewardProgress(
   totalXp: number, totalStops: number, completedStops: number[], skippedPhotoSteps: number[],
   proofMethods: ActiveSidequest['stepProofMethods'],
+  stepDestinationIndexes: ActiveSidequest['stepDestinationIndexes'],
 ) {
+  const skippedStops = new Set(skippedPhotoSteps.map((stepIndex) => stepDestinationIndexes[stepIndex]))
   const earnedXp = completedStops.reduce(
-    (earned, index) => earned + (skippedPhotoSteps.includes(index)
-      ? 0 : stopXpReward(totalXp, totalStops, index, proofMethods, skippedPhotoSteps)),
+    (earned, index) => earned + (skippedStops.has(index)
+      ? 0 : stopXpReward(totalXp, totalStops, index, proofMethods, stepDestinationIndexes, skippedPhotoSteps)),
     0,
   )
   const nextStopXp = completedStops.length < totalStops
-    ? skippedPhotoSteps.includes(completedStops.length)
-      ? 0 : stopXpReward(totalXp, totalStops, completedStops.length, proofMethods, skippedPhotoSteps)
+    ? skippedStops.has(completedStops.length)
+      ? 0 : stopXpReward(
+        totalXp, totalStops, completedStops.length, proofMethods,
+        stepDestinationIndexes, skippedPhotoSteps,
+      )
     : 0
-  const forfeitedXp = totalStops === 1 && skippedPhotoSteps.length > 0
+  const forfeitedXp = totalStops === 1 && skippedStops.has(0)
     ? totalXp
-    : skippedPhotoSteps.reduce(
-      (total, index) => total + stopXpReward(totalXp, totalStops, index, proofMethods, []), 0,
+    : [...skippedStops].reduce(
+      (total, index) => total + stopXpReward(
+        totalXp, totalStops, index, proofMethods, stepDestinationIndexes, [],
+      ), 0,
     )
   const eligibleXp = totalStops === 1
     ? proofMethods.some((method) => method !== 'recreation') ? totalXp : 0
-    : proofMethods.some((method, index) => index < totalStops && method !== 'recreation') ? totalXp : 0
+    : stepDestinationIndexes.some((stopIndex) => stepDestinationIndexes.some(
+      (mappedStop, stepIndex) => mappedStop === stopIndex && proofMethods[stepIndex] !== 'recreation',
+    )) ? totalXp : 0
   return { earnedXp, nextStopXp, remainingXp: eligibleXp - earnedXp - forfeitedXp, forfeitedXp, eligibleXp }
 }
 
@@ -189,7 +209,10 @@ function SidequestDetailPage({
         setCompletionMessage(`Sidequest completed. You earned ${progress.xpAwardedSoFar} XP in total.`)
         setStoredState({ key: routeKey, status: 'not-found' })
       } else if (state.status === 'ready') {
-        setCompletionMessage(progress.xpAwarded === 0 && state.sidequest.skippedPhotoSteps.includes(stopIndex)
+        const skippedThisStop = state.sidequest.skippedPhotoSteps.some(
+          (stepIndex) => state.sidequest.stepDestinationIndexes[stepIndex] === stopIndex,
+        )
+        setCompletionMessage(progress.xpAwarded === 0 && skippedThisStop
           ? `Stop ${stopIndex + 1} complete. No XP was awarded because photo proof was skipped.`
           : `Stop ${stopIndex + 1} complete. You earned ${progress.xpAwarded} XP.`)
         setStoredState({
@@ -313,25 +336,32 @@ function SidequestDetailPage({
   const rewardProgress = sidequest
     ? getRewardProgress(
       sidequest.xpValue, sidequestStops.length, completedStops,
-      sidequest.skippedPhotoSteps, sidequest.stepProofMethods,
+      sidequest.skippedPhotoSteps, sidequest.stepProofMethods, sidequest.stepDestinationIndexes,
     )
     : null
   const requiredPhotoSteps = sidequest
-    ? sidequestStops.length > 1
-      ? sidequest.stepProofMethods[nextStopIndex] === 'photo' ? [nextStopIndex] : []
-      : sidequest.stepProofMethods.flatMap((method, index) => method === 'photo' ? [index] : [])
+    ? sidequest.stepProofMethods.flatMap((method, index) =>
+      method === 'photo' && sidequest.stepDestinationIndexes[index] === nextStopIndex ? [index] : [])
     : []
   const missingPhotoProof = Boolean(sidequest && requiredPhotoSteps.some((index) =>
     !sidequest.verifiedPhotoSteps.includes(index) && !sidequest.skippedPhotoSteps.includes(index)))
-  const needsLocationForNextStep = Boolean(sidequest && (sidequestStops.length > 1
-    ? sidequest.stepProofMethods[nextStopIndex] === 'location'
-    : sidequest.stepProofMethods.includes('location')))
+  const nextStopMethods = sidequest
+    ? sidequest.stepProofMethods.filter(
+      (_method, index) => sidequest.stepDestinationIndexes[index] === nextStopIndex,
+    )
+    : []
+  const nextStopWasSkipped = Boolean(sidequest && sidequest.skippedPhotoSteps.some(
+    (stepIndex) => sidequest.stepDestinationIndexes[stepIndex] === nextStopIndex,
+  ))
+  const needsLocationForNextStep = nextStopMethods.includes('location')
   const mapStops: SidequestMapStop[] = sidequestStops.map((stop, index) => ({
     name: stop.locationName,
     placeId: stop.placeId,
     latitude: stop.latitude,
     longitude: stop.longitude,
-    step: sidequest?.steps[index] ?? 'Explore this destination.',
+    step: sidequest
+      ? sidequest.steps.filter((_step, stepIndex) => sidequest.stepDestinationIndexes[stepIndex] === index).join(' ')
+      : 'Explore this destination.',
     completed: completedStops.includes(index),
   }))
   const requestedOrigin = asRecord(userRequest?.originCoordinates)
@@ -556,6 +586,11 @@ function SidequestDetailPage({
                             {index + 1}
                           </span>
                           <div className="min-w-0 flex-1">
+                            {sidequestStops.length > 1 && (
+                              <p className="mb-1 text-xs font-bold" style={{ color: colors.secondary }}>
+                                Stop {sidequest.stepDestinationIndexes[index] + 1} · {sidequestStops[sidequest.stepDestinationIndexes[index]]?.locationName}
+                              </p>
+                            )}
                             <p className="pt-1 text-sm leading-relaxed">{step}</p>
                             <p className="mt-1 text-xs font-semibold" style={{ color: colors.muted }}>
                               {sidequest.stepProofMethods[index] === 'photo'
@@ -780,9 +815,15 @@ function SidequestDetailPage({
                       {isCompleting
                         ? needsLocationForNextStep ? 'Verifying location…' : 'Completing quest…'
                         : sidequestStops.length > 1
-                          ? sidequest.stepProofMethods[nextStopIndex] === 'recreation'
+                          ? nextStopWasSkipped
+                            ? `Complete Stop ${nextStopIndex + 1} · skipped proof · no XP`
+                            : nextStopMethods.every((method) => method === 'recreation')
                             ? `Complete Stop ${nextStopIndex + 1} · Recreation · no XP`
-                            : `Complete Stop ${nextStopIndex + 1} · +${stopXpReward(sidequest.xpValue, sidequestStops.length, nextStopIndex, sidequest.stepProofMethods, sidequest.skippedPhotoSteps)} XP`
+                            : `Complete Stop ${nextStopIndex + 1} · +${stopXpReward(
+                              sidequest.xpValue, sidequestStops.length, nextStopIndex,
+                              sidequest.stepProofMethods, sidequest.stepDestinationIndexes,
+                              sidequest.skippedPhotoSteps,
+                            )} XP`
                           : sidequest.xpValue === 0
                             ? 'Complete recreation quest · no XP'
                             : 'Complete sidequest'}

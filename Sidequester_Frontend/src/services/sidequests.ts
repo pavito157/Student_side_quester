@@ -4,7 +4,7 @@ import {
   MAX_QUEST_REPLACEMENTS, requestPhotoProof, requestQuestAbandon, requestQuestCompletion,
   requestQuestPhotoProofSkip, type StopCompletionResult,
 } from './questAssignment'
-import type { ActiveSidequest } from '../types/sidequest'
+import { MAX_QUEST_STEPS, MAX_QUEST_STOPS, type ActiveSidequest } from '../types/sidequest'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -17,7 +17,7 @@ function parseDestinations(value: unknown, fallback: ActiveDestination): ActiveD
     ? [fallback]
     : Array.isArray(value) ? value : null
   if (!candidates) return null
-  if (candidates.length > 3) return null
+  if (candidates.length > MAX_QUEST_STOPS) return null
   const parsed: ActiveDestination[] = []
   for (const candidate of candidates) {
     if (!isRecord(candidate)
@@ -46,6 +46,23 @@ function parseCompletedStops(value: unknown, totalStops: number): number[] | nul
   return value.every((index, position) => index === position) ? value : null
 }
 
+function parseStepDestinationIndexes(
+  value: unknown, steps: string[], destinations: ActiveDestination[],
+): number[] | null {
+  const indexes = value === undefined
+    ? destinations.length > 1 && steps.length === destinations.length
+      ? destinations.map((_, index) => index)
+      : steps.map(() => 0)
+    : value
+  if (!Array.isArray(indexes) || indexes.length !== steps.length
+      || indexes.length > MAX_QUEST_STEPS
+      || !indexes.every((index) => typeof index === 'number' && Number.isSafeInteger(index)
+        && index >= 0 && index < destinations.length)
+      || !indexes.every((index, position) => position === 0 || indexes[position - 1] <= index)
+      || new Set(indexes).size !== destinations.length) return null
+  return indexes
+}
+
 function parsePhotoSteps(
   value: unknown, steps: string[], methods: ActiveSidequest['stepProofMethods'],
 ): number[] | null {
@@ -72,7 +89,8 @@ export function parseActiveSidequest(id: string, data: Record<string, unknown>, 
   const completedStops = destinations
     ? parseCompletedStops(data.completedStops ?? [], destinations.length)
     : null
-  const steps = Array.isArray(data.steps) && data.steps.every((step) => typeof step === 'string')
+  const steps = Array.isArray(data.steps) && data.steps.length <= MAX_QUEST_STEPS
+    && data.steps.every((step) => typeof step === 'string')
     ? data.steps as string[]
     : null
   const proofMethods = data.stepProofMethods === undefined
@@ -82,6 +100,9 @@ export function parseActiveSidequest(id: string, data: Record<string, unknown>, 
       && data.stepProofMethods.every((method) => method === 'location' || method === 'photo' || method === 'recreation')
       ? data.stepProofMethods as ActiveSidequest['stepProofMethods']
       : null
+  const stepDestinationIndexes = steps && destinations
+    ? parseStepDestinationIndexes(data.stepDestinationIndexes, steps, destinations)
+    : null
   const verifiedPhotoSteps = steps && proofMethods
     ? parsePhotoSteps(data.verifiedPhotoSteps, steps, proofMethods)
     : null
@@ -93,6 +114,7 @@ export function parseActiveSidequest(id: string, data: Record<string, unknown>, 
       || typeof data.title !== 'string' || !data.title.trim()
       || typeof data.description !== 'string' || typeof data.locationName !== 'string'
       || !steps || !steps.length || !proofMethods
+      || !stepDestinationIndexes
       || !verifiedPhotoSteps || !skippedPhotoSteps
       || verifiedPhotoSteps.some((step) => skippedPhotoSteps.includes(step))
       || (xpAwardedSoFar !== undefined
@@ -122,7 +144,7 @@ export function parseActiveSidequest(id: string, data: Record<string, unknown>, 
   }
   return {
     id, title: data.title, description: data.description, steps,
-    stepProofMethods: proofMethods, verifiedPhotoSteps, skippedPhotoSteps,
+    stepProofMethods: proofMethods, stepDestinationIndexes, verifiedPhotoSteps, skippedPhotoSteps,
     locationName: data.locationName,
     placeId: typeof data.placeId === 'string' ? data.placeId : null,
     destinations,

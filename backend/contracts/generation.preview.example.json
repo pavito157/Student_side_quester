@@ -15,6 +15,7 @@
       "Sketch a simple algorithm to reproduce it."
     ],
     "stepProofMethods": ["location", "photo"],
+    "stepDestinationIndexes": [0, 0],
     "locationName": "Proposed campus destination",
     "locationAddress": "Proposed campus address, Gainesville, FL",
     "estimatedMinutes": 30,

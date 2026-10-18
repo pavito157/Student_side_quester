@@ -219,7 +219,9 @@ def save_verified_assignment(db, uid, preview, policy, user_request: Optional[Ge
     quest_id = uuid.uuid4().hex
     quest = AssignedQuest(
         id=quest_id, title=proposed.title, description=proposed.description, steps=proposed.steps,
-        stepProofMethods=proposed.stepProofMethods, verifiedPhotoSteps=[], skippedPhotoSteps=[],
+        stepProofMethods=proposed.stepProofMethods,
+        stepDestinationIndexes=proposed.stepDestinationIndexes,
+        verifiedPhotoSteps=[], skippedPhotoSteps=[],
         locationName=destination.locationName, placeId=destination.placeId,
         latitude=destination.latitude, longitude=destination.longitude,
         destinations=preview.destinations if user_request and user_request.multiQuest else [],

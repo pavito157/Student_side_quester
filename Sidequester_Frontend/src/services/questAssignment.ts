@@ -1,5 +1,9 @@
 import { getFirebaseIdToken } from './firebaseSession'
-import type { QuestProofMethod } from '../types/sidequest'
+import {
+  MAX_QUEST_STEPS,
+  MAX_QUEST_STOPS,
+  type QuestProofMethod,
+} from '../types/sidequest'
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000').replace(/\/$/, '')
 
@@ -35,7 +39,8 @@ export type QuestPreviewResponse = {
     title: string
     description: string
     steps: string[]
-    stepProofMethods: QuestProofMethod[]
+    stepProofMethods?: QuestProofMethod[]
+    stepDestinationIndexes?: number[]
     locationName: string
     estimatedMinutes: number
     estimatedCostDollars: number
@@ -62,6 +67,7 @@ export type QuestRequestOptions = {
 }
 
 export const MAX_ACTIVE_QUESTS = 3
+export const MAX_QUEST_DESTINATIONS = MAX_QUEST_STOPS
 export const MAX_QUEST_REPLACEMENTS = 3 // Legacy metadata only.
 
 const now = () => typeof performance === 'undefined' ? Date.now() : performance.now()
@@ -72,8 +78,10 @@ export type GeneratedQuestResponse = Omit<QuestPreviewResponse, 'mode' | 'filter
   destinationVerified: boolean
   distanceStatus: 'not_requested' | 'pending' | 'verified'
   distanceMeters: number | null
-  quest: QuestPreviewResponse['quest'] & {
+  quest: Omit<QuestPreviewResponse['quest'], 'stepProofMethods' | 'stepDestinationIndexes'> & {
     locationAddress: string
+    stepProofMethods: QuestProofMethod[]
+    stepDestinationIndexes: number[]
   }
   destination: {
     locationName: string
@@ -92,7 +100,7 @@ export type GeneratedQuestResponse = Omit<QuestPreviewResponse, 'mode' | 'filter
 }
 
 export type SavedQuestResponse = {
-  quest: QuestPreviewResponse['quest'] & {
+  quest: Omit<QuestPreviewResponse['quest'], 'stepProofMethods' | 'stepDestinationIndexes'> & {
     id: string
     placeId: string | null
     latitude: number
@@ -100,6 +108,8 @@ export type SavedQuestResponse = {
     radiusMeters: number
     xpReward: number
     isActive: true
+    stepProofMethods: QuestProofMethod[]
+    stepDestinationIndexes: number[]
   }
   assignment: {
     id: string
@@ -129,7 +139,7 @@ function isQuestContent(quest: unknown): quest is QuestPreviewResponse['quest'] 
   if (!isRecord(quest)) return false
   return ['title', 'description', 'locationName'].every(
     (field) => typeof quest[field] === 'string' && quest[field].trim().length > 0,
-  ) && Array.isArray(quest.steps) && quest.steps.length > 0
+  ) && Array.isArray(quest.steps) && quest.steps.length > 0 && quest.steps.length <= MAX_QUEST_STEPS
     && quest.steps.every((step: unknown) => typeof step === 'string' && step.trim().length > 0)
     && typeof quest.estimatedMinutes === 'number' && Number.isInteger(quest.estimatedMinutes)
     && quest.estimatedMinutes > 0 && typeof quest.estimatedCostDollars === 'number'
@@ -143,12 +153,30 @@ function validProofMethods(
     && value.every((method) => allowed.some((option) => option === method))
 }
 
+function inferStepDestinationIndexes(stepCount: number, stopCount: number): number[] {
+  return stopCount > 1 && stepCount === stopCount
+    ? Array.from({ length: stopCount }, (_, index) => index)
+    : Array.from({ length: stepCount }, () => 0)
+}
+
+function validStepDestinationIndexes(value: unknown, stepCount: number, stopCount: number): value is number[] {
+  return Array.isArray(value) && value.length === stepCount
+    && value.every((index) => Number.isSafeInteger(index) && index >= 0 && index < stopCount)
+    && value.every((index, position) => position === 0 || value[position - 1] <= index)
+    && new Set(value).size === stopCount
+}
+
 function isSavedQuest(value: unknown, expectedUserId: string): value is SavedQuestResponse {
   if (!isRecord(value) || !isRecord(value.quest) || !isRecord(value.assignment)
       || typeof value.reusedExisting !== 'boolean' || !isQuestContent(value.quest)) return false
   const q = value.quest
   const a = value.assignment
+  const savedStopCount = Array.isArray(q.destinations) && q.destinations.length > 0
+    ? q.destinations.length : 1
+  const savedStepIndexes = q.stepDestinationIndexes
+    ?? inferStepDestinationIndexes(q.steps.length, savedStopCount)
   return typeof q.id === 'string' && q.id.length > 0 && q.id.length <= 128 && !q.id.includes('/')
+    && validStepDestinationIndexes(savedStepIndexes, q.steps.length, savedStopCount)
     && (q.placeId === null || (typeof q.placeId === 'string' && q.placeId.trim().length > 0))
     && q.isActive === true
     && typeof q.latitude === 'number' && Number.isFinite(q.latitude) && Math.abs(q.latitude) <= 90
@@ -222,6 +250,7 @@ export async function requestGeneratedQuest(
     throw new Error('The backend returned invalid per-step proof requirements.')
   }
   const d = result.destination
+  let destinations: unknown[] = []
   if (result.destinationVerified) {
     if (!isRecord(d) || typeof d.locationName !== 'string' || !d.locationName.trim()
         || d.scope !== 'gainesville_city'
@@ -230,9 +259,9 @@ export async function requestGeneratedQuest(
         || !(d.placeId === null || (typeof d.placeId === 'string' && d.placeId.trim().length > 0))) {
       throw new Error('The backend returned an invalid quest destination.')
     }
-    const destinations = Array.isArray(result.destinations) ? result.destinations : [d]
+    destinations = Array.isArray(result.destinations) ? result.destinations : [d]
     const primary = isRecord(destinations[0]) ? destinations[0] : null
-    if (!Array.isArray(destinations) || destinations.length < 1 || destinations.length > 3
+    if (!Array.isArray(destinations) || destinations.length < 1 || destinations.length > MAX_QUEST_DESTINATIONS
         || !primary || primary.locationName !== d.locationName || primary.placeId !== d.placeId
         || primary.latitude !== d.latitude || primary.longitude !== d.longitude
         || !destinations.every((stop) => isRecord(stop)
@@ -252,6 +281,12 @@ export async function requestGeneratedQuest(
   } else if (Array.isArray(result.destinations) && result.destinations.length !== 0) {
     throw new Error('The backend returned inconsistent destination verification.')
   }
+  const stopCount = destinations.length || 1
+  const stepDestinationIndexes = result.quest.stepDestinationIndexes
+    ?? inferStepDestinationIndexes(generatedStepCount, stopCount)
+  if (!validStepDestinationIndexes(stepDestinationIndexes, generatedStepCount, stopCount)) {
+    throw new Error('The backend returned invalid step-to-destination mapping.')
+  }
   const expectedDistanceStatus = payload.distance == null ? 'not_requested'
     : result.destinationVerified ? 'verified' : 'pending'
   if (result.distanceStatus !== expectedDistanceStatus
@@ -262,7 +297,11 @@ export async function requestGeneratedQuest(
   }
   return {
     ...result,
-    quest: { ...result.quest, stepProofMethods: proofMethods },
+    quest: {
+      ...result.quest,
+      stepProofMethods: proofMethods,
+      stepDestinationIndexes,
+    },
     destinations: Array.isArray(result.destinations)
       ? result.destinations
       : result.destinationVerified && isRecord(d) ? [d] : [],
@@ -416,7 +455,7 @@ export async function requestQuestCompletion(
       || !isSafeInteger(result.xpAwarded) || result.xpAwarded < 0
       || !isSafeInteger(result.xpAwardedSoFar)
       || !Array.isArray(completedStops) || !completedStops.every(isSafeInteger)
-      || !isSafeInteger(result.totalStops) || result.totalStops < 1 || result.totalStops > 3
+      || !isSafeInteger(result.totalStops) || result.totalStops < 1 || result.totalStops > MAX_QUEST_DESTINATIONS
       || completedStops.length !== stopIndex + 1
       || completedStops[completedStops.length - 1] !== stopIndex
       || (result.status === 'completed') !== (completedStops.length === result.totalStops)) {

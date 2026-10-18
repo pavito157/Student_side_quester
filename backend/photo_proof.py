@@ -42,7 +42,7 @@ def validate_image(image: bytes, mime_type: str) -> None:
 
 def evaluate_photo(step_text: str, image: bytes, mime_type: str) -> PhotoReview:
     api_key = os.environ.get("GEMINI_API_KEY", "").strip()
-    model = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite").strip()
+    model = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash").strip()
     if not api_key:
         raise HTTPException(503, "Photo review is not configured on the backend.")
     if not re.fullmatch(r"gemini-[A-Za-z0-9._-]+", model):

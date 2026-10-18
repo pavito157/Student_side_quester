@@ -9,8 +9,9 @@ New saves use the connected Gainesville destination resolver. `/quests/generate`
 and the original fixed test moved to `/quests/preview`. GET/completion routes are
 now mounted. The frontend button, quick menu and detail pages are connected.
 Guests can generate unsaved previews; signed-in users can save quests. Optional
-`multiQuest: true` requests two or three verified stops and requires an explicit
-origin. A multi-stop quest occupies one active slot; GPS verifies each stop in
+`multiQuest: true` requests a purposefully connected route of two to ten
+verified stops and requires an explicit origin. Ordered actions map to stops,
+with multiple actions allowed at each stop. A multi-stop quest occupies one active slot; GPS verifies each stop in
 order and awards its share of XP to both the user and dorm. Public deployments
 should enforce edge rate limits and provider quotas for guest generation.
 

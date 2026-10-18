@@ -6,12 +6,15 @@ import os
 import re
 import random
 import unicodedata
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from backend.quest_contracts import ResolvedDestination
+from backend.quest_contracts import (
+    MAX_DESTINATION_CANDIDATES, ResolvedDestination, SelectedDestination,
+)
 from backend.quest_generation import DestinationResolutionError
 
 
@@ -102,7 +105,10 @@ def _search(name, address, key, location_bias=None):
         "https://places.googleapis.com/v1/places:searchText",
         data=json.dumps(body).encode(),
         headers={"Content-Type": "application/json", "X-Goog-Api-Key": key,
-                 "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.location,nextPageToken"},
+                 "X-Goog-FieldMask": (
+                     "places.id,places.displayName,places.formattedAddress,places.location,"
+                     "places.rating,places.userRatingCount,places.priceLevel,nextPageToken"
+                 )},
         method="POST",
     )
     try:
@@ -135,6 +141,19 @@ def _validated_places(result):
                 raise ValueError("Invalid place")
             if not _number(lat, 90) or not _number(lon, 180):
                 raise ValueError("Invalid coordinates")
+            rating = place.get("rating")
+            rating_count = place.get("userRatingCount")
+            price_level = place.get("priceLevel")
+            if (rating is not None and (not _number(rating, 5) or rating < 0)
+                    or rating_count is not None and (
+                        type(rating_count) is not int or rating_count < 0
+                    )
+                    or price_level is not None and price_level not in {
+                        "PRICE_LEVEL_FREE", "PRICE_LEVEL_INEXPENSIVE",
+                        "PRICE_LEVEL_MODERATE", "PRICE_LEVEL_EXPENSIVE",
+                        "PRICE_LEVEL_VERY_EXPENSIVE",
+                    }):
+                raise ValueError("Invalid place quality metadata")
             if place_id in seen and seen[place_id] != place:
                 raise ValueError("Conflicting provider results")
             seen[place_id] = place
@@ -196,37 +215,72 @@ class VerifiedDestinationSelector:
         return resolve_destination(location_name, location_address)
 
     def _eligible_places(self, preferences):
-        from backend.quest_contracts import SelectedDestination
         from backend.quest_validation import calculate_distance
 
         polygons = _load_boundary()
         key = os.environ.get("GOOGLE_PLACES_API_KEY", "").strip()
         if not key:
             raise DestinationResolutionError(unavailable=True)
-        text = " ".join([preferences.preferences, *preferences.goals,
-                         preferences.vibe.preferences if preferences.vibe else ""]).lower()
-        # Category hints choose live search results, not predefined quests/venues.
-        category = "public parks"
-        if re.search(r"\b(read|reading|books|library|study|studying)\b", text):
-            category = "public libraries"
-        elif preferences.budget.maxDollars != 0:
-            for words, query in [(r"\b(art|gallery|galleries)\b", "art galleries"),
-                                 (r"\b(museum|history)\b", "museums"),
-                                 (r"\b(coffee|cafe|cafes)\b", "cafes"),
-                                 (r"\b(food|restaurant|restaurants)\b", "restaurants")]:
-                if re.search(words, text):
-                    category = query
-                    break
+        user_query = " ".join([
+            preferences.preferences,
+            *preferences.goals,
+            preferences.vibe.preferences if preferences.vibe else "",
+        ]).strip()[:180]
+        if not user_query:
+            user_query = "local culture, nature, arts, and recreation"
+        surprise_query = random.choice([
+            "independent art spaces and creative places",
+            "local history and unusual public landmarks",
+            "community gardens and distinctive green spaces",
+            "independent cafes and neighborhood markets",
+            "small museums and cultural places",
+            "public architecture and design landmarks",
+        ])
         origin = getattr(preferences.location, "coordinates", None)
         bias = None
         if origin is not None:
             radius = min(50000, preferences.maxDistanceMiles * 1609.344) if preferences.maxDistanceMiles else 5000
             bias = {"circle": {"center": {"latitude": origin.latitude, "longitude": origin.longitude},
                                "radius": radius}}
-        places, _token = _validated_places(_search(category, "Gainesville, Florida", key, bias))
-        # Discovery samples one page; it does not claim an exhaustive city search.
+        searches = [
+            ("popular", "popular local attractions, landmarks, and distinctive public places"),
+            ("niche", "lesser-known, unusual, independent, and niche local places"),
+            ("user", f"{user_query} places and experiences"),
+            ("surprise", surprise_query),
+        ]
+        # Independent bounded queries broaden discovery without sending profile
+        # details or coordinates to Gemini; Google receives only search text and
+        # an optional server-side location bias.
+        with ThreadPoolExecutor(max_workers=len(searches)) as executor:
+            results = list(executor.map(
+                lambda item: _search(item[1], "Gainesville, Florida", key, bias),
+                searches,
+            ))
+
+        places_by_id = {}
+        profiles_by_id = {}
+        for (profile, _), result in zip(searches, results):
+            places, _ = _validated_places(result)
+            for place in places:
+                place_id = place["id"]
+                existing = places_by_id.get(place_id)
+                if existing and (
+                    existing["displayName"]["text"] != place["displayName"]["text"]
+                    or existing["formattedAddress"] != place["formattedAddress"]
+                    or existing["location"] != place["location"]
+                ):
+                    raise DestinationResolutionError(unavailable=True)
+                if existing is None:
+                    places_by_id[place_id] = place
+                else:
+                    for field in ("rating", "userRatingCount", "priceLevel"):
+                        if field not in existing and field in place:
+                            existing[field] = place[field]
+                profiles_by_id.setdefault(place_id, set()).add(profile)
+
+        # Discovery samples one page per profile and does not claim exhaustive coverage.
         groups = {}
-        for place in places:
+        for place in places_by_id.values():
             identity = (_normalized(place["displayName"]["text"]), _normalized_address(place["formattedAddress"]))
             groups.setdefault(identity, []).append(place)
         eligible = []
@@ -242,31 +296,83 @@ class VerifiedDestinationSelector:
                     raise NoEligibleDestination()
                 if calculate_distance(origin.latitude, origin.longitude, lat, lon) > preferences.maxDistanceMiles * 1609.344:
                     continue
-            eligible.append(place)
+            eligible.append(SelectedDestination(
+                locationName=place["displayName"]["text"], locationAddress=place["formattedAddress"],
+                latitude=lat, longitude=lon, placeId=place["id"], scope="gainesville_city",
+                rating=place.get("rating"), userRatingCount=place.get("userRatingCount"),
+                priceLevel=place.get("priceLevel"),
+                discoveryProfiles=sorted(profiles_by_id.get(place["id"], set())),
+            ))
         if not eligible:
             raise NoEligibleDestination()
         if origin is not None:
             eligible.sort(key=lambda place: calculate_distance(
                 origin.latitude, origin.longitude,
-                place["location"]["latitude"], place["location"]["longitude"],
+                place.latitude, place.longitude,
             ))
-        return [
-            SelectedDestination(
-                locationName=place["displayName"]["text"], locationAddress=place["formattedAddress"],
-                latitude=place["location"]["latitude"], longitude=place["location"]["longitude"],
-                placeId=place["id"], scope="gainesville_city",
-            )
-            for place in eligible
-        ]
+        return self._mixed_candidate_pool(eligible)
+
+    @staticmethod
+    def _mixed_candidate_pool(places):
+        def popularity(place):
+            return place.userRatingCount or 0
+
+        popular = sorted(
+            [place for place in places if "popular" in place.discoveryProfiles],
+            key=lambda place: (popularity(place), place.rating or 0), reverse=True,
+        )
+        niche = sorted(
+            [place for place in places if "niche" in place.discoveryProfiles],
+            key=lambda place: (popularity(place), -(place.rating or 0)),
+        )
+        user = sorted(
+            [place for place in places if "user" in place.discoveryProfiles],
+            key=lambda place: (place.rating or 0, popularity(place)), reverse=True,
+        )
+        surprise = sorted(
+            [place for place in places if "surprise" in place.discoveryProfiles],
+            key=lambda place: (place.rating or 0, popularity(place)), reverse=True,
+        )
+        pools = {"popular": popular, "niche": niche, "user": user, "surprise": surprise}
+        priority = ["popular", "niche", "popular", "user", "popular", "niche", "surprise"]
+        mixed, seen = [], set()
+        while len(mixed) < MAX_DESTINATION_CANDIDATES and any(pools.values()):
+            progressed = False
+            for profile in priority:
+                pool = pools[profile]
+                while pool and pool[0].placeId in seen:
+                    pool.pop(0)
+                if pool:
+                    place = pool.pop(0)
+                    mixed.append(place)
+                    seen.add(place.placeId)
+                    progressed = True
+                    break
+            if not progressed:
+                remaining = next((pool for pool in pools.values() if pool), [])
+                if not remaining:
+                    break
+                place = remaining.pop(0)
+                if place.placeId not in seen:
+                    mixed.append(place)
+                    seen.add(place.placeId)
+        if not mixed:
+            return places[:MAX_DESTINATION_CANDIDATES]
+        return mixed
 
     def select(self, preferences):
-        return random.choice(self._eligible_places(preferences))
+        places = self._eligible_places(preferences)
+        groups = [
+            [place for place in places if "popular" in place.discoveryProfiles or "niche" in place.discoveryProfiles],
+            [place for place in places if "user" in place.discoveryProfiles],
+            [place for place in places if "surprise" in place.discoveryProfiles],
+        ]
+        group = random.choices(groups, weights=(70, 20, 10), k=1)[0]
+        return random.choice(group or places)
 
-    def select_stops(self, preferences):
-        """Select two or three unique, verified places; route nearest-first."""
+    def select_candidates(self, preferences):
+        """Return a diverse, verified candidate pool; Gemini plans a route of up to ten."""
         places = self._eligible_places(preferences)
         if len(places) < 2:
             raise NoEligibleDestination()
-        if getattr(preferences.location, "coordinates", None) is None:
-            random.shuffle(places)
-        return places[:3]
+        return places

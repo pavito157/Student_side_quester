@@ -26,7 +26,7 @@ export default function QuestSlots({ quests, loading, error }: {
             {quest && <span className="cozy-xp">+{quest.xpValue} XP</span>}</div>
           <strong>{quest ? quest.title : loading ? 'Getting your journal…' : error ? 'Slot unavailable' : 'Room for one more adventure'}</strong>
           {quest && <><p className="journal-card-description">{quest.description}</p><p className="journal-card-place">{quest.locationName}</p></>}
-          <span className="journal-card-footer">{quest ? <><img src="/art/cozy/rose.png" alt="" aria-hidden="true" className="cozy-icon size-8" /><span>View quest <img src="/art/cozy/pointer.png" alt="" aria-hidden="true" className="cozy-icon size-4" /></span></> : <img src="/art/cozy/sprout.png" alt="" aria-hidden="true" className="cozy-icon size-10" />}</span>
+          <span className="journal-card-footer">{quest ? <><img src="/art/cozy/rose.png" alt="" aria-hidden="true" className="cozy-icon size-8" /><span>View quest <img src="/art/cozy/navigation-arrow.svg" alt="" aria-hidden="true" className="cozy-icon size-4" /></span></> : <img src="/art/cozy/sprout.png" alt="" aria-hidden="true" className="cozy-icon size-10" />}</span>
         </button>
       })}
     </div>

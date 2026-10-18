@@ -31,7 +31,7 @@ function SettingsOptionButton({
           {description}
         </span>
       </span>
-      <img src="/art/cozy/pointer.png" alt="" aria-hidden="true" className="cozy-icon size-5" />
+      <img src="/art/cozy/navigation-arrow.svg" alt="" aria-hidden="true" className="cozy-icon size-5" />
     </button>
   )
 }

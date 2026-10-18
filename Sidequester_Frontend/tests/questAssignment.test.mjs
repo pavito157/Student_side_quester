@@ -18,7 +18,7 @@ const savedExample = JSON.parse(await readFile(
   new URL('../../backend/contracts/assignment.response.example.json', import.meta.url), 'utf8',
 ))
 
-async function fixture() {
+async function fixture({ production = false, apiBaseUrl = 'http://localhost:8000/' } = {}) {
   const calls = []
   const state = {
     getToken: async (uid) => { calls.push(['getToken', uid]); return 'firebase-id-token' },
@@ -30,7 +30,9 @@ async function fixture() {
   const context = vm.createContext({ fetch: (...args) => state.fetch(...args) })
   const module = new vm.SourceTextModule(compiled, {
     context,
-    initializeImportMeta(meta) { meta.env = { VITE_API_BASE_URL: 'http://localhost:8000/' } },
+    initializeImportMeta(meta) {
+      meta.env = { PROD: production, VITE_API_BASE_URL: production ? apiBaseUrl : 'http://localhost:8000/' }
+    },
   })
   await module.link((name) => name === '../types/sidequest'
     ? new vm.SyntheticModule(['MAX_QUEST_STEPS', 'MAX_QUEST_STOPS'], function () {
@@ -43,6 +45,12 @@ async function fixture() {
   await module.evaluate()
   return { api: module.namespace, state, calls }
 }
+
+test('production quest requests use the configured HTTPS backend', async () => {
+  const f = await fixture({ production: true, apiBaseUrl: 'https://sidequester-api.example.ts.net/' })
+  await f.api.requestTestQuest('user_student', payload)
+  assert.equal(f.calls[1][1], 'https://sidequester-api.example.ts.net/quests/preview')
+})
 
 test('posts the exact teammate payload with a Firebase ID token, without mutating input', async () => {
   const f = await fixture()

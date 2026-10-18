@@ -23,6 +23,9 @@ backend.
 `firebase_config.py`, and `xp_service.py` are compatibility shims for existing
 callers; new code should import from the backend packages.
 
+Deployment instructions for Firebase Hosting and the Ubuntu/Tailscale API are in
+[docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md).
+
 ## Development
 
 Run the frontend from `Sidequester_Frontend/` with `npm install` and

@@ -145,6 +145,7 @@ input, textarea, select { accent-color: var(--color-secondary); }
 .hud-header { padding-top: calc(.625rem + env(safe-area-inset-top, 0px)); padding-left: max(.75rem, env(safe-area-inset-left, 0px)); padding-right: max(.75rem, env(safe-area-inset-right, 0px)); border-color: #e0e5df !important; background: rgb(255 255 255 / 96%) !important; box-shadow: 0 1px 4px rgb(28 45 33 / 4%); }
 .hud-header > div { min-height: 2.8rem; }
 .brand-title { display: flex; align-items: center; gap: .3rem; font-size: clamp(1.05rem, 2.4vw, 1.65rem); font-weight: 750; letter-spacing: -.045em; }
+.brand-icon { width: 1.35rem; height: 1.35rem; flex-shrink: 0; border-radius: .35rem; }
 .brand-sparkle { width: 1.2rem; height: 1.2rem; flex-shrink: 0; }
 .hud-button { border: 1px solid #d9dfe3; border-radius: 9px; background: #fff; transition: background-color 160ms ease, border-color 160ms ease, translate 160ms ease; }
 .hud-button:hover { border-color: #9fb8a5; background: #f0f7ed; }

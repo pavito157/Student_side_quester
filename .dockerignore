@@ -1,0 +1,12 @@
+.git
+.env
+.env.*
+.venv
+venv
+__pycache__
+*.py[cod]
+*firebase-adminsdk*.json
+serviceAccount*.json
+serviceAccountKey*.json
+Sidequester_Frontend
+backend/tests

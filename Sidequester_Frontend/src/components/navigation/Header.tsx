@@ -8,7 +8,7 @@ import {
 } from '@clerk/clerk-react'
 import { AccountIcon, LeaderboardIcon, MenuIcon, SettingsIcon } from '../ui/icons'
 import { colors } from '../../constants/colors'
-import { FallingLeaves, NavFoliage, SparkleIcon } from '../decor/AdventureDecor'
+import { FallingLeaves, NavFoliage } from '../decor/AdventureDecor'
 import { navigateTo } from '../../services/navigation'
 
 interface HeaderProps {
@@ -109,7 +109,8 @@ function Header({
             className="brand-title min-w-0 justify-center truncate rounded-sm text-center"
             style={{ color: colors.foreground }}
           >
-            Sidequester<SparkleIcon className="brand-sparkle" />
+            <img src="/favicon.svg" alt="" aria-hidden="true" width="24" height="24" className="brand-icon" />
+            Sidequester
           </a>
 
           <div className="flex items-center justify-end gap-1">

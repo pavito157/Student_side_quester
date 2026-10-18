@@ -67,6 +67,10 @@ class GlobalQuestRouteTests(unittest.TestCase):
             "createdBy": "private-admin-id",
             "createdAt": NOW,
             "status": "published",
+            "questTemplate": {
+                "description": "Internal generation template",
+                "steps": ["Do not expose this"],
+            },
         }
         self.db.collection.return_value.where.return_value.order_by.return_value.limit.return_value.stream.return_value = [snapshot]
         self.app.dependency_overrides.pop(current_uid)
@@ -84,6 +88,31 @@ class GlobalQuestRouteTests(unittest.TestCase):
         self.assertNotIn("createdAt", event)
         self.assertNotIn("radiusMeters", event)
         self.assertNotIn("verificationMode", event)
+        self.assertNotIn("questTemplate", event)
+
+    def test_authenticated_event_feed_ignores_internal_firestore_fields(self):
+        snapshot = Mock()
+        snapshot.id = "public-event"
+        snapshot.to_dict.return_value = {
+            **payload().model_dump(),
+            **g.default_policy().model_dump(),
+            "id": snapshot.id,
+            "organizationName": "Campus Events",
+            "createdBy": "private-admin-id",
+            "createdAt": NOW,
+            "status": "published",
+            "questTemplate": {"steps": ["Internal-only step"]},
+        }
+        self.db.collection.return_value.where.return_value.order_by.return_value.limit.return_value.stream.return_value = [snapshot]
+
+        with (
+            patch.object(g, "utc_now", return_value=NOW),
+            patch.object(g, "publishing_organizations", return_value=([], "member")),
+        ):
+            result = g.list_events("verified-user", self.db)
+
+        self.assertEqual(result["quests"][0]["id"], snapshot.id)
+        self.assertNotIn("questTemplate", result["quests"][0])
 
     def test_all_routes_require_auth(self):
         self.app.dependency_overrides.pop(current_uid)

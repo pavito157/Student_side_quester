@@ -65,6 +65,8 @@ class CreateEvent(BaseModel):
 
 
 class GlobalEvent(CreateEvent, EventPolicy):
+    model_config = ConfigDict(extra="ignore", str_strip_whitespace=True)
+
     id: str
     organizationName: str
     createdBy: str

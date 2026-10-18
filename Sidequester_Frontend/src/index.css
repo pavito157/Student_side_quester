@@ -604,6 +604,72 @@ input, textarea, select { accent-color: var(--color-secondary); }
 
 .global-event-input { display: block; width: 100%; min-width: 0; margin-top: 6px; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); color: var(--color-foreground); font: inherit; font-weight: 400; }
 
+.sidequest-detail-page .sidequest-control {
+  border: 2px solid #8b6b48 !important;
+  border-radius: 5px !important;
+  background: #fff0d3 !important;
+  background-image: none !important;
+  color: var(--color-foreground) !important;
+  box-shadow: 2px 3px 0 #77533c66 !important;
+  font-weight: 700;
+  transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, translate 150ms ease;
+}
+.sidequest-detail-page .sidequest-control:hover:not(:disabled) {
+  border-color: #4d7044 !important;
+  background: #f7e2ba !important;
+  box-shadow: 2px 4px 0 #77533c80 !important;
+}
+.sidequest-detail-page .sidequest-control:active:not(:disabled) {
+  box-shadow: 1px 1px 0 #77533c80 !important;
+  translate: 0 2px;
+}
+.sidequest-detail-page .sidequest-control:focus-visible {
+  outline: 3px solid var(--color-secondary) !important;
+  outline-offset: 3px;
+}
+.sidequest-detail-page .sidequest-control:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+  box-shadow: 1px 2px 0 #77533c40 !important;
+}
+.sidequest-detail-page .sidequest-control-primary {
+  border-color: #344e34 !important;
+  background: #4d7044 !important;
+  color: #fff5db !important;
+  box-shadow: 2px 4px 0 #344e34a8 !important;
+}
+.sidequest-detail-page .sidequest-control-primary:hover:not(:disabled) {
+  border-color: #2f4a31 !important;
+  background: #3d5b35 !important;
+}
+.sidequest-detail-page .sidequest-control-danger {
+  border-color: #a34b46 !important;
+  background: #fae0ce !important;
+  color: #803c38 !important;
+}
+.sidequest-detail-page .sidequest-control-danger:hover:not(:disabled) {
+  border-color: #803c38 !important;
+  background: #f4d1bd !important;
+}
+.sidequest-detail-page .sidequest-control-danger-fill {
+  border-color: #803c38 !important;
+  background: #a34b46 !important;
+  color: #fff5db !important;
+  box-shadow: 2px 3px 0 #803c38a8 !important;
+}
+.sidequest-detail-page .sidequest-control-danger-fill:hover:not(:disabled) {
+  background: #803c38 !important;
+}
+.sidequest-detail-page .sidequest-control-warning {
+  border-color: #b9873e !important;
+  background: #f8e8b4 !important;
+  color: #634b2a !important;
+}
+.sidequest-detail-page .sidequest-control-warning:hover:not(:disabled) {
+  border-color: #9d6d2e !important;
+  background: #f1d99a !important;
+}
+
 /* Cozy RPG theme — real kit sprites + original matching art, shared by every route. */
 @font-face {
   font-family: 'Sprout Pixel';

@@ -7,6 +7,7 @@ import SidequestMap, { type SidequestMapStop } from './SidequestMap'
 import { remainingQuestDirections } from '../../../services/questDirections'
 import { colors } from '../../../constants/colors'
 import { navigateTo } from '../../../services/navigation'
+import SettingsModal, { type SettingsSection } from '../../settings/SettingsModal'
 import {
   abandonSidequest, completeSidequest, skipSidequestPhotoProof, submitSidequestPhotoProof,
   subscribeToActiveSidequest,
@@ -167,6 +168,8 @@ function SidequestDetailPage({
   const { isLoaded, isSignedIn, user } = useUser()
   const userId = user?.id
   const routeKey = `${userId ?? ''}:${sidequestId}`
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null)
   const [storedState, setStoredState] = useState<SidequestState>({
     key: '',
     status: 'loading',
@@ -184,6 +187,11 @@ function SidequestDetailPage({
   const [abandonError, setAbandonError] = useState('')
   const [photoProofBusyStep, setPhotoProofBusyStep] = useState<number | null>(null)
   const [photoProofFeedback, setPhotoProofFeedback] = useState<Record<number, string>>({})
+
+  function closeSettings() {
+    setIsSettingsOpen(false)
+    setSettingsSection(null)
+  }
 
   useEffect(() => {
     if (sidequestId === 'generating') return
@@ -399,13 +407,17 @@ function SidequestDetailPage({
 
   return (
     <>
-      <Header title="Sidequest details" activeSidequestCount={activeQuestCount} />
-      <main className="min-h-[calc(100dvh-4rem)] bg-gradient-glow px-3 py-5 sm:px-6 sm:py-12">
+      <Header
+        title="Sidequest details"
+        activeSidequestCount={activeQuestCount}
+        onSettingsClick={() => setIsSettingsOpen(true)}
+      />
+      <main className="sidequest-detail-page min-h-[calc(100dvh-4rem)] bg-gradient-glow px-3 py-5 sm:px-6 sm:py-12">
         <div className="mx-auto w-full max-w-6xl">
           <button
             type="button"
             onClick={() => navigateTo('/')}
-            className="mb-5 inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="sidequest-control mb-5 inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
             style={{
               color: colors.foreground,
               borderColor: colors.border,
@@ -489,7 +501,7 @@ function SidequestDetailPage({
               <button
                 type="button"
                 onClick={() => navigateTo('/')}
-                className="mt-6 min-h-11 cursor-pointer rounded-xl px-5 py-2.5 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
+                className="sidequest-control sidequest-control-primary mt-6 min-h-11 cursor-pointer rounded-xl px-5 py-2.5 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
                 style={{
                   backgroundColor: colors.primary,
                   color: colors.primaryForeground,
@@ -619,7 +631,7 @@ function SidequestDetailPage({
                                 ) : (
                                   <div className="mt-3 flex flex-wrap items-center gap-2">
                                     <label
-                                      className="inline-flex min-h-9 cursor-pointer items-center rounded-lg px-3 py-2 text-xs font-bold focus-within:outline-2 focus-within:outline-offset-2"
+                                      className="sidequest-control sidequest-control-primary inline-flex min-h-9 cursor-pointer items-center rounded-lg px-3 py-2 text-xs font-bold focus-within:outline-2 focus-within:outline-offset-2"
                                       style={{
                                         backgroundColor: colors.primary,
                                         color: colors.primaryForeground,
@@ -644,7 +656,7 @@ function SidequestDetailPage({
                                       type="button"
                                       onClick={() => void handlePhotoProofSkip(index)}
                                       disabled={photoProofBusyStep !== null || isCompleting || isAbandoning || isReplacing}
-                                      className="min-h-9 cursor-pointer rounded-lg border px-3 py-2 text-xs font-semibold hover:bg-white/5 disabled:cursor-wait disabled:opacity-60"
+                                      className="sidequest-control sidequest-control-warning min-h-9 cursor-pointer rounded-lg border px-3 py-2 text-xs font-semibold hover:bg-white/5 disabled:cursor-wait disabled:opacity-60"
                                       style={{ borderColor: colors.border, color: colors.secondary }}
                                     >
                                       Can’t take a picture? Skip proof (no XP)
@@ -792,7 +804,7 @@ function SidequestDetailPage({
                         href={section.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex min-h-11 items-center justify-center rounded-xl border px-4 py-2 text-sm font-bold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+                        className="sidequest-control inline-flex min-h-11 items-center justify-center rounded-xl border px-4 py-2 text-sm font-bold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
                         style={{
                           color: colors.foreground,
                           borderColor: colors.border,
@@ -806,7 +818,7 @@ function SidequestDetailPage({
                       type="button"
                       onClick={() => void handleComplete(nextStopIndex)}
                       disabled={isCompleting || isAbandoning || isReplacing || photoProofBusyStep !== null || missingPhotoProof}
-                      className="min-h-12 cursor-pointer rounded-xl px-4 py-2.5 text-sm font-black transition hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-wait disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 sm:col-span-2 lg:col-span-1"
+                      className="sidequest-control sidequest-control-primary min-h-12 cursor-pointer rounded-xl px-4 py-2.5 text-sm font-black transition hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-wait disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 sm:col-span-2 lg:col-span-1"
                       style={{
                         backgroundColor: colors.primary,
                         color: colors.primaryForeground,
@@ -837,7 +849,7 @@ function SidequestDetailPage({
                     {onGenerateAnother && <div className="space-y-2">
                       <button type="button" onClick={() => void handleGenerateAnother()}
                         disabled={isCompleting || isAbandoning || isReplacing || slotsRemaining === 0}
-                        className="min-h-11 w-full cursor-pointer rounded-xl border px-4 py-2 text-sm font-semibold hover:bg-white/5 disabled:cursor-wait disabled:opacity-60"
+                        className="sidequest-control w-full min-h-11 cursor-pointer rounded-xl border px-4 py-2 text-sm font-semibold hover:bg-white/5 disabled:cursor-wait disabled:opacity-60"
                         style={{ borderColor: colors.border, color: colors.secondary }}>
                         {isReplacing ? 'Generating…' : `Generate another (${slotsRemaining} left)`}
                       </button>
@@ -855,7 +867,7 @@ function SidequestDetailPage({
                           setShowAbandonConfirmation(true)
                         }}
                         disabled={isCompleting || isAbandoning || isReplacing}
-                        className="min-h-11 cursor-pointer rounded-xl border px-4 py-2 text-sm font-semibold transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 sm:col-span-2 lg:col-span-1"
+                        className="sidequest-control sidequest-control-danger min-h-11 cursor-pointer rounded-xl border px-4 py-2 text-sm font-semibold transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 sm:col-span-2 lg:col-span-1"
                         style={{
                           borderColor: colors.errorBorder,
                           color: colors.error,
@@ -878,7 +890,7 @@ function SidequestDetailPage({
                             type="button"
                             onClick={() => setShowAbandonConfirmation(false)}
                             disabled={isAbandoning}
-                            className="min-h-10 cursor-pointer rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-60"
+                            className="sidequest-control min-h-10 cursor-pointer rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-60"
                             style={{ borderColor: colors.border, color: colors.foreground }}
                           >
                             Keep quest
@@ -887,7 +899,7 @@ function SidequestDetailPage({
                             type="button"
                             onClick={() => void handleAbandon()}
                             disabled={isAbandoning}
-                            className="min-h-10 cursor-pointer rounded-lg px-3 py-2 text-xs font-bold disabled:cursor-wait disabled:opacity-60"
+                            className="sidequest-control sidequest-control-danger-fill min-h-10 cursor-pointer rounded-lg px-3 py-2 text-xs font-bold disabled:cursor-wait disabled:opacity-60"
                             style={{ backgroundColor: colors.error, color: colors.primaryForeground }}
                           >
                             {isAbandoning ? 'Abandoning…' : 'Yes, abandon'}
@@ -962,24 +974,6 @@ function SidequestDetailPage({
                           </span>
                         )}
                       </div>
-                      <details className="mt-4">
-                        <summary
-                          className="cursor-pointer text-sm font-semibold"
-                          style={{ color: colors.muted }}
-                        >
-                          View full request JSON
-                        </summary>
-                        <pre
-                          className="mt-3 max-h-72 overflow-auto rounded-xl border p-4 text-xs leading-relaxed whitespace-pre-wrap break-words"
-                          style={{
-                            backgroundColor: colors.background,
-                            borderColor: colors.border,
-                            color: colors.muted,
-                          }}
-                        >
-                          {JSON.stringify(userRequest, null, 2)}
-                        </pre>
-                      </details>
                   </section>
                 )}
               </div>
@@ -1021,6 +1015,12 @@ function SidequestDetailPage({
           ) : null}
         </div>
       </main>
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        section={settingsSection}
+        onSectionChange={setSettingsSection}
+        onClose={closeSettings}
+      />
     </>
   )
 }

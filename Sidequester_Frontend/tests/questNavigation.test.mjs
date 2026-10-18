@@ -220,12 +220,32 @@ test('selected quest displays its contents and steps and abandons only that ques
   f.sidequest = { ...f.sidequest, id: 'quest-2', title: 'Second quest',
     description: 'Second quest contents.', steps: ['Find a bench.', 'Sketch three leaves.'] }
   f.render(); f.render()
+  const rendered = JSON.stringify(f.tree)
   assert.match(JSON.stringify(f.tree), /Second quest contents/)
   assert.match(JSON.stringify(f.tree), /Find a bench/)
   assert.match(JSON.stringify(f.tree), /Sketch three leaves/)
+  assert.match(rendered, /What you asked for/)
+  assert.doesNotMatch(rendered, /View full request JSON/)
+  assert.doesNotMatch(rendered, /"selection"/)
+  assert.match(f.button('Complete sidequest').className, /sidequest-control-primary/)
+  assert.match(f.button('Generate another').className, /sidequest-control/)
+  assert.match(f.button('Abandon sidequest').className, /sidequest-control-danger/)
   f.button('Abandon sidequest').onClick(); f.render()
   f.button('Yes, abandon').onClick(); await f.settle()
   assert.deepEqual(f.calls.find(([name]) => name === 'abandon'), ['abandon', 'alice', 'quest-2'])
+})
+
+test('sidequest details opens the shared settings modal from the header', async () => {
+  const f = await fixture('features/quests/detail/SidequestDetailPage.tsx')
+  const header = f.props('Header')
+  assert.equal(typeof header.onSettingsClick, 'function')
+  assert.equal(f.props('SettingsModal').isOpen, false)
+
+  header.onSettingsClick()
+  f.render()
+
+  assert.equal(f.props('SettingsModal').isOpen, true)
+  assert.equal(f.props('SettingsModal').section, null)
 })
 
 test('root reconciles old alternatives once and keeps the list and detail count current', async () => {

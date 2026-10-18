@@ -39,6 +39,20 @@ class PersistenceTests(unittest.TestCase):
         with patch.dict(os.environ, {"QUEST_RADIUS_METERS": "75.5"}):
             self.assertEqual(persistence.get_assignment_policy().radiusMeters, 75.5)
 
+    def test_saved_requests_preserve_legacy_and_explicit_vibe_selection(self):
+        for changes, expected in [
+            ({'vibePreferences': 'Legacy energetic break'}, 'Legacy energetic break'),
+            ({'activeVibe': None, 'vibePreferences': 'Inactive old vibe'}, None),
+            ({'activeVibe': {'name': 'Study Break', 'preferences': 'Affordable games'}}, 'Affordable games'),
+        ]:
+            with self.subTest(changes=changes):
+                request = GenerateQuestRequest.model_validate({**self.body, **changes})
+                stored = persistence._sidequest_data(self.saved, request)['userRequest']
+                restored = GenerateQuestRequest.model_validate(stored).normalize()
+                self.assertEqual(restored.vibe.preferences if restored.vibe else None, expected)
+                if expected == 'Affordable games':
+                    self.assertEqual(restored.vibe.name, 'Study Break')
+
     def test_invalid_policy_is_rejected(self):
         for key, values in {"QUEST_RADIUS_METERS": ["0", "-1", "nan", "inf", "invalid"]}.items():
             for value in values:
@@ -178,7 +192,7 @@ class PersistenceTests(unittest.TestCase):
         self.assertEqual(saved["xpReward"], 15)
         self.assertEqual(saved["status"], "assigned")
         self.assertEqual(saved["xpAwarded"], 0)
-        self.assertEqual(saved["userRequest"], self.user_request.model_dump(mode="json"))
+        self.assertEqual(saved["userRequest"], self.user_request.model_dump(mode="json", exclude={"activeVibe"}))
 
 
 class PersistenceRouteTests(unittest.TestCase):

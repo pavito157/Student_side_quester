@@ -37,7 +37,7 @@ class DestinationSelectionTests(unittest.TestCase):
             steps=['Find three leaves.'], estimatedMinutes=20, estimatedCostDollars=0,
             locationName='Invented venue', locationAddress='999 Wrong Street',
         )
-        def generate(preferences, selected):
+        def generate(preferences, selected, **kwargs):
             self.assertEqual(self.search.call_count, 4)  # Candidate profiles are verified before generation.
             self.assertEqual(preferences, self.preferences)
             self.assertEqual(selected.placeId, 'test-depot')

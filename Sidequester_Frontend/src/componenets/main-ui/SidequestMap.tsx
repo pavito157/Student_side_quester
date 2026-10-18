@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { colors } from '../../constants/colors'
 import { loadMapsLibrary } from '../../services/googlePlaces'
+import { walkingRouteLocations } from '../../services/questDirections'
 
 export type SidequestMapStop = {
   name: string
@@ -131,18 +132,10 @@ function SidequestMap({ stops, origin }: SidequestMapProps) {
           ))
         })
 
-        const routeOrigin = origin
-          ? { lat: origin.latitude, lng: origin.longitude }
-          : stops.length > 1
-            ? { lat: stops[0].latitude, lng: stops[0].longitude }
-            : null
-        if (routeOrigin) {
+        const routeLocations = walkingRouteLocations(stops, origin)
+        if (routeLocations) {
           void Route.computeRoutes({
-            origin: routeOrigin,
-            intermediates: origin
-              ? stops.slice(0, -1).map((stop) => ({ location: { lat: stop.latitude, lng: stop.longitude } }))
-              : stops.slice(1, -1).map((stop) => ({ location: { lat: stop.latitude, lng: stop.longitude } })),
-            destination: { lat: stops[stops.length - 1].latitude, lng: stops[stops.length - 1].longitude },
+            ...routeLocations,
             travelMode: TravelMode.WALKING,
             fields: ['path', 'legs', 'viewport'],
           }).then(({ routes }) => {

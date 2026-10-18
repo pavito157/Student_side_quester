@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import Header from './Header'
 import SidequestMap, { type SidequestMapStop } from './SidequestMap'
+import { remainingQuestDirections } from '../../services/questDirections'
 import { colors } from '../../constants/colors'
 import { navigateTo } from '../../services/navigation'
 import {
@@ -388,11 +389,7 @@ function SidequestDetailPage({
   const requestedDistance = userRequest && 'distance' in userRequest
     ? formatRequestedDistance(userRequest.distance)
     : null
-  const destinationQuery = sidequest ? `${sidequest.latitude},${sidequest.longitude}` : ''
-  const directionsUrl = sidequest
-    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destinationQuery)}`
-      + (sidequest.placeId ? `&destination_place_id=${encodeURIComponent(sidequest.placeId)}` : '')
-    : null
+  const directions = remainingQuestDirections(sidequestStops, completedStops.length, originCoordinates)
 
   return (
     <>
@@ -768,9 +765,10 @@ function SidequestDetailPage({
                     </div>
                   )}
                   <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                    {directionsUrl && sidequest.locationName !== 'Anywhere' && (
+                    {sidequest.locationName !== 'Anywhere' && directions.map((section) => (
                       <a
-                        href={directionsUrl}
+                        key={section.firstStop}
+                        href={section.url}
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex min-h-11 items-center justify-center rounded-xl border px-4 py-2 text-sm font-bold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
@@ -780,9 +778,9 @@ function SidequestDetailPage({
                           outlineColor: colors.secondary,
                         }}
                       >
-                        Get directions
+                        {directions.length === 1 ? 'Get directions' : `Get directions · Stops ${section.firstStop}–${section.lastStop}`}
                       </a>
-                    )}
+                    ))}
                     <button
                       type="button"
                       onClick={() => void handleComplete(nextStopIndex)}

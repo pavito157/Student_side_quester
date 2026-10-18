@@ -196,6 +196,7 @@ class AssignQuestRequest(ContractModel):
     )
     goals: List[GoalText] = Field(default_factory=list, max_length=20)
     vibePreferences: Optional[str] = Field(default="", max_length=4000)
+    activeVibe: Optional[SelectedVibe] = None
     multiQuest: bool = Field(default=False, strict=True)
     proofOptions: List[QuestProofMethod] = Field(
         default_factory=lambda: ["location"], min_length=1, max_length=3,
@@ -232,7 +233,8 @@ class AssignQuestRequest(ContractModel):
             location=self.normalized_location(), time=self.time.normalize(),
             budget=self.budget.normalize(), maxDistanceMiles=self.distance_miles(),
             preferences=self.preferences, goals=self.goals,
-            vibe=SelectedVibe(preferences=self.vibePreferences) if self.vibePreferences else None,
+            vibe=(self.activeVibe if "activeVibe" in self.model_fields_set else
+                  SelectedVibe(preferences=self.vibePreferences) if self.vibePreferences else None),
             multiQuest=self.multiQuest, proofOptions=self.proofOptions,
         )
 
@@ -367,6 +369,23 @@ class GenerateQuestRequest(AssignQuestRequest):
         return result
 
 
+ProofObligation = Literal['presence', 'action_completion', 'visible_result']
+
+
+class StepProofEvidence(ContractModel):
+    """Generation-only proof obligations; no planning/review contract is needed."""
+    proofObligations: List[ProofObligation] = Field(min_length=1, max_length=3)
+    expectedPhotoEvidence: str = Field(default='', max_length=300)
+
+
+class RouteDependency(ContractModel):
+    """Generation-only precedence between positions in the proposed route."""
+
+    before: DestinationIndex
+    after: DestinationIndex
+    reason: str = Field(min_length=1, max_length=300)
+
+
 class GeneratedQuestProposal(ContractModel):
     """Gemini proposes content and a place label, never trusted GPS or rewards."""
 
@@ -380,6 +399,9 @@ class GeneratedQuestProposal(ContractModel):
     routeCandidateIndexes: List[CandidateIndex] = Field(
         default_factory=list, max_length=MAX_QUEST_DESTINATIONS, exclude=True,
     )
+    routeDependencies: List[RouteDependency] = Field(default_factory=list, max_length=45, exclude=True)
+    completionCriteria: str = Field(default="", max_length=300, exclude=True)
+    stepEvidence: List[StepProofEvidence] = Field(default_factory=list, max_length=MAX_QUEST_STEPS, exclude=True)
     locationName: str = Field(min_length=1, max_length=300)
     locationAddress: str = Field(min_length=1, max_length=500)
     estimatedMinutes: int = Field(strict=True, gt=0)
@@ -396,8 +418,7 @@ class GeneratedQuestProposal(ContractModel):
             else max(self.stepDestinationIndexes, default=0) + 1
         )
         if self.routeCandidateIndexes:
-            if (len(self.routeCandidateIndexes) < 2
-                    or len(set(self.routeCandidateIndexes)) != len(self.routeCandidateIndexes)):
+            if len(set(self.routeCandidateIndexes)) != len(self.routeCandidateIndexes):
                 raise ValueError("Route candidate indexes must be unique")
             route_count = len(self.routeCandidateIndexes)
         _validate_step_destinations(self.stepDestinationIndexes, len(self.steps), route_count)
@@ -409,10 +430,11 @@ class GeminiActivityDraft(ContractModel):
 
     title: str = Field(min_length=1, max_length=160)
     description: str = Field(min_length=1, max_length=500,
-                             description="One literal action objective with a count or result, not atmospheric prose.")
-    steps: List[StepText] = Field(min_length=2, max_length=MAX_QUEST_STEPS)
+                             description="A substantive experience with a clear outcome, not repeated thematic gestures or arbitrary counts.")
+    steps: List[StepText] = Field(min_length=1, max_length=MAX_QUEST_STEPS)
+    stepEvidence: List[StepProofEvidence] = Field(min_length=1, max_length=MAX_QUEST_STEPS)
     stepProofMethods: List[QuestProofMethod] = Field(
-        min_length=2, max_length=MAX_QUEST_STEPS,
+        min_length=1, max_length=MAX_QUEST_STEPS,
         description=(
             "Exactly one method per step, in order, chosen from request proofOptions. "
             "Location and photo are XP-eligible verification; photo requires visible "
@@ -420,7 +442,7 @@ class GeminiActivityDraft(ContractModel):
         ),
     )
     stepDestinationIndexes: List[DestinationIndex] = Field(
-        min_length=2, max_length=MAX_QUEST_STEPS,
+        min_length=1, max_length=MAX_QUEST_STEPS,
         description=(
             "One zero-based route-stop index per action step. Keep indexes in "
             "nondecreasing order, start at zero, and use every route stop."
@@ -430,11 +452,15 @@ class GeminiActivityDraft(ContractModel):
     estimatedCostDollars: float = Field(strict=True, ge=0, allow_inf_nan=False)
     completionCriteria: str = Field(
         min_length=1, max_length=300,
-        description="A specific observable finish, e.g. you have three labeled sketches. No vague reflection.",
+        description="A satisfying concrete endpoint for the experience, without adding an arbitrary count or new filler task.",
     )
 
 
 class GeminiMultiStopDraft(GeminiActivityDraft):
+    routeDependencies: List[RouteDependency] = Field(
+        default_factory=list, max_length=45,
+        description="Normally empty. Only genuine prerequisite activities justify before/after route-position dependencies. Include a concrete reason, never an arbitrary preferred order.",
+    )
     routeCandidateIndexes: List[CandidateIndex] = Field(
         min_length=2, max_length=MAX_QUEST_DESTINATIONS,
         description="Unique zero-based candidate indexes in the chosen route order.",

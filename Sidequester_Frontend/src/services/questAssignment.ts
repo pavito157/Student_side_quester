@@ -26,6 +26,7 @@ export type AssignQuestPayload = {
   distance?: number | { maxDistance: number; unit: 'miles' } | null
   goals?: string[]
   vibePreferences?: string | null
+  activeVibe?: { name: string; preferences: string } | null
   multiQuest?: boolean
   proofOptions?: QuestProofMethod[]
 }

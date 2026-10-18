@@ -16,7 +16,9 @@ function GuestQuestPreviewPage({
     placeId: destination.placeId,
     latitude: destination.latitude,
     longitude: destination.longitude,
-    step: result.quest.steps[index] ?? 'Explore this destination.',
+    step: result.quest.steps.filter((_step, stepIndex) =>
+      (result.quest.stepDestinationIndexes?.[stepIndex] ?? (result.destinations.length === 1 ? 0 : stepIndex)) === index,
+    ).join(' '),
     completed: false,
   })) ?? []
 

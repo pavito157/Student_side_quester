@@ -82,7 +82,7 @@ async function fixture() {
     const wrapped = module.namespace.default({
       activeQuestCount: f.activeQuestCount,
       filters: f.filters, setFilters: (update) => { f.filters = update(f.filters) },
-      activeVibe: null, onClearActiveVibe: () => {},
+      activeVibe: f.activeVibe ?? null, onClearActiveVibe: () => {},
       onStartQuestGeneration: async (...args) => {
         f.calls.push(args)
         return f.request(...args)
@@ -123,6 +123,21 @@ test('button submits the selected quest preferences to the generation flow', asy
   assert.equal(f.calls[0][1].location, 'Selected origin')
   assert.deepEqual(plain(f.calls[0][1].time), { selection: '60' })
   assert.equal(f.props('SidequestMeButton').isLoading, false)
+})
+
+test('only the actively selected vibe reaches the quest request', async () => {
+  const f = await fixture()
+  f.activeVibe = { name: 'Study Break', preferences: 'Low cost playful recreation' }
+  f.render()
+  f.click()
+  await f.settle()
+  assert.deepEqual(plain(f.calls[0][1].activeVibe), f.activeVibe)
+  f.activeVibe = null
+  f.render()
+  f.click()
+  await f.settle()
+  assert.equal(f.calls[1][1].activeVibe, null)
+  assert.equal(f.calls[1][1].vibePreferences, null)
 })
 
 test('rapid double click sends one request and exposes pending state', async () => {

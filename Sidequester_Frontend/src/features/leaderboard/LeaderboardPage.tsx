@@ -74,7 +74,7 @@ function RankedRow({ place, label, detail, xp, highestXp }: RankedRowProps) {
             className="h-full rounded-full transition-[width] duration-500"
             style={{
               width: `${Math.max(0, Math.min(70, (xp / highestXp) * 70))}%`,
-              background: 'linear-gradient(90deg, #fa4616, #ff9a4a)',
+              background: 'repeating-linear-gradient(90deg, #9db860 0 7px, #b7ce79 7px 9px)',
             }}
           />
         </div>
@@ -151,7 +151,7 @@ function LeaderboardPage() {
               Sidequester community
             </p>
             <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">
-              Leaderboard
+              <img src="/art/cozy/trophy.png" alt="" aria-hidden="true" className="cozy-icon mr-3 inline-block size-10" />Leaderboard
             </h1>
             <p className="mt-3 text-sm sm:text-base" style={{ color: colors.muted }}>
               See how students and UF residence halls rank by XP.

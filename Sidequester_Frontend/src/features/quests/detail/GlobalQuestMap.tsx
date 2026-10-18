@@ -81,18 +81,9 @@ function GlobalQuestMap({ quests, activeQuests = EMPTY_ACTIVE }: GlobalQuestMapP
             'aria-label',
             `${quest.title} at ${quest.locationName}, ${quest.xpReward} XP. Open global quest.`,
           )
-          pin.style.cssText = [
-            'min-height:40px', 'padding:0 12px',
-            'border:3px solid #fff', 'border-radius:9999px',
-            `background:${quest.color}`, 'color:#1e2c22',
-            'font:900 13px system-ui,sans-serif',
-            'box-shadow:0 0 0 3px #e8893266,0 3px 10px #0009',
-            'cursor:pointer', 'white-space:nowrap',
-          ].join(';')
-          const pointer = document.createElement('span')
-          pointer.setAttribute('aria-hidden', 'true')
-          pointer.style.cssText = `width:0;height:0;margin-top:-1px;border-left:8px solid transparent;border-right:8px solid transparent;border-top:10px solid ${quest.color};filter:drop-shadow(0 2px 1px #0008)`
-          markerContent.append(pin, pointer)
+          pin.className = 'cozy-map-pin'
+          markerContent.style.paddingBottom = '12px'
+          markerContent.append(pin)
 
           const preview = document.createElement('div')
           preview.style.cssText = 'max-width:280px;padding:4px;color:#17251d'

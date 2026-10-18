@@ -119,7 +119,7 @@ function Header({
             className="brand-title min-w-0 justify-center truncate rounded-sm text-center"
             style={{ color: colors.foreground }}
           >
-            <img src="/favicon.svg" alt="" aria-hidden="true" width="24" height="24" className="brand-icon" />
+            <img src="/art/cozy/sprout.png" alt="" aria-hidden="true" width="24" height="24" className="brand-icon" />
             <PixelLeafIcon className="brand-sparkle" />
             Sidequester
           </a>
@@ -163,7 +163,7 @@ function Header({
                   aria-expanded={isAuthMenuOpen}
                   aria-controls="auth-dropdown"
                   onClick={() => setIsAuthMenuOpen((open) => !open)}
-                  className="hud-button cursor-pointer p-2 focus-visible:outline-2 focus-visible:outline-offset-2"
+                  className="hud-button inline-flex size-10 shrink-0 cursor-pointer items-center justify-center p-0 focus-visible:outline-2 focus-visible:outline-offset-2"
                   style={{ color: colors.primary, outlineColor: colors.primary }}
                 >
                   <AccountIcon />

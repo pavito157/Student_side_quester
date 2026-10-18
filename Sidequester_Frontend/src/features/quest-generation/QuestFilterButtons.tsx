@@ -213,14 +213,7 @@ function QuestFilterControls({
               outlineColor: colors.error,
             }}
           >
-            <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="size-3.5">
-              <path
-                d="m5 5 10 10M15 5 5 15"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-              />
-            </svg>
+            <img src="/art/cozy/close.png" alt="" aria-hidden="true" className="cozy-icon size-4" />
             Remove vibe
           </button>
         </div>
@@ -233,7 +226,7 @@ function QuestFilterControls({
       >
         <div className="mb-4">
           <h3 id="quest-location-heading" className="section-title">
-            Choose a location
+            <img src="/art/cozy/search.png" alt="" aria-hidden="true" className="cozy-icon mr-2 inline-block size-7" />Choose a location
           </h3>
           <p className="mt-1 text-xs" style={{ color: colors.muted }}>
             Search for a place or use your current location.
@@ -265,20 +258,7 @@ function QuestFilterControls({
             style={{ color: colors.secondary, outlineColor: colors.primary }}
           >
             <span>Advanced settings</span>
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 20 20"
-              fill="none"
-              className={`size-4 shrink-0 transition-transform ${isAdvancedSettingsOpen ? 'rotate-180' : ''}`}
-            >
-              <path
-                d="m5 7.5 5 5 5-5"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <img src="/art/cozy/pointer.png" alt="" aria-hidden="true" className={`cozy-icon size-4 transition-transform ${isAdvancedSettingsOpen ? '-rotate-90' : 'rotate-90'}`} />
           </button>
         </div>
         <div
@@ -363,7 +343,7 @@ function QuestFilterControls({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="min-w-0 space-y-2">
             <span className="block text-xs font-medium" style={{ color: colors.muted }}>
-              Time
+              <img src="/art/cozy/watch.png" alt="" aria-hidden="true" className="cozy-icon size-7" />Time
             </span>
             <TimeButton
               value={filters.time}
@@ -376,7 +356,7 @@ function QuestFilterControls({
           </div>
           <div className="min-w-0 space-y-2">
             <span className="block text-xs font-medium" style={{ color: colors.muted }}>
-              Budget
+              <img src="/art/cozy/coin.png" alt="" aria-hidden="true" className="cozy-icon size-7" />Budget
             </span>
             <BudgetButton
               value={filters.budget}
@@ -389,7 +369,7 @@ function QuestFilterControls({
           </div>
           <div className="min-w-0 space-y-2">
             <span className="block text-xs font-medium" style={{ color: colors.muted }}>
-              Distance
+              <img src="/art/cozy/compass.png" alt="" aria-hidden="true" className="cozy-icon size-7" />Distance
             </span>
             <DistanceButton
               value={filters.distance}

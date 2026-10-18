@@ -108,8 +108,6 @@ function HomePage({
                 </p>
               </div>
             </div>
-            {userId && <QuestSlots quests={currentActiveSidequests.sidequests}
-              loading={currentActiveSidequests.isLoading} error={currentActiveSidequests.error} />}
             <div className="rpg-panel terminal-panel p-4 sm:p-6 lg:p-7">
               <QuestFilterButtons
                 activeQuestCount={currentActiveSidequests.sidequests.length}
@@ -120,14 +118,16 @@ function HomePage({
                 onStartQuestGeneration={onStartQuestGeneration}
               />
             </div>
+            {userId && <QuestSlots quests={currentActiveSidequests.sidequests}
+              loading={currentActiveSidequests.isLoading} error={currentActiveSidequests.error} />}
           </section>
 
-          <details
-            className="mt-6 rounded-xl border"
+          <details open
+            className="cozy-personalization mt-6 rounded-xl border"
             style={{ borderColor: colors.border, backgroundColor: colors.surface }}
           >
             <summary className="cursor-pointer px-4 py-3 text-sm font-semibold sm:px-5">
-              <span>Optional personalization</span>
+              <span><img src="/art/cozy/sprout.png" alt="" aria-hidden="true" className="cozy-icon mr-2 inline-block size-6" />Make it yours</span>
               <span className="ml-2 text-xs font-normal" style={{ color: colors.muted }}>
                 Goals and preferences
               </span>
@@ -152,6 +152,7 @@ function HomePage({
             onAcceptOrganizationQuest={onAcceptOrganizationQuest}
             onAcceptGlobalEvent={onAcceptGlobalEvent}
           />
+          <footer className="cozy-credits mt-7 text-center text-xs">A little adventure, close to home. <span aria-hidden="true">·</span> UI sprites by <a href="https://cupnooble.itch.io/sprout-lands-ui-pack" target="_blank" rel="noreferrer" className="underline">Cup Nooble</a></footer>
         </div>
       </main>
       <SettingsModal

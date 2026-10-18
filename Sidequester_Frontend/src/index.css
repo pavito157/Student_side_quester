@@ -327,3 +327,238 @@ input, textarea, select { accent-color: var(--color-secondary); }
 }
 
 .global-event-input { display: block; width: 100%; min-width: 0; margin-top: 6px; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); color: var(--color-foreground); font: inherit; font-weight: 400; }
+
+/* Cozy RPG theme — real kit sprites + original matching art, shared by every route. */
+@font-face {
+  font-family: 'Sprout Pixel';
+  src: url('/art/cozy/sprout-pixel.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+:root {
+  --font-sans: 'Trebuchet MS', ui-rounded, system-ui, sans-serif;
+  --color-background: #e7edbd;
+  --color-surface: #fff0d3;
+  --color-surface-raised: #f3e1b7;
+  --color-border: #c49c6d;
+  --color-foreground: #443044;
+  --color-muted: #705c51;
+  --color-primary: #afca73;
+  --color-primary-hover: #9ebd60;
+  --color-primary-foreground: #343d29;
+  --color-secondary: #4d7044;
+  --color-secondary-hover: #3d5b35;
+  --color-secondary-foreground: #fff5db;
+  --color-accent: #e6ab50;
+  --color-accent-foreground: #513a28;
+  --color-success: #466b3b;
+  --color-success-subtle: #e5edbf;
+  --color-success-border: #a3b777;
+  --color-warning: #856027;
+  --color-warning-subtle: #f8e8b4;
+  --color-warning-border: #d1af70;
+  --color-error: #a34b46;
+  --color-error-subtle: #fae0ce;
+  --color-error-border: #d5a089;
+  --color-info: #4b7776;
+  --color-info-subtle: #e2edce;
+  --color-info-border: #99bdb1;
+  --gradient-brand: linear-gradient(125deg,#bfd883,#a6c06c);
+  --gradient-blue: linear-gradient(125deg,#bfd883,#a6c06c);
+  --gradient-orange: linear-gradient(120deg,#f3ba76,#e99464);
+  --gradient-glow: none;
+  --widget-shadow: 4px 5px 0 #77533c40;
+}
+html { background: #b8ce84; }
+body { background: #b8ce84; font-family: var(--font-sans); }
+body::before {
+  background: url('/art/cozy/garden.webp') center top / 100% auto no-repeat;
+  background-color: #bfd58a;
+  opacity: 1;
+  image-rendering: pixelated;
+}
+body::after { display: none; }
+::selection { background:#c2d58d; color:#443044; }
+.cozy-icon { display:inline-block; object-fit:contain; flex-shrink:0; image-rendering:pixelated; user-select:none; vertical-align:middle; }
+img.cozy-icon { max-width:100%; }
+h1,h2,h3,h4,.brand-title,.section-title,.widget-title,.cozy-panel-heading,.magic-cta,.realm-cta {
+  font-family:'Sprout Pixel',var(--font-sans);
+  font-weight:500;
+  letter-spacing:0;
+}
+h1,h2,h3 { text-wrap:balance; }
+.content-shell { max-width:76rem; }
+.quest-board { padding-top:2.4rem; }
+.terminal-heading { margin-bottom:2rem; }
+.terminal-heading > div > p:first-child {
+  width:fit-content; margin:0 auto; padding:.65rem 1.7rem;
+  border:8px solid transparent; border-image:url('/art/cozy/tile-wood.png') 7 / 10px / 0 stretch;
+  background:#eccb95; color:#634329!important; font-family:'Sprout Pixel',var(--font-sans);
+  font-size:clamp(.85rem,1.5vw,1.05rem); text-shadow:1px 1px #fff3d4;
+}
+.board-title { font-size:clamp(1.8rem,3.8vw,3rem); line-height:1.3; letter-spacing:0; margin-top:1rem; }
+.terminal-heading > div > p:last-child { color:#443b3d!important; text-shadow:0 1px #e4f0bd; }
+.accent-strokes { width:1.8rem; height:1.8rem; right:-2.6rem; top:.25rem; animation:cozy-sparkle 3s steps(3,end) infinite; }
+.rpg-panel,.rpg-dialog,.cozy-personalization {
+  border:12px solid transparent!important;
+  border-image:url('/art/cozy/tile-wood.png') 7 / 13px / 0 stretch!important;
+  border-radius:4px!important;
+  background:#fff0d3!important;
+  background-clip:padding-box!important;
+  box-shadow:4px 6px 0 #76513b55!important;
+  image-rendering:pixelated;
+}
+.rpg-panel { padding:clamp(1rem,2.4vw,1.8rem); }
+.terminal-panel { padding:clamp(1rem,2.5vw,2rem); }
+.quest-subpanel,.quest-tag,.quest-form label.rounded-xl,.global-event-input,#quest-advanced-settings {
+  border-color:#c49c6d!important; border-radius:3px!important; background-color:#fff2d6!important;
+  box-shadow:inset 0 2px #fff8e8,2px 3px #a0785040;
+}
+.quest-tag { background:#dfebaf!important; padding:1rem; }
+.quest-tag p:first-child { color:#425a35; font-family:'Sprout Pixel',var(--font-sans); font-size:1.05rem; }
+.location-section { border-bottom-color:#dbbc89; }
+.quest-form > section[aria-label='Quest filters'] select { background:#fff4de!important; }
+.quest-form > section[aria-label='Quest filters'] .min-w-0 > span { display:flex; align-items:center; gap:.6rem; color:#634b3b!important; font-weight:700; font-size:.9rem; }
+.quest-form > section[aria-label='Quest filters'] select { min-height:3rem; }
+#quest-advanced-settings { border:8px solid transparent!important; border-image:url('/art/cozy/tile-cream.png') 6 / 9px / 0 stretch!important; box-shadow:4px 6px #77533c55; }
+.hud-button,.anywhere-button,.current-location-button,
+button[style*='background-color: var(--color-primary)'],a[style*='background-color: var(--color-primary)'] {
+  border:7px solid transparent!important;
+  border-image:url('/art/cozy/tile-cream.png') 6 / 8px / 0 stretch!important;
+  border-radius:3px!important;
+  background:#f1d8aa!important; background-clip:padding-box!important;
+  color:#49392e!important; box-shadow:2px 3px #805d4345;
+  transition:translate 130ms,filter 150ms,box-shadow 130ms;
+}
+.hud-button:hover:not(:disabled),.anywhere-button:hover,.current-location-button:hover { background:#f8e6c1!important; box-shadow:2px 4px #805d4360; }
+button[aria-pressed='true'] { background-color:#d9e7aa!important; }
+.magic-cta,.realm-cta {
+  border:9px solid transparent!important;
+  border-image:url('/art/cozy/tile-cream.png') 6 / 9px / 0 stretch!important;
+  border-radius:4px!important;
+  background:#b9cf7c!important;
+  background-clip:padding-box!important;
+  color:#3d3940!important;
+  box-shadow:3px 4px 0 #5b654d8a,inset 0 2px #d9e9a3;
+  font-size:1.1rem;
+}
+.magic-cta:hover:not(:disabled),.realm-cta:hover:not(:disabled) { background:#c6dc91!important; box-shadow:3px 5px #6a674c80; }
+.magic-cta:active:not(:disabled),.realm-cta:active:not(:disabled),.hud-button:active { box-shadow:0 1px #6a674c80; translate:0 2px; }
+.magic-cta:disabled { background:#d5d1ad!important; opacity:.6; box-shadow:1px 2px #7b715850; }
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),textarea,select {
+  border-color:#bda17d!important; border-radius:3px!important; color:#443044;
+  background-color:#fff5df!important; box-shadow:inset 1px 2px #d6bd8d40;
+}
+input::placeholder,textarea::placeholder { color:#8b7663!important; }
+input[type='checkbox'],input[type='radio'] { accent-color:#75994c; }
+.google-place-autocomplete { --gmp-mat-color-primary:#75994c; --gmp-mat-color-on-surface:#443044; --gmp-mat-color-surface:#fff5df; --gmp-mat-color-outline:#bda17d; --gmp-mat-font-family:var(--font-sans); }
+/* Keep the header usable and persistent; decorations never capture pointer input. */
+.hud-header { position:sticky!important; top:0; margin:0; padding:.55rem max(.75rem,env(safe-area-inset-left)); min-height:4.8rem; border:10px solid transparent!important; border-image:url('/art/cozy/tile-wood.png') 7 / 11px / 0 stretch!important; background:#ecd09c!important; box-shadow:0 5px #86603d55!important; }
+.hud-header::before { opacity:.15; }
+.header-leaf { opacity:.25; }
+.brand-title { font-family:'Sprout Pixel',var(--font-sans); color:#443044!important; font-size:clamp(1rem,2.3vw,1.65rem); letter-spacing:0; text-shadow:1px 2px #fff1cc; overflow:visible; }
+.brand-icon { width:1.7rem; height:1.7rem; border:0; box-shadow:none; border-radius:0; animation:none; }
+.brand-sparkle { display:none; }
+.quest-count-pixel { font-family:'Sprout Pixel',var(--font-sans); border-radius:3px; color:#fff8e1; background:#e99065!important; box-shadow:1px 2px #986549; }
+.nav-foliage { height:clamp(90px,10vw,160px); }
+.corner-foliage { width:clamp(110px,14vw,210px); height:auto; opacity:.8; }
+.goal-flag,.preferences-icon { width:1.8rem; height:1.8rem; }
+/* The journal uses the same three real assignments; images are decorative icons only. */
+.quest-slots.cozy-journal { display:block; margin-top:1.8rem; padding:0; margin-bottom:0; }
+.cozy-panel-heading { display:flex; align-items:center; justify-content:space-between; gap:1rem; border-bottom:2px solid #c5a477; background:#e9c797; padding:.6rem 1rem; font-size:1.15rem; }
+.cozy-panel-heading h2 { display:flex; align-items:center; gap:.65rem; font-size:1.15rem; }
+.cozy-panel-heading p { font-family:var(--font-sans); white-space:nowrap; }
+.quest-slot-flags { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; padding:1rem; align-items:stretch; }
+.quest-slot { display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; width:100%; min-width:0; min-height:14.5rem; padding:1rem; border:6px solid transparent; border-image:url('/art/cozy/tile-cream.png') 6 / 7px / 0 stretch; border-radius:3px; color:#493d38; background:#fae9c6; text-align:left; box-shadow:2px 3px #7e604840; transform:none; }
+.quest-slot::after { display:none; }
+.quest-slot strong { margin-top:.65rem; font-family:'Sprout Pixel',var(--font-sans); font-weight:500; font-size:1rem; line-height:1.45; overflow-wrap:anywhere; }
+.journal-card-top { display:flex; align-items:center; justify-content:space-between; gap:.5rem; }
+.journal-card-description { margin:.5rem 0 .25rem; font-family:var(--font-sans); font-size:.85rem; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; line-height:1.5; }
+.journal-card-place { font-family:var(--font-sans); font-size:.75rem; color:#7d6853; margin-bottom:1rem; }
+.journal-card-footer { display:flex; align-items:flex-end; justify-content:space-between; gap:.5rem; margin-top:auto; padding-top:.8rem; }
+.journal-card-footer > span { display:inline-flex; align-items:center; justify-content:center; gap:.5rem; min-height:2.5rem; padding:.45rem .7rem; border:2px solid #9aab6d; border-radius:3px; background:#c5d994; font-family:'Sprout Pixel',var(--font-sans); font-size:.8rem; color:#3f4833; box-shadow:1px 2px #8c9961; }
+.quest-slot:disabled { opacity:1; background:#f5e3bf; border-image-source:none; border:2px dashed #c6a57e; color:#81674e; box-shadow:none; }
+.quest-slot-filled:disabled { opacity:.6; }
+.quest-slot:not(:disabled):hover { background:#fff1ce; box-shadow:3px 5px #7e60485a; }
+.cozy-xp { display:inline-flex; align-items:center; padding:.2rem .45rem; border:2px solid #fff2cd; outline:1px solid #c2845c; background:#e99367; color:#fff9e6; font-family:'Sprout Pixel',var(--font-sans); font-size:.8rem; white-space:nowrap; box-shadow:1px 2px #b3825b55; }
+.cozy-personalization > summary { font-family:'Sprout Pixel',var(--font-sans); color:#68503b; list-style:none; }
+.cozy-personalization > summary::after { content:'−'; float:right; }
+.cozy-personalization:not([open]) > summary::after { content:'+'; }
+.personalization-grid .preferences-widget { min-height:0; }
+.goals-widget { min-height:0; max-height:27rem; }
+.widget-title { font-size:1.25rem; }
+.preferences-widget button { background:#c2d58a!important; color:#3f4833!important; }
+/* Dialogs and all route content share the same paper/wood treatment. */
+.rpg-dialog::backdrop { background:#344b3c66; backdrop-filter:blur(3px); }
+.sidebar-modal { border-width:10px!important; border-radius:0!important; background:#fff0d3!important; }
+.rpg-dialog summary,.rpg-dialog h2,.rpg-dialog h3 { color:#503b3e; }
+.cl-card { background:#fff0d3; border:4px solid #c49c6d; border-radius:5px; box-shadow:4px 6px #64452e55; }
+.cl-formButtonPrimary { background:#a7c36e; color:#34402e; }
+.cl-headerTitle { font-family:'Sprout Pixel',var(--font-sans); color:#443044; }
+.cinematic-hero { background:transparent!important; }
+.guild-hero-content { max-width:70rem; }
+.hero-copy { padding:2.2rem; background:#fff0d3ef; border:10px solid transparent; border-image:url('/art/cozy/tile-wood.png') 7 / 12px / 0 stretch; box-shadow:4px 5px #70543c44; }
+.hero-title { font-family:'Sprout Pixel',var(--font-sans); font-size:clamp(2rem,5vw,4.25rem); letter-spacing:0; line-height:1.3; }
+.hero-description,.hero-caption { color:#6b5748!important; }
+.guild-map-caption { font-family:'Sprout Pixel',var(--font-sans); color:#4c4c33!important; background:#f5e3b9; padding:.6rem 1rem; }
+.guildhall-scene { border:10px solid transparent!important; border-image:url('/art/cozy/tile-wood.png') 7 / 12px / 0 stretch!important; border-radius:3px!important; }
+.generation-journey { background:#e6edc4!important; border-color:#c5ac7e!important; }
+.generation-waypoint { background:#fbe6ba!important; border-color:#b99969!important; }
+/* Pixel map pin asset; the label remains live and reflects the server reward. */
+.cozy-map-pin { position:relative; display:flex; align-items:center; justify-content:center; min-width:80px; height:44px; padding:0 13px; border:0; color:#fff9e8; background:transparent; font:700 14px 'Sprout Pixel',sans-serif; cursor:pointer; white-space:nowrap; isolation:isolate; }
+.cozy-map-pin::before { content:''; position:absolute; z-index:-1; inset:-5px -4px -15px; background:url('/art/cozy/xp-pin.svg') center / 100% 100% no-repeat; image-rendering:pixelated; }
+.cozy-map-pin:hover { filter:brightness(1.1); translate:0 -3px; }
+.cozy-map-pin:focus-visible { outline:3px solid #443044; outline-offset:5px; }
+@keyframes cozy-sparkle { 0%,100% { opacity:.55;scale:.9; } 50% { opacity:1;scale:1.08; } }
+@media(min-width:1400px) { body::before { background-size:100% auto; } }
+@media(max-width:850px) {
+  .content-shell { max-width:100%; }
+  .hud-header { min-height:4.2rem; border-width:7px!important; }
+  .nav-foliage { height:95px; }
+  .corner-foliage { width:120px; opacity:.65; }
+  .quest-slot-flags { gap:.5rem; padding:.7rem; }
+  .quest-slot { padding:.65rem; }
+  .cozy-xp { font-size:.65rem; }
+}
+@media(max-width:639px) {
+  body::before { background-size:auto 120vh; background-position:center top; }
+  .quest-board { padding-top:1.5rem; padding-inline:.65rem; }
+  .board-title { font-size:1.6rem; }
+  .terminal-heading { padding-inline:0; }
+  .terminal-heading > div > p:first-child { font-size:.65rem; padding:.4rem .5rem; }
+  .accent-strokes { right:-1.2rem; width:1.2rem; height:1.2rem; }
+  .rpg-panel,.rpg-dialog,.cozy-personalization { border-width:8px!important; border-image-width:9px!important; }
+  .rpg-panel { padding:.8rem; }
+  .quest-slots.cozy-journal { padding:0; }
+  .cozy-panel-heading { padding:.55rem; gap:.4rem; }
+  .cozy-panel-heading h2 { font-size:.85rem; gap:.4rem; }
+  .cozy-panel-heading p { font-size:.65rem; }
+  .quest-slot-flags { grid-template-columns:1fr; }
+  .quest-slot { min-height:11rem; }
+  .quest-slot:not(.quest-slot-filled) { min-height:8rem; }
+  .brand-title { gap:.25rem; font-size:.95rem; }
+  .brand-icon { width:1.25rem; height:1.25rem; }
+  .hud-header .hud-button { border-width:5px!important; }
+  .nav-foliage { height:70px; }
+  .corner-foliage { width:90px; }
+  .hero-copy { padding:1.1rem; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .accent-strokes,.brand-title img,.header-leaf { animation:none!important; }
+  .cozy-map-pin { transition:none; }
+}
+/* Reset the old compact flag positioning for the new journal cards. */
+.quest-slot { height:auto; }
+.quest-slot span { position:static; right:auto; bottom:auto; font-size:inherit; }
+.quest-slot .cozy-xp { font-size:.8rem; }
+.quest-slot .journal-card-footer > span { font-size:.8rem; }
+.generation-finish { display:block; width:30px; height:34px; }
+/* The kit font is a single weight; allow browsers to synthesize the bold title. */
+.board-title,.brand-title,.hero-title { font-weight:700; }
+/* Keep the supplied single-color UI symbols legible against pale wood. */
+.cozy-icon:is([src$='/settings.png'],[src$='/trophy.png'],[src$='/close.png'],[src$='/plus.png'],[src$='/minus.png'],[src$='/home.png'],[src$='/check.png']) { filter:brightness(.62) saturate(1.15); }
+.cozy-icon[src$='/pointer.png'] { filter:brightness(.65) sepia(.4); }
+.cozy-credits { color:#4b5638; background:#edf1cde6; padding:.5rem 1rem; width:fit-content; margin-inline:auto; border-radius:3px; }
+
+.quest-slot-filled:nth-child(n) { color:#493d38; border-color:transparent; }

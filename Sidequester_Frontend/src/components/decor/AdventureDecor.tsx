@@ -3,27 +3,15 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react'
 
 /** Decorative artwork only: never intercepts input or adds application state. */
 export function SparkleIcon({ className = '' }: { className?: string }) {
-  return <svg aria-hidden="true" viewBox="0 0 24 24" className={className} fill="none">
-    <path d="M10 1h4v5h3v3h5v5h-5v3h-3v6h-4v-6H7v-3H2V9h5V6h3Z" fill="#152b22" />
-    <path d="M11 4h2v5h3v2h4v1h-4v2h-3v5h-2v-5H8v-2H4v-1h4V9h3Z" fill="#f5c742" />
-    <path d="M11 5h1v6H8v1H6v-1h4V9h1Z" fill="#fff4b2" />
-  </svg>
+  return <img src="/art/cozy/sparkle.png" alt="" aria-hidden="true" draggable={false} className={`cozy-icon ${className}`} />
 }
 
 export function PixelLeafIcon({ className = '' }: { className?: string }) {
-  return <svg aria-hidden="true" viewBox="0 0 32 32" className={className} shapeRendering="crispEdges">
-    <path d="M26 2h5v6h-2v6h-3v5h-4v4h-5v3h-7v3H6v3H3v-5l3-4V16h3v-5h5V8h5V5h7Z" fill="#244d35" />
-    <path d="M26 5h2v6h-3v6h-4v4h-5v3H9v-7h3v-5h5V9h5V7h4Z" fill="#6ca94b" />
-    <path d="M26 5h2v3h-6v3h-5v4h-5v5H9v-3h3v-5h5V9h5V7h4Z" fill="#bfd779" />
-    <path d="M7 25h4v-4h5v-4h5v-4h5v-3h2v3h-4v4h-5v4h-5v4h-4v4H6Z" fill="#3f753e" />
-    <path d="M12 18h2v3h3v1h-3v-1h-2Zm7-6h2v3h3v1h-3v-1h-2Z" fill="#a0c965" />
-  </svg>
+  return <img src="/art/cozy/leaf.png" alt="" aria-hidden="true" draggable={false} className={`cozy-icon ${className}`} />
 }
 
 export function AccentStrokes() {
-  return <svg aria-hidden="true" viewBox="0 0 56 52" className="accent-strokes" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
-    <path d="m9 20 8-15m7 24 20-12M31 42h18" />
-  </svg>
+  return <img src="/art/cozy/sparkle.png" alt="" aria-hidden="true" className="accent-strokes cozy-icon" />
 }
 
 /** Anchored to the sticky header, so the same pair stays put while scrolling. */
@@ -111,8 +99,8 @@ export function NavFoliage() {
   }, [])
 
   return <><div ref={foliage} className="nav-foliage" aria-hidden="true">
-    <img className="corner-foliage foliage-left" src="/art/leafy-corner.png" alt="" draggable={false} width={1254} height={1254} />
-    <img className="corner-foliage foliage-right" src="/art/leafy-corner.png" alt="" draggable={false} width={1254} height={1254} />
+    <img className="corner-foliage foliage-left" src="/art/cozy/canopy.png" alt="" draggable={false} width={1536} height={1024} />
+    <img className="corner-foliage foliage-right" src="/art/cozy/canopy.png" alt="" draggable={false} width={1536} height={1024} />
   </div>
     {createPortal(<div className="released-leaves" aria-hidden="true">
       {releasedLeaves.map((leaf) => <span key={leaf.id} className="released-leaf"

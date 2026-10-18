@@ -100,7 +100,7 @@ export default function GlobalQuests({ activeQuests = [], onAcceptGlobalEvent }:
   }
   return <section className="rpg-panel mt-8 p-4 sm:p-6" aria-labelledby="global-quests-title">
     <p className="text-xs font-bold uppercase tracking-widest text-secondary">Adventure, together</p>
-    <h2 id="global-quests-title" className="mt-1 text-xl font-bold">Campus quest board</h2>
+    <h2 id="global-quests-title" className="mt-1 text-xl font-bold"><img src="/art/cozy/map.png" alt="" aria-hidden="true" className="cozy-icon mr-2 inline-block size-8" />Campus quest board</h2>
     <p className="mt-2 text-sm text-muted">Events and activities from campus organizations and sponsors. Find something worth showing up for.</p>
     {uid && activeQuests.length >= 3 && <p role="status" className="mt-3 text-sm text-muted">Maximum quests reached (3/3). You can still browse global quests. Complete or abandon a quest before adding another.</p>}
     <button type="button" className="hud-button mt-4 px-3 py-2 text-sm" disabled={Boolean(busy)} onClick={() => setAttempt((value) => value + 1)}>Refresh board</button>
@@ -113,7 +113,7 @@ export default function GlobalQuests({ activeQuests = [], onAcceptGlobalEvent }:
           const ended = clock > Date.parse(quest.endsAt) + quest.graceMinutes * 60000
           return <article key={quest.id} className="quest-subpanel p-4">
             <p className="text-xs font-semibold text-secondary">{quest.organizationName} · Event · +{quest.xpReward} XP</p>
-            <h3 className="mt-1 font-bold text-lg">{quest.title}</h3>
+            <h3 className="mt-1 font-bold text-lg"><img src="/art/cozy/rose.png" alt="" aria-hidden="true" className="cozy-icon mr-2 inline-block size-7" />{quest.title}</h3>
             <p className="mt-2 text-sm whitespace-pre-wrap break-words">{quest.description}</p>
             <p className="mt-3 text-sm font-semibold">{quest.locationName}</p>
             {quest.source === 'uf-calendar' && quest.sourceUrl?.startsWith('https://calendar.ufl.edu/') &&
@@ -132,7 +132,7 @@ export default function GlobalQuests({ activeQuests = [], onAcceptGlobalEvent }:
       <p className="mt-3 text-xs text-muted">Event quests use one of your three slots. Everyone receives the same event tasks; check in at the venue during its scheduled time.</p>
     </>}
     <div className="mt-5">
-      <h3 className="text-sm font-bold">Global quest map</h3>
+      <h3 className="text-sm font-bold"><img src="/art/cozy/compass.png" alt="" aria-hidden="true" className="cozy-icon mr-2 inline-block size-6" />Global quest map</h3>
       <p className="mt-1 text-xs text-muted">Campus and organization events only. Select an orange XP pin to view a global quest.</p>
       {mapQuests === null && !mapError && <p role="status" className="mt-3 text-sm text-muted">Loading event locations…</p>}
       {mapError && <p role="alert" className="mt-3 text-sm" style={{ color: 'var(--color-error)' }}>Event locations could not load: {mapError}</p>}

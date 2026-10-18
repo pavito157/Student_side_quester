@@ -29,7 +29,7 @@ function TextBox({
     >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 id={`${id}-title`} className="widget-title">
-          {id === 'user-preferences' && <span aria-hidden="true" className="preferences-icon">⚙</span>}{title}
+          {id === 'user-preferences' && <img src="/art/cozy/settings.png" alt="" aria-hidden="true" className="cozy-icon preferences-icon" />}{title}
         </h2>
         {caption && (
           <span className="text-xs" style={{ color: colors.muted }}>

@@ -1,6 +1,5 @@
 import GlobalQuests from './componenets/main-ui/GlobalQuests'
 import QuestSlots from './componenets/main-ui/QuestSlots'
-import OrganizationQuestBoard from './componenets/main-ui/OrganizationQuestBoard'
 import { QuestConfetti } from './componenets/main-ui/AdventureDecor'
 import { useEffect, useRef, useState } from 'react'
 import { useUser } from '@clerk/clerk-react'
@@ -151,12 +150,9 @@ function HomePage({
               <UserPreferencesSummary onEdit={() => openSettings('preferences')} />
             </section>
           </div>
-          <GlobalQuests key={userId ?? 'guest'} />
-          <OrganizationQuestBoard
-            userId={userId ?? null}
+          <GlobalQuests key={userId ?? 'guest'}
             activeQuests={currentActiveSidequests.sidequests}
-            onAccept={onAcceptOrganizationQuest}
-          />
+            onAcceptOrganizationQuest={onAcceptOrganizationQuest} />
         </div>
       </main>
       <SettingsModal

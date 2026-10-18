@@ -12,6 +12,7 @@ from .firebase_helpers import USERS, current_uid, get_db
 from .dorm_catalog import DORM_NAME_BY_ID
 from .quest_validation import calculate_distance
 from .xp import read_xp
+from .organization_access import authorize_publishing, publishing_organizations
 
 router = APIRouter(tags=["Global quests"])
 ORGANIZATIONS = "Organizations"
@@ -55,7 +56,6 @@ class CreateEvent(BaseModel):
     longitude: float = Field(strict=True, ge=-180, le=180, allow_inf_nan=False)
     startsAt: AwareDatetime
     endsAt: AwareDatetime
-    xpReward: Optional[int] = Field(default=None, strict=True, ge=1, le=500)
 
     @model_validator(mode="after")
     def valid_window(self):
@@ -80,18 +80,6 @@ class CheckIn(BaseModel):
     accuracy: Optional[float] = Field(default=None, strict=True, gt=0, allow_inf_nan=False)
 
 
-def admin_organization(db, uid, organization_id, transaction=None):
-    snapshot = db.collection(ORGANIZATIONS).document(organization_id).get(transaction=transaction)
-    data = snapshot.to_dict() if snapshot.exists else {}
-    admins = data.get("adminUserIds", [])
-    if data.get("isActive") is not True or not isinstance(admins, list) or uid not in admins:
-        raise HTTPException(403, "Organization admin access required.")
-    name = data.get("name")
-    if not isinstance(name, str) or not name.strip():
-        raise HTTPException(409, "Organization name needs configuration.")
-    return name
-
-
 def publish_event(db, uid, payload):
     policy = default_policy()
     if payload.endsAt <= utc_now():
@@ -100,10 +88,9 @@ def publish_event(db, uid, payload):
 
     @firestore.transactional
     def commit(transaction):
-        name = admin_organization(db, uid, payload.organizationId, transaction)
+        name = authorize_publishing(db, uid, payload.organizationId, transaction)
         event = GlobalEvent(**{
-            **policy.model_dump(), **payload.model_dump(exclude={"xpReward"}),
-            "xpReward": payload.xpReward if payload.xpReward is not None else policy.xpReward,
+            **policy.model_dump(), **payload.model_dump(),
             "id": ref.id, "organizationName": name, "createdBy": uid, "createdAt": utc_now(),
         })
         transaction.create(ref, event.model_dump())
@@ -175,11 +162,7 @@ def check_in(db, uid, event_id, position):
 def list_events(uid: str = Depends(current_uid), db=Depends(get_db)):
     try:
         policy = default_policy()
-        organizations = []
-        for snapshot in db.collection(ORGANIZATIONS).where("adminUserIds", "array_contains", uid).stream():
-            data = snapshot.to_dict()
-            if data.get("isActive") is True:
-                organizations.append({"id": snapshot.id, "name": data.get("name", "Organization")})
+        organizations, role = publishing_organizations(db, uid)
         now = utc_now()
         # Include grace-window events without a composite index.
         snapshots = db.collection(EVENTS).where("endsAt", ">=", now - timedelta(minutes=60)).order_by("endsAt").limit(50).stream()
@@ -191,7 +174,7 @@ def list_events(uid: str = Depends(current_uid), db=Depends(get_db)):
             completed = db.collection(USERS).document(uid).collection(CLAIMS).document(snapshot.id).get().exists
             events.append({**event.model_dump(mode="json"), "completed": completed})
         events.sort(key=lambda event: event["startsAt"])
-        return {"quests": events, "organizations": organizations, "defaults": policy.model_dump()}
+        return {"quests": events, "organizations": organizations, "adminRole": role, "defaults": policy.model_dump()}
     except (GoogleAPICallError, RetryError):
         raise HTTPException(503, "Global quests are temporarily unavailable.") from None
 

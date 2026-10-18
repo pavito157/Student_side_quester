@@ -45,7 +45,7 @@ class GlobalQuestRouteTests(unittest.TestCase):
     def test_time_and_input_validation(self):
         body = payload().model_dump(mode="json")
         for changes in [{"endsAt": body["startsAt"]}, {"startsAt": "2026-10-18T18:00:00"},
-                        {"xpReward": True}, {"latitude": 91}, {"latitude": False},
+                        {"xpReward": True}, {"xpReward": 25}, {"xpReward": 500}, {"latitude": 91}, {"latitude": False},
                         {"createdBy": "spoofed-user"}, {"verificationMode": "honor"}, {"organizationId": "bad/id"}]:
             response = self.client.post("/global-quests", json={**body, **changes})
             self.assertEqual(response.status_code, 422, changes)

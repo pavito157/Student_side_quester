@@ -5,13 +5,14 @@ export type GlobalQuest = {
   verificationMode: 'gps' | 'honor'; graceMinutes: number; completed: boolean
 }
 export type GlobalQuestFeed = {
+  adminRole: 'explicit_admin' | 'regular_admin' | 'member'
   quests: GlobalQuest[]
   organizations: { id: string; name: string }[]
   defaults: { xpReward: number; radiusMeters: number; verificationMode: 'gps' | 'honor'; graceMinutes: number }
 }
 export type NewGlobalQuest = {
   organizationId: string; title: string; description: string; locationName: string
-  latitude: number; longitude: number; startsAt: string; endsAt: string; xpReward?: number
+  latitude: number; longitude: number; startsAt: string; endsAt: string
 }
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000').replace(/\/$/, '')
 async function request(token: string, path: string, method: string, body?: unknown, signal?: AbortSignal) {
@@ -27,7 +28,8 @@ async function request(token: string, path: string, method: string, body?: unkno
 }
 export async function getGlobalQuests(token: string, signal?: AbortSignal): Promise<GlobalQuestFeed> {
   const data = await request(token, '/global-quests', 'GET', undefined, signal)
-  if (!Array.isArray(data.quests) || !Array.isArray(data.organizations) || !data.defaults
+  if (!['explicit_admin','regular_admin','member'].includes(data.adminRole)
+    || !Array.isArray(data.quests) || !Array.isArray(data.organizations) || !data.defaults
     || !data.quests.every((quest: GlobalQuest) => typeof quest.id === 'string'
       && typeof quest.title === 'string' && Number.isInteger(quest.xpReward)
       && Number.isFinite(Date.parse(quest.startsAt)) && Number.isFinite(Date.parse(quest.endsAt)))) {
@@ -52,4 +54,19 @@ export async function checkInGlobalQuest(token: string, event: GlobalQuest): Pro
   const data = await request(token, `/global-quests/${encodeURIComponent(event.id)}/check-in`, 'POST', position)
   if (data.status !== 'completed' || !Number.isInteger(data.xpAwarded)) throw new Error('Invalid check-in response. Refresh your events before retrying.')
   return data
+}
+
+export type ManagedOrganization = { id: string; name: string; adminUserIds: string[] }
+export async function getManagedOrganizations(token: string, signal?: AbortSignal): Promise<ManagedOrganization[]> {
+  const data = await request(token, '/organization-admin', 'GET', undefined, signal)
+  if (!Array.isArray(data.organizations) || !data.organizations.every((org: ManagedOrganization) =>
+    typeof org.id === 'string' && typeof org.name === 'string' && Array.isArray(org.adminUserIds)
+      && org.adminUserIds.every((uid) => typeof uid === 'string'))) throw new Error('Invalid organization access response.')
+  return data.organizations
+}
+export async function createOrganization(token: string, name: string) {
+  return request(token, '/organizations', 'POST', {name})
+}
+export async function setOrganizationAdmin(token: string, organizationId: string, userId: string, action: 'grant' | 'revoke') {
+  return request(token, `/organizations/${encodeURIComponent(organizationId)}/admins`, 'PUT', {userId, action})
 }

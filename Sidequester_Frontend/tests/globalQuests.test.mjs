@@ -44,8 +44,9 @@ test('feed rejects malformed data rather than rendering incorrect roles',async()
   await assert.rejects(f.api.getGlobalQuests('token'),/Invalid/)
 })
 
-async function view(organizations, signedIn=true) {
-  const input=await readFile(new URL('../src/componenets/main-ui/GlobalQuests.tsx',import.meta.url),'utf8')
+async function view(organizations, signedIn=true, activities=null, adminRole='regular_admin') {
+  const file = activities === null ? 'GlobalQuests' : 'OrganizationQuestBoard'
+  const input=await readFile(new URL(`../src/componenets/main-ui/${file}.tsx`,import.meta.url),'utf8')
   let cursor=0,slots=[],effects=[]
   const jsx=(type,props)=>({type,props:props??{}})
   const context=vm.createContext({Date,Intl,AbortController,window:{setInterval(){return 1},clearInterval(){}}})
@@ -58,14 +59,70 @@ async function view(organizations, signedIn=true) {
     if(name==='react')return synthetic(react)
     if(name==='react/jsx-runtime')return synthetic({jsx,jsxs:jsx,Fragment:'fragment'})
     if(name==='@clerk/clerk-react')return synthetic({useUser:()=>({user:signedIn?{id:'admin'}:null}),SignInButton:()=>null})
+    if(name.endsWith('/questAssignment'))return synthetic({MAX_ACTIVE_QUESTS:3,getOrganizationQuestBoard:async()=>activities})
+    if(name.endsWith('/colors'))return synthetic({colors:{}})
     if(name.endsWith('/firebaseSession'))return synthetic({getFirebaseIdToken:async()=> 'token'})
-    if(name.endsWith('/globalQuests'))return synthetic({getGlobalQuests:async()=>({quests:[],organizations,defaults:{xpReward:25}}),createGlobalQuest:async()=>{},checkInGlobalQuest:async()=>{}})
+    if(name.endsWith('/OrganizationAdmin'))return synthetic({default:'OrganizationAdmin'})
+    if(name.endsWith('/globalQuests'))return synthetic({getGlobalQuests:async()=>({quests:[],organizations,adminRole,defaults:{xpReward:25}}),createGlobalQuest:async()=>{},checkInGlobalQuest:async()=>{}})
     return synthetic({default:()=>null})
-  });await mod.evaluate();cursor=0;mod.namespace.default();effects.forEach(fn=>fn());await new Promise(resolve=>setImmediate(resolve));cursor=0
-  return JSON.stringify(mod.namespace.default())
+  });await mod.evaluate();const props = activities === null ? {onAcceptOrganizationQuest:async()=>{}} : {userId:signedIn?'admin':null,activeQuests:[],onAccept:async()=>{}}
+  cursor=0;mod.namespace.default(props);effects.forEach(fn=>fn());await new Promise(resolve=>setImmediate(resolve));cursor=0
+  return JSON.stringify(mod.namespace.default(props))
 }
-test('only organization admins see Create Global Quest',async()=>{
-  assert.match(await view([{id:'campus-events',name:'Campus Events'}]),/Create Global Quest/)
-  assert.doesNotMatch(await view([]),/Create Global Quest/)
-  assert.doesNotMatch(await view([],false),/Create Global Quest/)
+test('only organization admins see Create event quest',async()=>{
+  assert.match(await view([{id:'campus-events',name:'Campus Events'}]),/Create event quest/)
+  assert.doesNotMatch(await view([]),/Create event quest/)
+  assert.doesNotMatch(await view([],false),/Create event quest/)
+})
+
+
+test('event creation shows a fixed reward without an XP input', async () => {
+  const tree = await view([{id:'campus-events',name:'Campus Events'}])
+  assert.match(tree, /Attendance reward:/)
+  assert.doesNotMatch(tree, /"name":"xpReward"/)
+  assert.match(tree, /Campus quest board/)
+  assert.doesNotMatch(tree, /Organization quest board/)
+  assert.equal((tree.match(/Refresh board/g) ?? []).length, 1)
+})
+
+
+test('empty organization activity feed produces no duplicate board or empty label', async () => {
+  assert.equal(await view([],true,[]), 'null')
+})
+
+test('published organization activities remain available within the unified board', async () => {
+  const activity = {organizationId:'club',organizationName:'Campus Club',questId:'q1',title:'Campus scavenger hunt',summary:'Explore campus',details:'Find something new',timeLabel:'30 minutes'}
+  const tree = await view([],true,[activity])
+  assert.match(tree,/Campus scavenger hunt/)
+  assert.match(tree,/Add to my quests/)
+  assert.doesNotMatch(tree,/Organization quest board/)
+  assert.doesNotMatch(tree,/Refresh events|Refresh board/)
+})
+
+
+test('only explicit admins get organization management controls', async () => {
+  const organizations = [{id:'campus-events',name:'Campus Events'}]
+  assert.match(await view(organizations,true,null,'explicit_admin'),/OrganizationAdmin/)
+  assert.doesNotMatch(await view(organizations,true,null,'regular_admin'),/OrganizationAdmin/)
+  assert.doesNotMatch(await view([],true,null,'member'),/OrganizationAdmin/)
+})
+
+test('regular admins are shown only their assigned publishing options', async () => {
+  const tree = await view([{id:'my-club',name:'My Club'}],true,null,'regular_admin')
+  assert.match(tree,/My Club/)
+  assert.match(tree,/assigned organizations/)
+  assert.doesNotMatch(tree,/publish under any active organization/)
+})
+
+test('organization management requests use authenticated server endpoints without role injection', async () => {
+  const create = await fixture(response({id:'club',name:'Club',adminUserIds:[]}))
+  await create.api.createOrganization('firebase-token','Club')
+  assert.equal(create.calls[0][0],'http://localhost:8000/organizations')
+  assert.equal(create.calls[0][1].headers.Authorization,'Bearer firebase-token')
+  assert.deepEqual(JSON.parse(create.calls[0][1].body),{name:'Club'})
+  const assign = await fixture(response({id:'club',name:'Club',adminUserIds:['user_member']}))
+  await assign.api.setOrganizationAdmin('firebase-token','club','user_member','grant')
+  assert.equal(assign.calls[0][0],'http://localhost:8000/organizations/club/admins')
+  assert.equal(assign.calls[0][1].method,'PUT')
+  assert.deepEqual(JSON.parse(assign.calls[0][1].body),{userId:'user_member',action:'grant'})
 })

@@ -50,14 +50,13 @@ All endpoints require the existing verified Firebase ID token in `Authorization:
   "latitude": 29.649,
   "longitude": -82.348,
   "startsAt": "2026-10-18T22:00:00Z",
-  "endsAt": "2026-10-18T23:00:00Z",
-  "xpReward": 25
+  "endsAt": "2026-10-18T23:00:00Z"
 }
 ```
 
-No arbitrary `userId`, `createdBy`, radius, verification mode or timestamps of check-in are
-accepted from the browser. Admins can choose a bounded 1–500 reward, or omit it to use the
-server default. Admins are responsible for the event/venue accuracy; this flow does not invoke
+No arbitrary `userId`, `createdBy`, `xpReward`, radius, verification mode or timestamps of check-in are
+accepted from the browser. Reward is always chosen by server configuration (25 XP by default),
+never an organization admin. Supplying `xpReward` in creation JSON returns 422. Admins are responsible for the event/venue accuracy; this flow does not invoke
 Gemini, restrict the event to the city boundary, or claim to verify the hosting organization's identity.
 GPS reports are browser-provided, as with personal quests; they are not spoof-proof attendance.
 
@@ -109,3 +108,50 @@ Full validation: 253 backend tests (including real local Firestore transactions)
 tests, production build and lint passed. Desktop guest UI and mobile width were checked.
 Signed-in publishing/GPS should still be exercised by an admin in their browser using the
 team checklist. The browser used for UI checks was a guest session.
+
+## Unified campus board
+
+The frontend now uses one Campus quest board. Scheduled events use attendance check-in,
+while any existing reusable organization activities appear within the same panel under
+Organization activities. There is one Refresh board action. Empty organization activity
+feeds add no duplicate card or empty-state panel. Admin-only Create event quest publishes
+straight to the event feed; it does not create a second organization activity or consume a
+personal sidequest slot. The form displays the fixed attendance reward without an XP input.
+
+## Admin tiers
+
+- **Regular admin**: a user ID in `Organizations/{orgId}.adminUserIds`. Can publish events
+  only under those active organizations. Their event form contains only assigned options.
+- **Explicit admin**: a user ID in `Organizations/_platform_access.explicitAdminUserIds`.
+  Can publish under any active organization, create organizations, and grant/revoke regular
+  admin membership. A platform access document is never treated as a publishing organization.
+- **Member**: no admin access. Can browse events and check in normally.
+
+The explicitly authorized rollout made `user_3KpQRFpXWJtJoOZLnxrdo7movV0` an explicit admin.
+`user_3KnxdJw5EezulC4qR3fF1Lv3Mkc` remains a regular admin for Campus Events.
+The previous regular-admin memberships are retained. Removing an organization-specific
+membership does not remove an explicit admin's platform authority.
+
+The event feed now includes `adminRole` (`member`, `regular_admin`, `explicit_admin`).
+Only explicit admins see **Manage organizations**. There they can create an organization
+and assign a regular admin by user ID after that user has signed in at least once.
+
+New endpoints (existing Firebase bearer token required):
+
+- `GET /organization-admin`: explicit-admin-only list including regular admin user IDs.
+- `POST /organizations`: `{ "name": "Campus Club" }`, explicit admin only. New records
+  start active, with no regular admins and `isPublic: false`. Events can still be published
+  under them; `isPublic` controls the separate legacy reusable-activities board.
+- `PUT /organizations/{orgId}/admins`: `{ "userId": "user_…", "action": "grant" }`
+  or `"action": "revoke"`, explicit admin only. Grants require an existing user profile;
+  revocation also works if a user profile was deleted.
+
+Creating organizations, assigning access, and publishing events all read current roles
+inside their Firestore transactions, so membership changes take effect without token
+refresh or custom Firebase claims. No management endpoint can grant explicit-admin status.
+Client-supplied role/member fields are rejected. The protected Organizations rules already
+cover the platform-access document; no additional rules deployment was required.
+
+Initial explicit admins are granted only by a trusted operator:
+`python -m backend.scripts.grant_explicit_admin --user-id USER_ID`.
+This script preserves other explicit admins; it is not invoked at login or startup.

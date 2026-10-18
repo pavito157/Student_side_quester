@@ -1,0 +1,73 @@
+.forest {
+  --forest-deep: #315941; --forest-shadow: #47714b; --forest-leaf: #71964f;
+  --forest-sun: #a4b96a; --forest-bark: #6d6745; --forest-bark-light: #9b8b5a;
+  --forest-mist: #b8c6a0; --forest-flower: #e4ba66;
+  /* Mounted inside the page's isolated z=0 layer, below its content and Header.
+     No portal or JS scroll tracking: page height cannot move the lower foliage. */
+  position: fixed; inset: 0; z-index: 0; overflow: hidden;
+  pointer-events: none; user-select: none;
+}
+/* The clearing protects the existing heading/footer, without altering panels. */
+.forest::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, #f0e8d2e8 24%, #f0e8d2f5 50%, #f0e8d2e8 76%, transparent);
+}
+.distant { position: absolute; top: 80px; width: 100%; height: 340px; opacity: .6; }
+.edge {
+  position: absolute; top: 0; bottom: 0; overflow: hidden;
+  /* The 1080px content column stays clear, including its outer safety margin.
+     Narrow layouts show only the page gutter, rather than intruding on text. */
+  width: clamp(12px, calc((100% - 1080px) / 2 - 16px), 260px);
+}
+.leftEdge { left: 0; }
+.rightEdge { right: 0; }
+.leftTrees, .rightTrees {
+  position: absolute; bottom: 0; width: clamp(150px, 20vw, 300px); height: auto;
+}
+.leftTrees { left: -28px; }
+.rightTrees { right: -24px; }
+.crown {
+  transform-box: fill-box; transform-origin: 50% 100%;
+  animation: canopyWind 9s ease-in-out infinite alternate;
+}
+.rightTrees .crown { animation-duration: 11s; animation-delay: -4s; }
+.leftPlants, .rightPlants {
+  position: absolute; bottom: 0; width: clamp(180px, 24vw, 360px); height: auto;
+}
+.leftPlants { left: -20px; }
+.rightPlants { right: -20px; }
+.undergrowth, .grass {
+  transform-box: fill-box; transform-origin: 50% 100%;
+  animation: plantWind 7s ease-in-out infinite alternate;
+}
+.grass { animation-duration: 5s; animation-delay: -2s; }
+.rightPlants .undergrowth { animation-delay: -3s; }
+.floor { position: absolute; bottom: 0; height: 8px; width: 100%; background: var(--forest-shadow); }
+.leaf {
+  position: absolute; top: 100px; left: 7%; width: 8px; height: 4px;
+  background: var(--forest-sun); box-shadow: 4px -4px 0 var(--forest-leaf);
+  animation: leafDrift 16s steps(24, end) infinite;
+}
+.leaf:nth-last-child(2) { top: 300px; left: auto; right: 6%; animation-delay: -6s; }
+.leaf:last-child { top: 510px; left: 12%; animation-delay: -11s; }
+@keyframes canopyWind { from { transform: translateX(-2px); } to { transform: translateX(3px); } }
+@keyframes plantWind { from { transform: skewX(-1deg); } to { transform: skewX(2deg); } }
+@keyframes leafDrift {
+  0% { transform: translate(0, 0); opacity: 0; }
+  15% { opacity: .8; }
+  80% { opacity: .8; }
+  100% { transform: translate(36px, 100px); opacity: 0; }
+}
+@media (max-width: 760px) {
+  .leftTrees, .rightTrees { width: 160px; opacity: .55; }
+  .leftTrees { left: -65px; }
+  .rightTrees { right: -75px; }
+  .leftPlants, .rightPlants { width: 160px; }
+  .distant { height: 240px; opacity: .4; }
+  .forest::after { background: linear-gradient(90deg, transparent, #f0e8d2ed 22%, #f0e8d2ed 78%, transparent); }
+  .leaf:last-child { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .crown, .undergrowth, .grass, .leaf { animation: none; }
+  .leaf { opacity: .5; }
+}

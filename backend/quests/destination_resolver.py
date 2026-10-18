@@ -15,6 +15,7 @@ from urllib.request import Request, urlopen
 from backend.quests.quest_contracts import (
     MAX_DESTINATION_CANDIDATES, ResolvedDestination, SelectedDestination,
 )
+from backend.personalization import personalization_context
 from backend.quests.quest_generation import DestinationResolutionError
 
 
@@ -221,20 +222,10 @@ class VerifiedDestinationSelector:
         key = os.environ.get("GOOGLE_PLACES_API_KEY", "").strip()
         if not key:
             raise DestinationResolutionError(unavailable=True)
-        user_query = " ".join(filter(None, [
-            preferences.vibe.preferences if preferences.vibe else "",
-            preferences.preferences,
-        ])).strip()[:180]
-        if not user_query:
-            user_query = "fun local exploration, culture, nature, arts, and recreation"
-        surprise_query = random.choice([
-            "independent art spaces and creative places",
-            "local history and unusual public landmarks",
-            "community gardens and distinctive green spaces",
-            "independent cafes and neighborhood markets",
-            "small museums and cultural places",
-            "public architecture and design landmarks",
-        ])
+        # Keep the full primary experience; supporting profile text cannot crowd
+        # it out or steer the search toward an incompatible interest.
+        plan = personalization_context(preferences)
+        user_query = plan["primaryExperience"]
         origin = getattr(preferences.location, "coordinates", None)
         bias = None
         if origin is not None:
@@ -242,10 +233,10 @@ class VerifiedDestinationSelector:
             bias = {"circle": {"center": {"latitude": origin.latitude, "longitude": origin.longitude},
                                "radius": radius}}
         searches = [
-            ("popular", "popular local attractions, landmarks, and distinctive public places"),
-            ("niche", "lesser-known, unusual, independent, and niche local places"),
-            ("user", f"{user_query} places and experiences"),
-            ("surprise", surprise_query),
+            ("user", f"Activity venues matching this intended experience: {user_query}"),
+            ("popular", f"Well-liked places for this intended experience: {user_query}"),
+            ("niche", f"Independent and lesser-known places for this intended experience: {user_query}"),
+            ("surprise", f"Creative recreation venues compatible with this intended experience: {user_query}"),
         ]
         # Independent bounded queries broaden discovery without sending profile
         # details or coordinates to Gemini; Google receives only search text and
@@ -258,10 +249,13 @@ class VerifiedDestinationSelector:
 
         places_by_id = {}
         profiles_by_id = {}
+        user_rank_by_id = {}
         for (profile, _), result in zip(searches, results):
             places, _ = _validated_places(result)
-            for place in places:
+            for rank, place in enumerate(places):
                 place_id = place["id"]
+                if profile == "user":
+                    user_rank_by_id.setdefault(place_id, rank)
                 existing = places_by_id.get(place_id)
                 if existing and (
                     existing["displayName"]["text"] != place["displayName"]["text"]
@@ -304,11 +298,11 @@ class VerifiedDestinationSelector:
             ))
         if not eligible:
             raise NoEligibleDestination()
-        if origin is not None:
-            eligible.sort(key=lambda place: calculate_distance(
-                origin.latitude, origin.longitude,
-                place.latitude, place.longitude,
-            ))
+        eligible.sort(key=lambda place: (
+            user_rank_by_id.get(place.placeId, float("inf")),
+            calculate_distance(origin.latitude, origin.longitude, place.latitude, place.longitude)
+            if origin is not None else 0,
+        ))
         return self._mixed_candidate_pool(eligible)
 
     @staticmethod
@@ -324,16 +318,13 @@ class VerifiedDestinationSelector:
             [place for place in places if "niche" in place.discoveryProfiles],
             key=lambda place: (popularity(place), -(place.rating or 0)),
         )
-        user = sorted(
-            [place for place in places if "user" in place.discoveryProfiles],
-            key=lambda place: (place.rating or 0, popularity(place)), reverse=True,
-        )
+        user = [place for place in places if "user" in place.discoveryProfiles]
         surprise = sorted(
             [place for place in places if "surprise" in place.discoveryProfiles],
             key=lambda place: (place.rating or 0, popularity(place)), reverse=True,
         )
         pools = {"popular": popular, "niche": niche, "user": user, "surprise": surprise}
-        priority = ["popular", "niche", "popular", "user", "popular", "niche", "surprise"]
+        priority = ["user", "user", "user", "popular", "user", "niche", "surprise"]
         mixed, seen = [], set()
         while len(mixed) < MAX_DESTINATION_CANDIDATES and any(pools.values()):
             progressed = False
@@ -346,7 +337,8 @@ class VerifiedDestinationSelector:
                     mixed.append(place)
                     seen.add(place.placeId)
                     progressed = True
-                    break
+                    if len(mixed) >= MAX_DESTINATION_CANDIDATES:
+                        break
             if not progressed:
                 remaining = next((pool for pool in pools.values() if pool), [])
                 if not remaining:
@@ -361,17 +353,14 @@ class VerifiedDestinationSelector:
 
     def select(self, preferences):
         places = self._eligible_places(preferences)
-        groups = [
-            [place for place in places if "popular" in place.discoveryProfiles or "niche" in place.discoveryProfiles],
-            [place for place in places if "user" in place.discoveryProfiles],
-            [place for place in places if "surprise" in place.discoveryProfiles],
-        ]
-        group = random.choices(groups, weights=(70, 20, 10), k=1)[0]
-        return random.choice(group or places)
+        # Provider relevance defines the shortlist; popular places remain eligible
+        # when returned for this experience, rather than overriding it.
+        relevant = [place for place in places if "user" in place.discoveryProfiles]
+        return random.choice(relevant[:5] or places[:5])
 
     def select_candidates(self, preferences):
         """Return a diverse, verified candidate pool; Gemini plans a route of up to ten."""
         places = self._eligible_places(preferences)
-        if len(places) < 2:
+        if len(places) < (2 if preferences.multiQuest else 1):
             raise NoEligibleDestination()
         return places

@@ -118,7 +118,9 @@ class PersistenceEmulatorTests(unittest.TestCase):
         self.assertEqual(quest["steps"], self.proposal.steps)
         self.assertEqual(quest["estimatedMinutes"], self.proposal.estimatedMinutes)
         self.assertEqual(quest["estimatedCostDollars"], self.proposal.estimatedCostDollars)
-        self.assertEqual(quest["userRequest"], self.user_request.model_dump(mode="json"))
+        self.assertNotIn("activeVibe", quest["userRequest"])
+        self.assertEqual(quest["userRequest"], self.user_request.model_dump(mode="json", exclude={"activeVibe"}))
+        self.assertEqual(GenerateQuestRequest.model_validate(quest["userRequest"]).normalize(), self.user_request.normalize())
         self.assertIsNotNone(quest["createdAt"])
         self.assertNotIn("normalizedPreferences", quest)
         self.assertNotIn("locationAddress", quest)  # Do not present proposed address as verified.

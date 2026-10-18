@@ -18,6 +18,7 @@ from backend.quests.quest_contracts import (
 )
 from backend.quests.quest_validation import calculate_distance
 from backend.core.request_timing import record_timing
+from backend.personalization import personalization_context
 
 
 class DestinationResolutionError(Exception):
@@ -61,24 +62,33 @@ QUEST_DESIGN_RULES = """Design a miniature real-world adventure, not a generic v
 productivity task, homework assignment or motivational exercise. The student must
 know exactly what to do and what counts as finishing.
 
-Use this qualitative priority mix; it guides choices, not literal quotas:
-about 70% of the creative focus goes to getting out, exploring the actual
-destination, and having a fun, satisfying local experience. The place and the
-adventure there are the reason for the quest; never make a hobby, personal goal,
-or profile preference the whole assignment. About 20% shapes the outing around
-the user's vibe: let vibePreferences meaningfully influence its mood, pace,
-social or solo feel, playfulness, sensory style, and kind of discovery. Express
-that vibe through an activity at the place, not by turning the quest into
-practice of a hobby or a generic mood label. Use personal interests as light
-inspiration for how to explore, not as the default subject of every step.
-Goals are the softest signal: use one only when it naturally strengthens the
-outing, and let it go when it would turn the quest into self-improvement,
-productivity, or an indoor-style hobby task. The remaining creative space may
-add a safe, compatible surprise. Respect safety, accessibility, explicit
-exclusions, and a specific safe request where feasible, but still make the
-destination-based outing the central experience. Keep that local experience
-central even when preferences are sparse. Do not claim guaranteed novelty or
-memory of prior quests.
+Use personalization.mode as the conditional creative hierarchy. Safety, verified
+destinations and all applicable hard constraints always come first. Honor explicit
+current-request requirements and exclusions; saved creative direction cannot override
+them. In active_vibe mode, the selected vibe's full name, description and intended
+experience drive the actual venue choices, activities and whole mission, not just
+its title. General preferences may complement that experience but must not dilute
+or replace it; goals are optional only when compatible. In preferences mode,
+general preferences lead and relevant goals support them. In goals mode, interpret
+goals as a fun experience rather than homework. In surprise mode, choose one clear
+theme within personalization.primaryExperience and make every stop serve it.
+Never infer an active vibe from stored history or a previous activity. Novelty,
+popularity and exploration only enrich the primary experience; they never outrank
+it. Do not claim guaranteed novelty or memory of prior quests.
+
+Interpret the requested experience rather than matching isolated keywords. For
+example, Study Break with affordable ways to burn nervous energy asks for an
+enjoyable, energizing break: consider casual games, playful recreation or sports
+where supported by verified places. Do not automatically translate it into a
+park visit or brisk walk. Respect quiet, solo or other explicit preferences.
+
+Interpret vibes as desired experiences, not words to repeat. A music-focused
+vibe does not require beats, rhythm or dancing in every action. Favor substantive
+experiences supported by verified venues; never assume a performance, entry,
+equipment, prices or hours. Reject imagined-song tasks, arbitrary foot taps,
+stretches, mental lists and repeated observation as padding. Each action must add
+distinct value, meaningful progress or a genuinely different activity. Do not
+split a trivial activity into several steps or add arrival-only challenges.
 
 Build one coherent mission, not a checklist of venues. Every destination must
 serve a distinct purpose in the objective; explain through the action why that
@@ -95,19 +105,24 @@ inspiration" or "discover hidden secrets" without a specific achievable task.
 
 Only the venue identity/address is supplied, not its layout or features. Do not
 assume benches/tables, perimeter paths, entrances, central lawns or shade/shadows.
-Make tasks feasible in an ordinary safe public spot at that venue, without relying
-on weather/daylight or supplies such as a notepad. Default to equipment-free
-actions; any phone timer or personal notes must be optional.
+Make tasks feasible in a safe permitted public spot without assuming venue access
+or weather. Prefer equipment-free actions when resources are unspecified. Clearly
+state any compatible user-controlled resource prerequisites rather than assuming
+supplies are already present or supplied by the venue. Personal music playback can
+support an independent music experience; it does not establish venue permissions.
+Respect explicit resource exclusions and never require specialized unverified equipment.
 No invented amenities, exhibits, plaques, historical facts, events, opening hours,
 admission prices, public access or availability. Do not assume a venue is open/free.
 Avoid dependencies on unpredictable weather, wildlife, scheduled events, strangers,
-staff, restricted entry, reservations or special equipment. No risky acts,
+staff, restricted entry, reservations or unverified equipment. No risky acts,
 trespassing, disturbing wildlife/property, interference, or submitted answers.
 A phone timer or personal note is optional; completion must be understandable
 without anyone's approval. GPS checks proximity; it cannot prove the activity was performed.
 
 Use a playful title (at most 8 words), a literal one-sentence objective (at most
-35 words), and 2-10 ordered action steps (at most 45 words each). Scale the
+35 words), and 1-10 ordered action steps (at most 45 words each). Simple experiences
+may need only one or two meaningful actions; involved experiences may need three
+or four; use more only when justified. Ten is a maximum, never a target. Scale the
 number and depth of actions to the feasible mission: short or tightly bounded
 requests should stay compact; genuinely long or flexible requests can use more
 stages, up to the schema's 10-step ceiling. Do not pad steps or force either a
@@ -123,6 +138,13 @@ a photo. For photo steps, make the expected visible evidence explicit in the ste
 Do not request a photo of the student, sensitive information, private screens,
 strangers, or anything unsafe. Do not mark routine actions as photo proof.
 Use "recreation" for an enjoyable step that needs no verification and awards no XP.
+Return one stepEvidence object per step. Its proofObligations must describe the
+actual outcome: presence, action_completion, or visible_result. Location can
+establish presence ONLY, never exercise, dancing, participation or a walking
+circuit. Photo can establish only a concrete visible result; include its explicit
+expectedPhotoEvidence in both the evidence object and step text. Recreation may
+remain unverified and earns zero XP when enabled. Never add arrival filler for XP
+or mislabel an action obligation as presence to fit the allowed proof methods.
 completionCriteria as a lowercase sentence fragment naturally following "You're
 done when ": a measurable finished result, count, duration, identifiable discovery
 or tangible output. Do not repeat that prefix or introduce new requirements;
@@ -161,6 +183,60 @@ SYSTEM_INSTRUCTION = (
 )
 
 
+def validate_step_evidence(steps, methods, evidence, allowed):
+    """Keep deterministic proof compatibility without additional Gemini calls."""
+    if len(evidence) != len(steps) or len(methods) != len(steps):
+        raise HTTPException(502, "Generated quest proof evidence does not match its steps. Try again.")
+    for method, item in zip(methods, evidence):
+        obligations = set(item.proofObligations)
+        compatible = method in allowed and (
+            method == 'recreation'
+            or method == 'location' and obligations == {'presence'}
+            or method == 'photo' and obligations == {'visible_result'} and bool(item.expectedPhotoEvidence.strip())
+        )
+        if not compatible:
+            raise HTTPException(502, {"code": "proof_incompatible", "reason":
+                "Gemini returned an activity that does not match the selected proof methods. "
+                "Try again, or select photo proof for a visible result."})
+
+
+def _proof_mode_instructions(proof_options):
+    selected = set(proof_options)
+    if selected == {"location"}:
+        return (
+            "\nLOCATION-ONLY PROOF MODE — HARD REQUIREMENT: The only selected proof is "
+            "location, which establishes physical presence at the assigned venue and "
+            "nothing about an action. Design the XP-eligible mission as a worthwhile "
+            "visit/exploration of that venue. Each step's required, finishable outcome "
+            "must be the visit/presence itself; set its stepEvidence.proofObligations "
+            "to exactly [\"presence\"]. Do not make exercise, walking a circuit, "
+            "creating something, observing/counting something, or any other action "
+            "a required or claimed-complete outcome. You may add one brief, clearly "
+            "optional idea for enjoying the venue, but it must not be required for "
+            "completion or XP. Keep completionCriteria limited to having visited the "
+            "assigned venue. Prefer one meaningful step per destination; do not split "
+            "one visit into multiple separately rewarded location steps."
+        )
+    if selected == {"photo"}:
+        return (
+            "\nPHOTO-ONLY PROOF MODE — HARD REQUIREMENT: Build each XP-eligible step "
+            "around a concrete visible result that can be safely assessed from a photo. "
+            "Set proofObligations to exactly [\"visible_result\"] and state the same "
+            "specific expectedPhotoEvidence in the evidence object and step. A photo "
+            "does not prove an action that leaves no visible result."
+        )
+    return (
+        "\nLOCATION/PHOTO PROOF MODE — HARD REQUIREMENT: Location proves physical "
+        "presence at the assigned venue only; set its proofObligations to exactly "
+        "[\"presence\"]. Photo proves only a concrete visible result; set its "
+        "proofObligations to exactly [\"visible_result\"] and provide the same "
+        "specific expectedPhotoEvidence in the step and evidence object. Do not "
+        "assign action_completion to location or photo, and do not make an action "
+        "without one of those verifiable outcomes required for XP. If a fun action "
+        "is not verifiable, present it only as optional, not as a completion condition."
+    )
+
+
 def call_gemini(preferences, selected_destination=None, *, previous_quest=None):
     key = os.environ.get("GEMINI_API_KEY", "").strip()
     model = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash").strip()
@@ -176,6 +252,7 @@ def call_gemini(preferences, selected_destination=None, *, previous_quest=None):
         raise HTTPException(503, "GEMINI_TIMEOUT_SECONDS must be between 5 and 120")
     # No username, UID, token, private profile, XP, or credential in this prompt.
     context = preferences.model_dump(mode="json")
+    context["personalization"] = personalization_context(preferences)
     # The selected address label helps propose a nearby venue; exact GPS stays local.
     context["location"].pop("coordinates", None)
     context["location"].pop("accuracyMeters", None)
@@ -205,8 +282,16 @@ def call_gemini(preferences, selected_destination=None, *, previous_quest=None):
         stop_rules = (
             "Choose an ordered route of 2-10 distinct candidateIndex values from "
             "verifiedDestinationCandidates; select only places that make the mission "
-            "better, and do not force a fixed count. Return one or more actions per "
+            "better. Preserve Multi-stop by choosing at least two, but prefer the "
+            "smallest reasonable number of meaningful destinations. Never add a stop "
+            "just to repeat the theme or lengthen the quest. Return one or more actions per "
             "chosen place, mapped to route positions in stepDestinationIndexes. "
+            "The backend will geographically reorder independent activity groups. "
+            "Avoid ordinal route references in activity text. Keep action order within "
+            "each place. routeDependencies should normally be empty: use before/after "
+            "route positions only when an activity needs an actual output or prerequisite "
+            "from an earlier stop, with a concrete reason. Never invent dependencies "
+            "to lock an arbitrary order. All dependencies must follow the proposed order. "
             if is_multi_stop else
             "Use only this verified place (route position 0) for every action. "
         )
@@ -238,10 +323,12 @@ def call_gemini(preferences, selected_destination=None, *, previous_quest=None):
     allowed_proofs = ", ".join(preferences.proofOptions)
     instruction += (
         f"\nUse only these requested stepProofMethods: {allowed_proofs}. Choose exactly one "
-        "method per step. 'location' requires reaching the destination and is eligible for XP. "
-        "'photo' uses a submitted image as alternative XP evidence and must name a visible result "
-        "that can be assessed. 'recreation' is fun-only, needs no evidence, and is not eligible for XP. "
+        "method per step. 'location' is eligible for XP but proves presence only; "
+        "'photo' is eligible for XP only for a concrete visible result; 'recreation' "
+        "is fun-only, needs no evidence, and is not eligible for XP. "
         "If recreation is the only selected option, use it for every step."
+        + (_proof_mode_instructions(preferences.proofOptions)
+           if "recreation" not in preferences.proofOptions else "")
     )
     body = {
         "systemInstruction": {"parts": [{"text": instruction}]},
@@ -297,6 +384,7 @@ def call_gemini(preferences, selected_destination=None, *, previous_quest=None):
         draft = schema.model_validate_json(text)
         if any(method not in preferences.proofOptions for method in draft.stepProofMethods):
             raise HTTPException(502, "Gemini used a proof method that was not selected. Try generating again.")
+        validate_step_evidence(draft.steps, draft.stepProofMethods, draft.stepEvidence, preferences.proofOptions)
         candidate_indexes = []
         if selected_destination is not None:
             candidates = selected_destination if isinstance(selected_destination, list) else [selected_destination]
@@ -343,10 +431,13 @@ def call_gemini(preferences, selected_destination=None, *, previous_quest=None):
             **draft.model_dump(exclude={
                 "completionCriteria", "steps", "stepProofMethods",
                 "stepDestinationIndexes", "routeCandidateIndexes",
+                "routeDependencies",
             }),
             "stepProofMethods": proof_methods,
             "stepDestinationIndexes": step_destination_indexes,
             "routeCandidateIndexes": candidate_indexes,
+            "routeDependencies": getattr(draft, "routeDependencies", []),
+            "completionCriteria": criterion,
             "steps": generated_steps,
         })
     except HTTPException:
@@ -406,6 +497,15 @@ def generate_preview(preferences: NormalizedQuestPreferences,
                 or proposal.stepDestinationIndexes != sorted(proposal.stepDestinationIndexes)
                 or set(proposal.stepDestinationIndexes) != set(range(route_count))):
             raise HTTPException(502, "Generated quest steps do not match its verified route")
+        if isinstance(selected, list):
+            from backend.quest_route_ordering import order_new_quest
+            try:
+                proposal, selected = order_new_quest(
+                    proposal, selected, getattr(preferences.location, "coordinates", None),
+                )
+            except ValueError:
+                raise HTTPException(502, "Generated quest has invalid activity dependencies or route mappings. Try again.") from None
+            primary = selected[0]
         proposal = proposal.model_copy(update={"locationName": primary.locationName,
                                                "locationAddress": primary.locationAddress})
     minutes, cost = proposal.estimatedMinutes, proposal.estimatedCostDollars
@@ -421,9 +521,7 @@ def generate_preview(preferences: NormalizedQuestPreferences,
     if selected is not None:
         selected_stops = selected if isinstance(selected, list) else [selected]
         destinations = [
-            ResolvedDestination.model_validate(stop.model_dump(exclude={
-                "locationAddress", "rating", "userRatingCount", "priceLevel", "discoveryProfiles",
-            }))
+            ResolvedDestination.model_validate(stop.model_dump(include=set(ResolvedDestination.model_fields)))
             for stop in selected_stops
         ]
         destination = destinations[0]
@@ -461,6 +559,9 @@ def generate_preview(preferences: NormalizedQuestPreferences,
         message=("Gemini preview. Destination verified within Gainesville city limits. " if verified else
                  "Gemini draft only. Destination and city scope are not verified; "
                  "any requested distance limit is pending the destination resolver. ")
+                + ("Visit order minimizes straight-line distance from the selected origin while preserving activity prerequisites; walking routes and times may differ. "
+                   if isinstance(selected, list) and getattr(preferences.location, "coordinates", None) is not None
+                   else "Visit order is not optimized from a starting location. " if isinstance(selected, list) else "")
                 + "Time and cost are estimates. Nothing was saved and no XP was awarded.",
         normalizedPreferences=preferences,
     )

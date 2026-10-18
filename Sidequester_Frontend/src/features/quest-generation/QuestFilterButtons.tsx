@@ -161,6 +161,7 @@ function QuestFilterControls({
         distance: getDistanceConstraint(filters.distance, filters.customDistance),
         goals,
         vibePreferences: activeVibe?.preferences ?? null,
+        activeVibe: activeVibe ? { name: activeVibe.name, preferences: activeVibe.preferences } : null,
         multiQuest: filters.multiQuest,
         proofOptions: filters.proofOptions ?? ['location'],
       })

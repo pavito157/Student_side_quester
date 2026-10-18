@@ -56,9 +56,23 @@ class GenerationTests(unittest.TestCase):
         return {
             **self.proposal,
             "stepProofMethods": ["location", "photo"],
+            "stepEvidence": [
+                {"proofObligations": ["presence"]},
+                {"proofObligations": ["visible_result"], "expectedPhotoEvidence": "A labeled sketch"},
+            ],
             "stepDestinationIndexes": [0, 0],
             "completionCriteria": "you have three labeled sketches.",
         }
+
+    def test_one_step_quest_is_valid_without_padding_and_retains_photo_mapping(self):
+        self.proposal['steps'] = ['Create a visual music-inspired design and photograph the result.']
+        draft = {**self.provider_draft(), 'stepProofMethods': ['photo'], 'stepDestinationIndexes': [0],
+                 'stepEvidence': [{'proofObligations': ['visible_result'], 'expectedPhotoEvidence': 'The created design'}]}
+        self.http(body={'candidates': [{'finishReason': 'STOP', 'content': {'parts': [{'text': json.dumps(draft)}]}}]})
+        result = self.generate()
+        self.assertEqual(len(result.quest.steps), 1)
+        self.assertEqual(result.quest.stepProofMethods, ['photo'])
+        self.assertEqual(result.quest.stepDestinationIndexes, [0])
 
     def generate(self, resolver=None):
         return generation.generate_preview(self.preferences, resolver)
@@ -108,11 +122,8 @@ class GenerationTests(unittest.TestCase):
         self.assertIn("exactly one stepProofMethods and one stepDestinationIndexes", body["systemInstruction"]["parts"][0]["text"])
         self.assertIn("concrete, visible artifact", body["systemInstruction"]["parts"][0]["text"])
         self.assertIn("location, photo", body["systemInstruction"]["parts"][0]["text"])
-        self.assertIn("about 70%", body["systemInstruction"]["parts"][0]["text"])
-        self.assertIn("getting out, exploring the actual", body["systemInstruction"]["parts"][0]["text"])
-        self.assertIn("vibePreferences meaningfully influence", body["systemInstruction"]["parts"][0]["text"])
-        self.assertIn("Goals are the softest signal", body["systemInstruction"]["parts"][0]["text"])
-        self.assertIn("never make a hobby, personal goal", body["systemInstruction"]["parts"][0]["text"])
+        self.assertEqual(context["personalization"]["mode"], "active_vibe")
+        self.assertEqual(context["personalization"]["primary"]["description"], "Relax")
         self.assertEqual(context["proofOptions"], ["location", "photo"])
 
     def test_generation_rejects_methods_outside_user_selected_options(self):
@@ -121,6 +132,73 @@ class GenerationTests(unittest.TestCase):
         }).normalize()
         self.http()
         self.assert_status(502, self.generate)
+
+    def test_location_only_prompt_generates_a_presence_verifiable_visit(self):
+        self.preferences = GenerateQuestRequest.model_validate({
+            **self.body, "proofOptions": ["location"],
+        }).normalize()
+        self.proposal.update({
+            "title": "Garden Wander",
+            "description": "Take a relaxed visit through a public garden.",
+            "steps": [
+                "Visit the public garden and explore its grounds. Optional: notice a color or shape you enjoy."
+            ],
+        })
+        draft = {
+            **self.proposal,
+            "stepProofMethods": ["location"],
+            "stepEvidence": [{"proofObligations": ["presence"]}],
+            "stepDestinationIndexes": [0],
+            "completionCriteria": "you have visited the garden",
+        }
+        self.http(body={"candidates": [{"finishReason": "STOP", "content": {
+            "parts": [{"text": json.dumps(draft)}],
+        }}]})
+
+        result = self.generate()
+
+        instruction = json.loads(self.requests[0].content)["systemInstruction"]["parts"][0]["text"]
+        self.assertIn("LOCATION-ONLY PROOF MODE — HARD REQUIREMENT", instruction)
+        self.assertIn("Do not make exercise, walking a circuit", instruction)
+        self.assertEqual(result.quest.stepProofMethods, ["location"])
+        self.assertEqual(result.quest.stepEvidence[0].proofObligations, ["presence"])
+
+    def test_selected_location_and_photo_prompt_separates_presence_from_visible_results(self):
+        self.preferences = GenerateQuestRequest.model_validate({
+            **self.body, "proofOptions": ["location", "photo"],
+        }).normalize()
+        self.http()
+
+        self.generate()
+
+        instruction = json.loads(self.requests[0].content)["systemInstruction"]["parts"][0]["text"]
+        self.assertIn("LOCATION/PHOTO PROOF MODE — HARD REQUIREMENT", instruction)
+        self.assertIn("Location proves physical presence", instruction)
+        self.assertIn("Photo proves only a concrete visible result", instruction)
+        self.assertIn("Do not assign action_completion to location or photo", instruction)
+
+    def test_gemini_receives_the_conditional_primary_experience_and_constraints(self):
+        cases = [
+            ({'activeVibe': {'name': 'Study Break', 'preferences': 'Affordable games'},
+              'preferences': 'Quiet reading'}, 'active_vibe', {'name': 'Study Break', 'description': 'Affordable games'}),
+            ({'activeVibe': None, 'vibePreferences': 'Inactive vibe', 'preferences': 'Art'}, 'preferences', 'Art'),
+            ({'activeVibe': None, 'preferences': '', 'goals': ['Make friends']}, 'goals', ['Make friends']),
+            ({'activeVibe': None, 'preferences': '', 'goals': []}, 'surprise', 'playful local recreation'),
+        ]
+        for changes, mode, primary in cases:
+            with self.subTest(mode=mode):
+                preferences = GenerateQuestRequest.model_validate({**self.body, **changes}).normalize()
+                self.http()
+                generation.call_gemini(preferences)
+                body = json.loads(self.requests[-1].content)
+                context = json.loads(body['contents'][0]['parts'][0]['text'])
+                self.assertEqual(context['personalization']['mode'], mode)
+                self.assertEqual(context['personalization']['primary'], primary)
+                self.assertEqual(context['budget'], preferences.budget.model_dump(mode='json'))
+                self.assertEqual(context['time'], preferences.time.model_dump(mode='json'))
+                self.assertEqual(context['proofOptions'], ['location', 'photo'])
+                if mode != 'active_vibe':
+                    self.assertIsNone(context['vibe'])
 
     def test_provider_wait_is_configurable_and_connect_timeout_stays_short(self):
         for seconds in [90, 120, 10]:
@@ -270,6 +348,7 @@ class GenerationTests(unittest.TestCase):
                 "Use the second stop to finish the pattern.",
             ],
             "stepProofMethods": ["location", "photo", "location"],
+            "stepEvidence": [*self.provider_draft()['stepEvidence'], {"proofObligations": ["presence"]}],
             "stepDestinationIndexes": [0, 0, 1],
             "routeCandidateIndexes": [0, 1],
         }

@@ -297,6 +297,7 @@ class MultiStopGenerationContractTests(unittest.TestCase):
             "description": "Build one result from distinct local discoveries.",
             "steps": [f"Complete stage {index + 1}." for index in range(10)],
             "stepProofMethods": ["location"] * 10,
+            "stepEvidence": [{"proofObligations": ["presence"]} for _ in range(10)],
             "stepDestinationIndexes": list(range(10)),
             "routeCandidateIndexes": list(range(10)),
             "estimatedMinutes": 120,

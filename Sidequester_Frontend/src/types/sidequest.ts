@@ -31,6 +31,7 @@ export type SidequestRequestInput = {
   distance: DistanceConstraint
   goals: string[]
   vibePreferences?: string | null
+  activeVibe?: { name: string; preferences: string } | null
   multiQuest?: boolean
   proofOptions?: QuestProofMethod[]
 }
@@ -47,6 +48,7 @@ export type SidequestRequestPayload = {
   distance: DistanceConstraint
   goals: string[]
   vibePreferences: string | null
+  activeVibe?: { name: string; preferences: string } | null
   multiQuest: boolean
   proofOptions?: QuestProofMethod[]
 }

@@ -38,7 +38,7 @@ class DestinationSelectionTests(unittest.TestCase):
             steps=['Find three leaves.'], estimatedMinutes=20, estimatedCostDollars=0,
             locationName='Invented venue', locationAddress='999 Wrong Street',
         )
-        def generate(preferences, selected):
+        def generate(preferences, selected, **kwargs):
             self.assertEqual(self.search.call_count, 4)  # Candidate profiles are verified before generation.
             self.assertEqual(preferences, self.preferences)
             self.assertEqual(selected.placeId, 'test-depot')
@@ -61,16 +61,12 @@ class DestinationSelectionTests(unittest.TestCase):
         self.selector._eligible_places(preferences)
         user_searches = [
             call.args[0] for call in self.search.call_args_list
-            if call.args[0].endswith(' places and experiences')
+            if call.args[0].startswith('Activity venues matching this intended experience:')
         ]
         self.assertEqual(len(user_searches), 1)
         self.assertIn('playful, curious outings', user_searches[0])
-        self.assertIn('likes watercolor painting', user_searches[0])
+        self.assertNotIn('likes watercolor painting', user_searches[0])
         self.assertNotIn('practice advanced painting', user_searches[0])
-        self.assertLess(
-            user_searches[0].index('playful, curious outings'),
-            user_searches[0].index('likes watercolor painting'),
-        )
 
     def test_multi_quest_selects_and_verifies_ordered_unique_stops(self):
         second = {

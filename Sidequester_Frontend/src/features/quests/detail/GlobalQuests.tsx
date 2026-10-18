@@ -132,11 +132,11 @@ export default function GlobalQuests({ activeQuests = [], onAcceptOrganizationQu
       <p className="mt-3 text-xs text-muted">Event quests use one of your three slots. Everyone receives the same event tasks; check in at the venue during its scheduled time.</p>
     </>}
     <div className="mt-5">
-      <h3 className="text-sm font-bold">Explore event locations</h3>
-      <p className="mt-1 text-xs text-muted">Select an orange XP marker to see event details and directions.</p>
+      <h3 className="text-sm font-bold">Explore your quest map</h3>
+      <p className="mt-1 text-xs text-muted">Select a marker to open a quest. Your accepted quests and available global events share this map.</p>
       {mapQuests === null && !mapError && <p role="status" className="mt-3 text-sm text-muted">Loading event locations…</p>}
       {mapError && <p role="alert" className="mt-3 text-sm" style={{ color: 'var(--color-error)' }}>Event locations could not load: {mapError}</p>}
-      {mapQuests && <GlobalQuestMap quests={mapQuests} />}
+      <GlobalQuestMap quests={mapQuests ?? []} activeQuests={activeQuests} />
     </div>
     <OrganizationQuestBoard userId={uid ?? null} activeQuests={activeQuests}
       onAccept={onAcceptOrganizationQuest} refreshKey={attempt} />

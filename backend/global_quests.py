@@ -230,12 +230,26 @@ def list_public_events(db=Depends(get_db)):
                 xpReward=event.xpReward,
                 graceMinutes=event.graceMinutes,
             ))
-            if len(events) >= 50:
-                break
         events.sort(key=lambda event: event.startsAt)
         return events
     except (GoogleAPICallError, RetryError):
         raise HTTPException(503, "Global quests are temporarily unavailable.") from None
+
+
+@router.get("/global-quests/public/{event_id}", response_model=PublicGlobalEvent)
+def get_public_event(event_id: str, db=Depends(get_db)):
+    if not event_id or "/" in event_id or len(event_id) > 128:
+        raise HTTPException(400, "Invalid event ID.")
+    try:
+        snapshot = db.collection(EVENTS).document(event_id).get()
+        if not snapshot.exists:
+            raise HTTPException(404, "Event not found.")
+        event = GlobalEvent.model_validate(snapshot.to_dict())
+        if event.status != "published" or event.endsAt <= utc_now():
+            raise HTTPException(404, "This event is no longer available.")
+        return PublicGlobalEvent.model_validate({key: getattr(event, key) for key in PublicGlobalEvent.model_fields})
+    except (GoogleAPICallError, RetryError):
+        raise HTTPException(503, "Event details are temporarily unavailable.") from None
 
 
 @router.get("/global-quests")

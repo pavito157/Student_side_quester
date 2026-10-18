@@ -85,6 +85,35 @@ class GlobalQuestRouteTests(unittest.TestCase):
         self.assertNotIn("radiusMeters", event)
         self.assertNotIn("verificationMode", event)
 
+    def test_public_detail_is_allowlisted_and_rejects_cancelled_or_missing_events(self):
+        raw = {**payload().model_dump(), **g.default_policy().model_dump(),
+            "id":"event", "organizationName":"Club", "createdBy":"private-admin", "createdAt":NOW}
+        snapshot = Mock(exists=True)
+        snapshot.to_dict.return_value = raw
+        self.db.collection.return_value.document.return_value.get.return_value = snapshot
+        self.app.dependency_overrides.pop(current_uid)
+        with patch.object(g,"utc_now",return_value=NOW):
+            response = self.client.get('/global-quests/public/event')
+            self.assertEqual(response.status_code,200)
+            self.assertEqual(response.json()['id'],'event')
+            self.assertNotIn('createdBy',response.json())
+            self.assertNotIn('questTemplate',response.json())
+            snapshot.to_dict.return_value = {**raw, 'status':'cancelled'}
+            self.assertEqual(self.client.get('/global-quests/public/event').status_code,404)
+            snapshot.exists = False
+            self.assertEqual(self.client.get('/global-quests/public/event').status_code,404)
+
+    def test_public_map_includes_all_available_events_not_only_first_fifty(self):
+        snapshots = []
+        for index in range(55):
+            snapshot = Mock()
+            snapshot.to_dict.return_value = {**payload().model_dump(), **g.default_policy().model_dump(),
+                'id':str(index), 'organizationName':'Club', 'createdBy':'admin', 'createdAt':NOW}
+            snapshots.append(snapshot)
+        self.db.collection.return_value.where.return_value.order_by.return_value.stream.return_value = snapshots
+        with patch.object(g,'utc_now',return_value=NOW):
+            self.assertEqual(len(g.list_public_events(self.db)),55)
+
     def test_all_routes_require_auth(self):
         self.app.dependency_overrides.pop(current_uid)
         for method, path, body in [("GET", "/global-quests", None), ("POST", "/global-quests", payload().model_dump(mode="json")),

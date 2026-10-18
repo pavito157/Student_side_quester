@@ -86,6 +86,21 @@ class PersistenceEmulatorTests(unittest.TestCase):
         self.assertEqual(self.db.collection("Users").document(self.uid).get().to_dict()["xp"], user)
         self.assertEqual(self.db.collection("dorms").document(self.dorm_id).get().to_dict()["xp"], dorm)
 
+    def test_generate_another_from_an_event_adds_a_personal_quest_without_changing_event(self):
+        original = self.create()
+        ref = self.db.collection('Users').document(self.uid).collection('sidequests').document(original.quest.id)
+        ref.update({'sourceGlobalEventId':'event-example'})
+        self.provider.return_value = self.proposal.model_copy(update={
+            'description':'Observe five plants and compare their different leaf shapes.',
+            'steps':['Find five plants and describe one difference between their leaves.']})
+        from backend.quests.quest_persistence import add_generated_quest
+        added = add_generated_quest(self.db,self.uid,original.quest.id,self.preferences,self.resolver,user_request=self.user_request)
+        self.assertNotEqual(added.quest.id,original.quest.id)
+        self.assertIsNone(added.quest.sourceGlobalEventId)
+        self.assertEqual(ref.get().to_dict()['sourceGlobalEventId'],'event-example')
+        self.assertEqual(ref.get().to_dict()['steps'],original.quest.steps)
+        self.assert_xp()
+
     def test_saved_documents_match_response_and_preserve_profile(self):
         result = self.create()
         self.assertFalse(result.reusedExisting)

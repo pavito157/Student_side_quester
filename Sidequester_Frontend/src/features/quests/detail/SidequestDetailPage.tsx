@@ -816,7 +816,7 @@ function SidequestDetailPage({
                         Add the requested photo proof or explicitly skip it to continue. Skipping means no XP for this quest.
                       </p>
                     )}
-                    {onGenerateAnother && !sidequest.sourceGlobalEventId && <div className="space-y-2">
+                    {onGenerateAnother && <div className="space-y-2">
                       <button type="button" onClick={() => void handleGenerateAnother()}
                         disabled={isCompleting || isAbandoning || isReplacing || slotsRemaining === 0}
                         className="min-h-11 w-full cursor-pointer rounded-xl border px-4 py-2 text-sm font-semibold hover:bg-white/5 disabled:cursor-wait disabled:opacity-60"

@@ -6,6 +6,7 @@ import CinematicHero from './features/home/CinematicHero'
 import DormSelectionGate from './features/residence/DormSelectionGate'
 import LeaderboardPage from './features/leaderboard/LeaderboardPage'
 import SidequestDetailPage from './features/quests/detail/SidequestDetailPage'
+import GlobalQuestPreviewPage from './features/quests/preview/GlobalQuestPreviewPage'
 import GuestQuestPreviewPage from './features/quests/preview/GuestQuestPreviewPage'
 import HomePage from './features/home/HomePage'
 import { subscribeToActiveSidequests } from './services/sidequests'
@@ -188,6 +189,16 @@ function AccountRoutes() {
           <GuestQuestPreviewPage
             result={generationState.status === 'guest-preview' ? generationState.result : null}
             payload={generationState.status === 'guest-preview' ? generationState.payload : null}
+          />
+
+        ) : pathname.startsWith('/global-quests/') ? (
+          <GlobalQuestPreviewPage
+            eventId={decodeURIComponent(pathname.slice('/global-quests/'.length))}
+            activeQuests={activeSidequestsState.userId === userId ? activeSidequestsState.sidequests : []}
+            slotsLoading={Boolean(userId) && (activeSidequestsState.userId !== userId || activeSidequestsState.isLoading)}
+            slotsError={activeSidequestsState.userId === userId ? activeSidequestsState.error : ''}
+            onAccept={(uid, eventId) => acceptCampusQuest(uid,
+              (signal) => requestGlobalEventQuest(uid, eventId, { signal }))}
           />
         ) : pathname.startsWith('/sidequests/') ? (
           <SidequestDetailPage

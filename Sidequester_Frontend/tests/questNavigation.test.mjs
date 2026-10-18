@@ -345,3 +345,22 @@ test('account switch cancels event acceptance and suppresses stale navigation', 
   resolve(saved('old-event')); await pending; f.render()
   assert.equal(f.navigations.includes('/sidequests/old-event'), false)
 })
+
+
+test('global map detail route shows a preview and transitions to the accepted quest page', async () => {
+  const f = await fixture('App.tsx','/global-quests/event')
+  f.render()
+  const preview = f.props('GlobalQuestPreviewPage')
+  assert.equal(preview.eventId,'event')
+  assert.equal(preview.slotsLoading,false)
+  assert.equal(f.props('SidequestDetailPage'),undefined)
+  await preview.onAccept('alice','event'); f.render()
+  assert.equal(f.props('SidequestDetailPage').sidequestId,'event-quest')
+})
+
+test('accepted event detail offers generate another without replacing its shared tasks',async()=>{
+  const f = await fixture('features/quests/detail/SidequestDetailPage.tsx')
+  f.sidequest.sourceGlobalEventId='event'
+  f.render()
+  assert.ok(f.button('Generate another (2 left)'))
+})

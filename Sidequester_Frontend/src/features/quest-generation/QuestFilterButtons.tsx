@@ -9,6 +9,7 @@ import {
   type GenerateQuestPayload,
 } from '../../services/questAssignment'
 import { getUserGoals, getUserPreferences } from '../../services/userPreferences'
+import { getCurrentLocation } from '../../services/currentLocation'
 import type {
   BudgetConstraint,
   DistanceConstraint,
@@ -144,15 +145,32 @@ function QuestFilterControls({
         filters.budget === 'custom' && filters.customBudget !== ''
           ? Number(filters.customBudget)
           : null
+      const distance = getDistanceConstraint(filters.distance, filters.customDistance)
+      let location = filters.where === 'any' ? 'Anywhere' : filters.where || 'Not selected'
+      let latitude = filters.latitude
+      let longitude = filters.longitude
+      if ((distance !== null || filters.multiQuest)
+          && (latitude === null || longitude === null)) {
+        const currentLocation = await getCurrentLocation()
+        location = currentLocation.label
+        latitude = currentLocation.latitude
+        longitude = currentLocation.longitude
+        setFilters((current) => ({
+          ...current,
+          where: location,
+          latitude,
+          longitude,
+        }))
+      }
       const request = buildSidequestRequest({
         preferences,
         username: getUsername(user, email),
-        location: filters.where === 'any' ? 'Anywhere' : filters.where || 'Not selected',
-        originCoordinates: filters.latitude !== null && filters.longitude !== null
-          ? { latitude: filters.latitude, longitude: filters.longitude }
+        location,
+        originCoordinates: latitude !== null && longitude !== null
+          ? { latitude, longitude }
           : null,
-        latitude: filters.latitude,
-        longitude: filters.longitude,
+        latitude,
+        longitude,
         time: {
           selection: getTimeSelection(filters.time),
           customMinutes,
@@ -161,7 +179,7 @@ function QuestFilterControls({
           selection: getBudgetSelection(filters.budget),
           customDollars,
         },
-        distance: getDistanceConstraint(filters.distance, filters.customDistance),
+        distance,
         goals,
         vibePreferences: activeVibe?.preferences ?? null,
         activeVibe: activeVibe ? { name: activeVibe.name, preferences: activeVibe.preferences } : null,

@@ -1,7 +1,6 @@
 import { QuestConfetti } from './components/decor/AdventureDecor'
 import { useEffect, useRef, useState } from 'react'
 import { useUser } from '@clerk/clerk-react'
-import Header from './components/navigation/Header'
 import CinematicHero from './features/home/CinematicHero'
 import DormSelectionGate from './features/residence/DormSelectionGate'
 import LeaderboardPage from './features/leaderboard/LeaderboardPage'
@@ -171,11 +170,8 @@ function AccountRoutes() {
     <DormSelectionGate>
       <div key={pathname} className="route-transition">
         {celebration?.path === pathname && <QuestConfetti key={celebration.id} />}
-        {pathname === '/welcome' ? (
-          <>
-            <Header activeSidequestCount={activeQuestCount} />
-            <main><CinematicHero /></main>
-          </>
+        {pathname === '/' || pathname === '/welcome' ? (
+          <main className="pixel-welcome-page"><CinematicHero /></main>
         ) : pathname === '/leaderboard' ? (
           <LeaderboardPage />
         ) : pathname === '/sidequests/generating' ? (

@@ -149,6 +149,9 @@ export function parseActiveSidequest(id: string, data: Record<string, unknown>, 
   }
   return {
     id, sourceOrganizationId, sourceOrganizationQuestId,
+    sourceGlobalEventId: typeof data.sourceGlobalEventId === 'string' ? data.sourceGlobalEventId : null,
+    eventStartsAt: typeof data.eventStartsAt === 'string' ? data.eventStartsAt : data.eventStartsAt instanceof Timestamp ? data.eventStartsAt.toDate().toISOString() : null,
+    eventEndsAt: typeof data.eventEndsAt === 'string' ? data.eventEndsAt : data.eventEndsAt instanceof Timestamp ? data.eventEndsAt.toDate().toISOString() : null,
     title: data.title, description: data.description, steps,
     stepProofMethods: proofMethods, stepDestinationIndexes, verifiedPhotoSteps, skippedPhotoSteps,
     locationName: data.locationName,

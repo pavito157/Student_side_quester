@@ -3,6 +3,7 @@ export type GlobalQuest = {
   locationName: string; latitude: number; longitude: number; startsAt: string; endsAt: string
   xpReward: number; radiusMeters: number; maxAccuracyMeters: number
   verificationMode: 'gps' | 'honor'; graceMinutes: number; completed: boolean
+  source?: 'uf-calendar' | null; sourceUrl?: string | null
 }
 export type GlobalQuestFeed = {
   adminRole: 'explicit_admin' | 'regular_admin' | 'member'

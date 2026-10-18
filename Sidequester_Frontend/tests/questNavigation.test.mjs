@@ -11,7 +11,7 @@ async function fixture(file = 'App.tsx', path = '/') {
   const f = { user: { id: 'alice' }, calls: [], navigations: [],
     assign: async () => saved('quest-1'), replace: async () => saved('quest-2'),
     preferences: async () => 'Nature', goals: async () => ['Explore'],
-    acceptOrganization: async () => saved('org-quest'),
+    acceptOrganization: async () => saved('org-quest'), acceptEvent: async () => saved('event-quest'),
     detailReplace: async () => {}, activeQuestCount: 1, activeQuests: [],
     sidequest: { id: 'quest-1', title: 'Existing quest', description: 'Existing activity', steps: ['Try it'],
       stepProofMethods: ['location'], verifiedPhotoSteps: [], skippedPhotoSteps: [],
@@ -59,6 +59,7 @@ async function fixture(file = 'App.tsx', path = '/') {
     if (name.endsWith('/colors')) return synthetic({ colors: {} })
     if (name.endsWith('/questAssignment')) return synthetic({
       MAX_ACTIVE_QUESTS: 3,
+      requestGlobalEventQuest: async (...args) => { f.calls.push(['acceptEvent', ...args]); return f.acceptEvent(...args) },
       requestOrganizationQuest: async (...args) => { f.calls.push(['acceptOrganization', ...args]); return f.acceptOrganization(...args) },
       requestGeneratedQuest: async (...args) => { f.calls.push(['preview', ...args]); return { quest: { title: 'Guest challenge' }, saved: false } },
       getActiveQuests: async () => { f.reconciled = true; return [] },
@@ -321,4 +322,26 @@ test('account changes abort organization acceptance and ignore the old account r
   assert.equal(signal.aborted, true)
   resolve(saved('alice-org-quest')); await pending; f.render()
   assert.equal(f.navigations.includes('/sidequests/alice-org-quest'), false)
+})
+
+
+test('global event acceptance opens its own saved quest through the existing detail route', async () => {
+  const f = await fixture()
+  await f.props('HomePage').onAcceptGlobalEvent('alice', 'gbm'); f.render()
+  assert.equal(f.calls[0][0], 'acceptEvent')
+  assert.equal(f.calls[0][1], 'alice')
+  assert.equal(f.calls[0][2], 'gbm')
+  assert.equal(f.props('SidequestDetailPage').sidequestId, 'event-quest')
+})
+
+test('account switch cancels event acceptance and suppresses stale navigation', async () => {
+  const f = await fixture()
+  let resolve
+  f.acceptEvent = () => new Promise(done => { resolve = done })
+  const pending = f.props('HomePage').onAcceptGlobalEvent('alice', 'gbm')
+  f.render(); const signal = f.calls[0][3].signal
+  f.user = { id: 'bob' }; f.render()
+  assert.equal(signal.aborted, true)
+  resolve(saved('old-event')); await pending; f.render()
+  assert.equal(f.navigations.includes('/sidequests/old-event'), false)
 })

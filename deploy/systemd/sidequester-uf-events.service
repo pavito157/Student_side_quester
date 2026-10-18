@@ -1,0 +1,17 @@
+[Unit]
+Description=Import Gainesville UF calendar quests
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=sidequester
+Group=sidequester
+WorkingDirectory=/opt/sidequester
+EnvironmentFile=/opt/sidequester/.env
+ExecStart=/opt/sidequester/.venv/bin/python -m backend.scripts.import_uf_events --apply --days 14
+TimeoutStartSec=300
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true

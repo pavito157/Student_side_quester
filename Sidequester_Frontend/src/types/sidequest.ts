@@ -61,6 +61,9 @@ export type SavedSidequestRequest = {
 
 export type ActiveSidequest = {
   id: string
+  sourceGlobalEventId?: string | null
+  eventStartsAt?: string | null
+  eventEndsAt?: string | null
   sourceOrganizationId?: string | null
   sourceOrganizationQuestId?: string | null
   title: string

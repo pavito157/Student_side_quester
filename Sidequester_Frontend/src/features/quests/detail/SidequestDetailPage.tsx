@@ -683,9 +683,10 @@ function SidequestDetailPage({
                   </div>
                   <dl className="mt-4">
                     <Detail label="Destination">{sidequest.locationName}</Detail>
+                    {sidequest.eventStartsAt && sidequest.eventEndsAt && <Detail label="Event time">{new Date(sidequest.eventStartsAt).toLocaleString()} – {new Date(sidequest.eventEndsAt).toLocaleString()}</Detail>}
                     <Detail label="Estimated time">{sidequest.estimatedMinutes} minutes</Detail>
                     <Detail label="Estimated cost">
-                      {sidequest.estimatedCostDollars === 0 ? 'Free' : `$${sidequest.estimatedCostDollars}`}
+                      {sidequest.sourceGlobalEventId ? 'See event listing' : sidequest.estimatedCostDollars === 0 ? 'Free' : `$${sidequest.estimatedCostDollars}`}
                     </Detail>
                   </dl>
                   {rewardProgress && (
@@ -815,7 +816,7 @@ function SidequestDetailPage({
                         Add the requested photo proof or explicitly skip it to continue. Skipping means no XP for this quest.
                       </p>
                     )}
-                    {onGenerateAnother && <div className="space-y-2">
+                    {onGenerateAnother && !sidequest.sourceGlobalEventId && <div className="space-y-2">
                       <button type="button" onClick={() => void handleGenerateAnother()}
                         disabled={isCompleting || isAbandoning || isReplacing || slotsRemaining === 0}
                         className="min-h-11 w-full cursor-pointer rounded-xl border px-4 py-2 text-sm font-semibold hover:bg-white/5 disabled:cursor-wait disabled:opacity-60"

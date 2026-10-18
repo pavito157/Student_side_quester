@@ -283,6 +283,8 @@ def _generate_additional(db, uid, preferences, resolver, timings, user_request, 
     source = next((item for item in active if item.quest.id == source_quest_id), None)
     if source_quest_id is not None and source is None:
         raise HTTPException(409, "This quest is no longer active. Open one of your active quests and try again.")
+    if source is not None and source.quest.sourceGlobalEventId:
+        raise HTTPException(409, "Event quests have shared tasks. Choose another quest from the campus board.")
     _check_capacity(active)
     if resolver is None:
         raise HTTPException(503, "Destination resolver is required before saving a new quest")

@@ -17,12 +17,14 @@ import type { GenerateQuestPayload } from '../../services/questAssignment'
 type HomePageProps = {
   activeSidequestsState: ActiveSidequestsState
   onStartQuestGeneration: (userId: string | null, payload: GenerateQuestPayload) => Promise<void>
+  onAcceptGlobalEvent: (userId: string, eventId: string) => Promise<void>
   onAcceptOrganizationQuest: (userId: string, organizationId: string, questId: string) => Promise<void>
 }
 
 function HomePage({
   onStartQuestGeneration,
   onAcceptOrganizationQuest,
+  onAcceptGlobalEvent,
   activeSidequestsState,
 }: HomePageProps) {
   const { user } = useUser()
@@ -132,6 +134,7 @@ function HomePage({
             key={userId ?? 'guest'}
             activeQuests={currentActiveSidequests.sidequests}
             onAcceptOrganizationQuest={onAcceptOrganizationQuest}
+            onAcceptGlobalEvent={onAcceptGlobalEvent}
           />
         </div>
       </main>

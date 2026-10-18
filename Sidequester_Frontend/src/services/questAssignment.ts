@@ -103,6 +103,9 @@ export type GeneratedQuestResponse = Omit<QuestPreviewResponse, 'mode' | 'filter
 export type SavedQuestResponse = {
   quest: Omit<QuestPreviewResponse['quest'], 'stepProofMethods' | 'stepDestinationIndexes'> & {
     id: string
+    sourceGlobalEventId?: string | null
+    eventStartsAt?: string | null
+    eventEndsAt?: string | null
     sourceOrganizationId?: string | null
     sourceOrganizationQuestId?: string | null
     placeId: string | null
@@ -588,5 +591,14 @@ async function requestQuest(
     // A diagnostic callback must not change the result of a quest request.
   }
   if (!response.ok) throw new QuestApiError(response.status, isRecord(result) ? result.detail : undefined)
+  return result
+}
+
+export async function requestGlobalEventQuest(expectedUserId: string, eventId: string, options: QuestRequestOptions = {}): Promise<SavedQuestResponse> {
+  if (!eventId || eventId.includes('/')) throw new Error('Choose a valid event.')
+  const result = await requestQuest(`/global-quests/${encodeURIComponent(eventId)}/accept`, expectedUserId, {}, options)
+  if (!isSavedQuest(result, expectedUserId) || result.quest.sourceGlobalEventId !== eventId) {
+    throw new Error('The backend returned an invalid event quest assignment.')
+  }
   return result
 }

@@ -8,6 +8,7 @@ import {
 } from '@clerk/clerk-react'
 import { AccountIcon, LeaderboardIcon, MenuIcon, SettingsIcon } from '../icons'
 import { colors } from '../../constants/colors'
+import { FallingLeaves, NavFoliage, SparkleIcon } from './AdventureDecor'
 import { navigateTo } from '../../services/navigation'
 
 interface HeaderProps {
@@ -72,7 +73,7 @@ function Header({
                 aria-hidden="true"
                 className="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border px-1 text-[0.65rem] font-bold leading-none"
                 style={{
-                  backgroundColor: colors.secondary,
+                  backgroundColor: '#ed592d',
                   borderColor: colors.surface,
                   color: colors.secondaryForeground,
                 }}
@@ -97,10 +98,10 @@ function Header({
           )}
 
           <h1
-            className="min-w-0 truncate text-center text-sm font-black tracking-wide sm:text-xl"
-            style={{ color: colors.accent }}
+            className="brand-title min-w-0 truncate text-center"
+            style={{ color: colors.foreground }}
           >
-            {title}
+            {title}{title === 'Sidequester' && <SparkleIcon className="brand-sparkle" />}
           </h1>
 
           <div className="flex items-center justify-end gap-1">
@@ -112,7 +113,7 @@ function Header({
                 onSettingsClick?.()
               }}
               className="hud-button inline-flex size-10 shrink-0 cursor-pointer items-center justify-center p-0 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
-              style={{ color: colors.secondary, outlineColor: colors.secondary }}
+              style={{ color: colors.foreground, outlineColor: colors.primary }}
             >
               <SettingsIcon />
             </button>}
@@ -124,10 +125,10 @@ function Header({
                 navigateTo('/leaderboard')
               }}
               aria-label="Leaderboard"
-              className="hud-button inline-flex size-10 items-center justify-center gap-2 p-0 text-xs font-bold uppercase tracking-wide transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 sm:size-auto sm:min-h-10 sm:px-3 sm:py-2 sm:text-sm"
+              className="hud-button inline-flex size-10 items-center justify-center gap-2 p-0 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 sm:size-auto sm:min-h-10 sm:px-3 sm:py-2 sm:text-sm"
               style={{
-                color: colors.secondary,
-                outlineColor: colors.secondary,
+                color: colors.foreground,
+                outlineColor: colors.primary,
               }}
             >
               <LeaderboardIcon />
@@ -198,7 +199,9 @@ function Header({
             </SignedIn>
           </div>
         </div>
+        <NavFoliage />
       </header>
+      <FallingLeaves />
     </>
   )
 }

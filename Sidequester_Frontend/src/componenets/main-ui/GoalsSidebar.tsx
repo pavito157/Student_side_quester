@@ -6,7 +6,7 @@ function GoalsSidebar() {
   return (
     <aside
       aria-labelledby="goals-sidebar-title"
-      className="rpg-panel min-h-72 max-h-[min(60dvh,38rem)] overflow-y-auto overscroll-contain p-5 sm:min-h-80 sm:p-6"
+      className="rpg-panel goals-widget min-h-72 max-h-[min(75dvh,42rem)] overflow-y-auto overscroll-contain p-5 sm:p-6"
       style={{ backgroundColor: colors.surface, borderColor: colors.border }}
     >
       <header className="mb-5">
@@ -16,8 +16,8 @@ function GoalsSidebar() {
         >
           Make it meaningful
         </p>
-        <h2 id="goals-sidebar-title" className="text-lg font-semibold">
-          Goals
+        <h2 id="goals-sidebar-title" className="widget-title">
+          <span aria-hidden="true" className="goal-flag">⚑</span> Goals
         </h2>
         <p className="mt-1 text-xs leading-relaxed" style={{ color: colors.muted }}>
           Keep what you want to work toward in view as you choose a sidequest.

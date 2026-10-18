@@ -1,12 +1,14 @@
+import QuestSlots from './componenets/main-ui/QuestSlots'
+import { QuestConfetti } from './componenets/main-ui/AdventureDecor'
 import { useEffect, useRef, useState } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import Header from './componenets/main-ui/Header'
 import CinematicHero from './componenets/main-ui/CinematicHero'
+import { AccentStrokes } from './componenets/main-ui/AdventureDecor'
 import LeaderboardPage from './componenets/main-ui/LeaderboardPage'
 import SidequestDetailPage from './componenets/main-ui/SidequestDetailPage'
 import GuestQuestPreviewPage from './componenets/main-ui/GuestQuestPreviewPage'
 import QuestFilterButtons, { type QuestFilters } from './componenets/main-ui/QuestFilterButtons'
-import FirebaseTextBox from './componenets/main-ui/FirebaseTextBox'
 import GoalsSidebar from './componenets/main-ui/GoalsSidebar'
 import UserPreferencesSummary from './componenets/main-ui/UserPreferencesSummary'
 import SettingsModal, { type SettingsSection } from './componenets/settings/SettingsModal'
@@ -101,10 +103,10 @@ function HomePage({ onStartQuestGeneration, activeSidequestsState }: HomePagePro
           })
         }}
       />
-      <main className="relative bg-gradient-glow px-4 py-12 sm:px-6 sm:py-20">
-        <div className="mx-auto max-w-6xl">
-          <section id="quest-terminal" className="quest-terminal mx-auto w-full max-w-5xl scroll-mt-24">
-            <div className="terminal-heading mb-7 flex items-end justify-between gap-4">
+      <main className="quest-board relative px-4 pb-16 pt-12 sm:px-6 sm:pb-24 sm:pt-16">
+        <div className="content-shell relative mx-auto">
+          <section id="quest-terminal" className="quest-terminal w-full scroll-mt-24">
+            <div className="terminal-heading mb-7 text-center">
               <div>
                 <p
                   className="text-[0.65rem] font-bold uppercase tracking-[0.18em]"
@@ -112,14 +114,15 @@ function HomePage({ onStartQuestGeneration, activeSidequestsState }: HomePagePro
                 >
                   Adventurer’s notice board
                 </p>
-                <h2 className="mt-1 text-2xl font-black sm:text-3xl">Pin down your quest</h2>
-                <p className="mt-2 max-w-xl text-sm" style={{ color: colors.muted }}>
-                  Set your destination and provisions. The map will chart a path from there.
+                <h2 className="board-title mt-2">Pin down your quest<AccentStrokes /></h2>
+                <p className="mt-3 text-sm sm:text-base" style={{ color: colors.muted }}>
+                  Pick a place, set your limits, find a small adventure.
                 </p>
               </div>
-              <span className="terminal-seal hidden -rotate-6 sm:inline-flex">Quest log</span>
             </div>
-            <div className="rpg-panel terminal-panel overflow-hidden p-4 sm:p-8">
+            {userId && <QuestSlots quests={currentActiveSidequests.sidequests}
+              loading={currentActiveSidequests.isLoading} error={currentActiveSidequests.error} />}
+            <div className="rpg-panel terminal-panel p-4 sm:p-6 lg:p-7">
               <QuestFilterButtons
                 activeQuestCount={currentActiveSidequests.sidequests.length}
                 filters={questFilters}
@@ -131,13 +134,12 @@ function HomePage({ onStartQuestGeneration, activeSidequestsState }: HomePagePro
             </div>
           </section>
 
-          <div className="mx-auto mt-8 grid w-full max-w-5xl grid-cols-1 items-start gap-5 sm:mt-12 lg:grid-cols-[minmax(15rem,0.8fr)_minmax(0,1.6fr)] lg:gap-7">
+          <div className="personalization-grid mt-6 grid w-full grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             <div className="min-w-0">
               <GoalsSidebar />
             </div>
             <section className="flex min-w-0 flex-col gap-5">
               <UserPreferencesSummary onEdit={() => openSettings('preferences')} />
-              <FirebaseTextBox />
             </section>
           </div>
         </div>
@@ -197,6 +199,7 @@ function AccountRoutes() {
     window.location.pathname.replace(/\/+$/, '') || '/',
   )
   const [generationState, setGenerationState] = useState<QuestGenerationState>({ status: 'idle' })
+  const [celebration, setCelebration] = useState<{ id: number; path: string } | null>(null)
   const generationControllerRef = useRef<AbortController | null>(null)
   const generationIdRef = useRef(0)
   const activeRef = useRef(true)
@@ -213,7 +216,9 @@ function AccountRoutes() {
 
   useEffect(() => {
     function updatePathname() {
-      setPathname(window.location.pathname.replace(/\/+$/, '') || '/')
+      const nextPath = window.location.pathname.replace(/\/+$/, '') || '/'
+      setPathname(nextPath)
+      setCelebration((current) => current?.path === nextPath ? current : null)
     }
 
     window.addEventListener('popstate', updatePathname)
@@ -227,6 +232,7 @@ function AccountRoutes() {
     const generationId = generationIdRef.current + 1
     generationIdRef.current = generationId
     generationControllerRef.current = controller
+    setCelebration(null)
     setGenerationState({ status: 'loading' })
     navigateTo('/sidequests/generating')
 
@@ -238,11 +244,13 @@ function AccountRoutes() {
         if (controller.signal.aborted || generationIdRef.current !== generationId) return
         lastRequestRef.current = { userId, questId: saved.quest.id, payload }
         setGenerationState({ status: 'idle' })
+        if (!saved.reusedExisting) setCelebration({ id: generationId, path: `/sidequests/${encodeURIComponent(saved.quest.id)}` })
         navigateTo(`/sidequests/${encodeURIComponent(saved.quest.id)}`)
       } else {
         const result = await requestGeneratedQuest(null, payload, { signal: controller.signal })
         if (controller.signal.aborted || generationIdRef.current !== generationId) return
         setGenerationState({ status: 'guest-preview', result, payload })
+        setCelebration({ id: generationId, path: '/sidequests/guest-preview' })
         navigateTo('/sidequests/guest-preview')
       }
     } catch (error) {
@@ -274,6 +282,7 @@ function AccountRoutes() {
 
   return (
     <div key={pathname} className="route-transition">
+      {celebration?.path === pathname && <QuestConfetti key={celebration.id} />}
       {pathname === '/leaderboard' ? (
         <LeaderboardPage />
       ) : pathname === '/sidequests/generating' ? (

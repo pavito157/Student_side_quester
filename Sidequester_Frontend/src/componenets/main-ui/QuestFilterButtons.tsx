@@ -1,5 +1,6 @@
 import { useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { useUser } from '@clerk/clerk-react'
+import { PixelLeafIcon } from './AdventureDecor'
 import { colors } from '../../constants/colors'
 import { buildSidequestRequest, toQuestApiPayload } from '../../services/sidequestJson'
 import {
@@ -175,7 +176,7 @@ function QuestFilterControls({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="quest-form space-y-5">
       {activeVibe && (
         <div
           className="quest-tag flex items-start justify-between gap-3 rounded-xl border-l-2 px-4 py-3"
@@ -185,7 +186,8 @@ function QuestFilterControls({
             borderLeftColor: colors.secondary,
           }}
         >
-          <div className="min-w-0">
+          <PixelLeafIcon className="vibe-leaf size-9 shrink-0" />
+          <div className="min-w-0 flex-1">
             <p
               className="text-xs font-semibold uppercase tracking-wide"
               style={{ color: colors.secondary }}
@@ -221,11 +223,11 @@ function QuestFilterControls({
 
       <section
         aria-labelledby="quest-location-heading"
-        className="quest-subpanel p-4 sm:p-5"
+        className="location-section"
         style={{ backgroundColor: colors.background, borderColor: colors.border }}
       >
-        <div className="mb-3">
-          <h3 id="quest-location-heading" className="text-sm font-semibold">
+        <div className="mb-4">
+          <h3 id="quest-location-heading" className="section-title">
             Choose a location
           </h3>
           <p className="mt-1 text-xs" style={{ color: colors.muted }}>
@@ -247,7 +249,8 @@ function QuestFilterControls({
       </section>
 
       <section aria-label="Quest filters">
-        <h3 className="mb-3 text-sm font-semibold">Fine-tune your quest</h3>
+        <h3 className="section-title mb-1">Fine-tune your quest</h3>
+        <p className="mb-4 text-sm" style={{ color: colors.muted }}>Set your time, budget, and how far you want to go.</p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="min-w-0 space-y-2">
             <span className="block text-xs font-medium" style={{ color: colors.muted }}>
@@ -299,7 +302,7 @@ function QuestFilterControls({
           type="checkbox"
           checked={filters.multiQuest}
           onChange={(event) => setFilters((current) => ({ ...current, multiQuest: event.target.checked }))}
-          className="mt-0.5 size-4 accent-orange-500"
+          className="mt-0.5 size-5 accent-green-700"
         />
         <span>
           <span className="block text-sm font-semibold">Multi-stop sidequest</span>

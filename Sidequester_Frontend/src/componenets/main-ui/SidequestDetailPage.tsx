@@ -1,3 +1,4 @@
+import QuestGenerationPlay from './QuestGenerationPlay'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useUser } from '@clerk/clerk-react'
@@ -275,7 +276,7 @@ function SidequestDetailPage({
 
           {sidequestId === 'generating' && generationState?.status === 'loading' ? (
             <section
-              className="rpg-panel overflow-hidden p-5 sm:p-8"
+              className="rpg-panel quest-drumroll overflow-hidden p-5 sm:p-8"
               role="status"
               aria-busy="true"
               aria-label="AI is creating your sidequest"
@@ -291,7 +292,7 @@ function SidequestDetailPage({
                     }}
                     aria-hidden="true"
                   >
-                    ✦
+                    <span className="drumroll-icon">🥁</span>
                   </div>
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[0.18em]" style={{ color: colors.secondary }}>
@@ -304,6 +305,7 @@ function SidequestDetailPage({
                   We’re turning your preferences into a real-world activity. Your description,
                   clear steps, and verified map destination will appear here as soon as it’s ready.
                 </p>
+                <QuestGenerationPlay />
                 <div
                   className="mt-6 rounded-2xl border p-4 sm:p-5"
                   style={{ backgroundColor: colors.background, borderColor: colors.border }}

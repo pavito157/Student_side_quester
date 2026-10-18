@@ -105,13 +105,13 @@ function WhereButton({ autoLocate, value, onChange }: WhereButtonProps) {
   }, [value])
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start">
+    <div className="location-controls flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start">
       <div
         ref={containerRef}
         className="google-place-autocomplete-shell min-h-12 w-full min-w-0 flex-1 rounded-lg"
         aria-busy={isLoading}
       />
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:pt-1">
+      <div className="location-actions flex flex-wrap items-center gap-3">
         <CurrentLocationButton
           autoLocate={autoLocate}
           onLocationFound={({ label, latitude, longitude }) =>
@@ -122,7 +122,7 @@ function WhereButton({ autoLocate, value, onChange }: WhereButtonProps) {
           type="button"
           aria-pressed={value === 'any'}
           onClick={() => onChange('any', null)}
-          className="cursor-pointer rounded-md px-2 py-1 text-xs font-medium transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+          className="anywhere-button inline-flex min-h-12 cursor-pointer items-center rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
           style={{
             color: value === 'any' ? colors.primary : colors.muted,
             outlineColor: colors.primary,

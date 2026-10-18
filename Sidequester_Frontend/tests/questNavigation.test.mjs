@@ -51,6 +51,7 @@ async function fixture(file = 'App.tsx', path = '/') {
     if (name === 'react') return synthetic(react)
     if (name === 'react/jsx-runtime') return synthetic({ jsx, jsxs: jsx, Fragment: "fragment" })
     if (name === '@clerk/clerk-react') return synthetic({ useUser: () => ({ isLoaded: true, isSignedIn: Boolean(f.user), user: f.user }) })
+    if (name.endsWith('/AdventureDecor')) return synthetic({ AccentStrokes: () => null, PageFoliage: () => null, QuestConfetti: () => null })
     if (name.endsWith('/colors')) return synthetic({ colors: {} })
     if (name.endsWith('/questAssignment')) return synthetic({
       MAX_ACTIVE_QUESTS: 3,
@@ -85,7 +86,9 @@ async function fixture(file = 'App.tsx', path = '/') {
       cursor = 0; f.tree = root.type(root.props)
     } else {
       cursor = 0
-      f.tree = file.endsWith('ActiveSidequests.tsx')
+      f.tree = file.endsWith('QuestSlots.tsx')
+        ? mod.namespace.default({ quests: f.activeQuests, loading: Boolean(f.slotsLoading), error: f.slotsError ?? '' })
+        : file.endsWith('ActiveSidequests.tsx')
         ? mod.namespace.default({ sidequests: f.activeQuests, isLoading: false, error: '', isSignedIn: true })
         : mod.namespace.default({ sidequestId: f.sidequest.id, activeQuestCount: f.activeQuestCount, onGenerateAnother: (...args) => {
         f.calls.push(['detailReplace', ...args]); return f.detailReplace(...args)
@@ -95,6 +98,7 @@ async function fixture(file = 'App.tsx', path = '/') {
   }
   const nodes = (node) => !node || typeof node !== 'object' ? []
     : [node, ...[node.props?.children].flat(Infinity).flatMap(nodes)]
+  f.allButtons = () => nodes(f.tree).filter((node) => node.type === 'button').map((node) => node.props)
   f.props = (name) => nodes(f.tree).find((node) => node.type?.name === name)?.props
   f.button = (label) => nodes(f.tree).find((node) => node.type === 'button' && JSON.stringify(node.props.children).includes(label))?.props
   f.settle = async () => { await tick(); f.render() }
@@ -228,4 +232,54 @@ test('guest generation opens an unsaved preview without assignment or active-que
   assert.equal(f.reconciled, false)
   assert.equal(f.props('GuestQuestPreviewPage').result.saved, false)
   assert.equal(f.navigations.at(-1), '/sidequests/guest-preview')
+})
+
+
+test('confetti appears only after a newly generated quest succeeds', async () => {
+  const f = await fixture()
+  let resolve
+  f.assign = () => new Promise((done) => { resolve = done })
+  const pending = f.props('HomePage').onStartQuestGeneration('alice', payload)
+  f.render()
+  assert.equal(f.props('QuestConfetti'), undefined)
+  resolve(saved('new-quest')); await pending; f.render()
+  assert.ok(f.props('QuestConfetti'))
+  assert.equal(f.props('SidequestDetailPage').sidequestId, 'new-quest')
+})
+
+test('failed generation and reusing an existing quest do not celebrate', async () => {
+  for (const fails of [true, false]) {
+    const f = await fixture()
+    f.assign = async () => {
+      if (fails) throw new Error('Provider unavailable')
+      return { ...saved('existing'), reusedExisting: true }
+    }
+    await f.props('HomePage').onStartQuestGeneration('alice', payload); f.render()
+    assert.equal(f.props('QuestConfetti'), undefined)
+  }
+})
+
+
+test('quest flags open the corresponding saved quest and empty slots remain disabled', async () => {
+  const f = await fixture('componenets/main-ui/QuestSlots.tsx')
+  f.activeQuests = [{ ...f.sidequest, id: 'quest/one' }, { ...f.sidequest, id: 'quest-two' }]
+  f.render()
+  const buttons = f.allButtons()
+  assert.equal(buttons.length, 3)
+  assert.equal(buttons[0].disabled, false)
+  assert.equal(buttons[2].disabled, true)
+  buttons[0].onClick()
+  assert.equal(f.navigations.at(-1), '/sidequests/quest%2Fone')
+  buttons[1].onClick()
+  assert.equal(f.navigations.at(-1), '/sidequests/quest-two')
+  f.activeQuests = [f.activeQuests[1]]; f.render()
+  assert.equal(f.allButtons().filter((button) => !button.disabled).length, 1)
+})
+
+test('quest flags cannot be selected during loading or a subscription error', async () => {
+  const f = await fixture('componenets/main-ui/QuestSlots.tsx')
+  f.activeQuests = [f.sidequest]; f.slotsLoading = true; f.render()
+  assert.ok(f.allButtons().every((button) => button.disabled))
+  f.slotsLoading = false; f.slotsError = 'Unavailable'; f.render()
+  assert.ok(f.allButtons().every((button) => button.disabled))
 })

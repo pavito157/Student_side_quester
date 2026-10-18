@@ -16,75 +16,11 @@ type Mote = {
   warmth: boolean
 }
 
-function drawSoftCanopy(
-  context: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  time: number,
-  reveal: number,
-) {
-  const drift = Math.sin(time * 0.00012) * 9
-  const lift = reveal * height * 0.1
-  const canopies = [
-    { x: -width * 0.03, y: height * 0.05 - lift + drift, rx: width * 0.25, ry: height * 0.3 },
-    { x: width * 0.18, y: -height * 0.08 - lift + drift, rx: width * 0.21, ry: height * 0.25 },
-    { x: width * 1.04, y: height * 0.03 - lift - drift, rx: width * 0.27, ry: height * 0.32 },
-    { x: width * 0.82, y: -height * 0.1 - lift - drift, rx: width * 0.2, ry: height * 0.24 },
-  ]
-  const alpha = 0.58 * (1 - reveal * 0.68)
-
-  canopies.forEach(({ x, y, rx, ry }, index) => {
-    const gradient = context.createRadialGradient(x, y, 0, x, y, Math.max(rx, ry))
-    gradient.addColorStop(0, `rgba(${index % 2 ? '20, 65, 42' : '13, 49, 32'}, ${alpha})`)
-    gradient.addColorStop(0.72, `rgba(9, 34, 23, ${alpha * 0.8})`)
-    gradient.addColorStop(1, 'rgba(6, 20, 14, 0)')
-    context.fillStyle = gradient
-    context.beginPath()
-    context.ellipse(x, y, rx, ry, index % 2 ? -0.16 : 0.12, 0, Math.PI * 2)
-    context.fill()
-  })
-}
-
-function drawMist(
-  context: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  time: number,
-  reveal: number,
-) {
-  const fade = (1 - reveal) * 0.24
-  if (fade <= 0.005) return
-
-  for (let index = 0; index < 6; index += 1) {
-    const x =
-      width * (0.08 + index * 0.18) +
-      Math.sin(time * 0.00009 + index * 1.7) * width * 0.035
-    const y =
-      height * (0.18 + (index % 3) * 0.12) +
-      Math.cos(time * 0.00008 + index) * 10
-    const radius = width * (0.16 + (index % 2) * 0.08)
-    const fog = context.createRadialGradient(x, y, 0, x, y, radius)
-    fog.addColorStop(0, `rgba(122, 147, 113, ${fade})`)
-    fog.addColorStop(0.58, `rgba(65, 96, 68, ${fade * 0.62})`)
-    fog.addColorStop(1, 'rgba(18, 47, 31, 0)')
-    context.fillStyle = fog
-    context.fillRect(x - radius, y - radius, radius * 2, radius * 2)
-
-    if (index === 2 || index === 5) {
-      const lantern = context.createRadialGradient(x, y, 0, x, y, radius * 0.52)
-      lantern.addColorStop(0, `rgba(250, 116, 45, ${fade * 0.32})`)
-      lantern.addColorStop(1, 'rgba(250, 116, 45, 0)')
-      context.fillStyle = lantern
-      context.fillRect(x - radius * 0.52, y - radius * 0.52, radius * 1.04, radius * 1.04)
-    }
-  }
-}
-
 function drawGrove(context: CanvasRenderingContext2D, x: number, y: number, size: number) {
   context.save()
   context.translate(x, y)
   context.strokeStyle = 'rgba(48, 75, 51, 0.4)'
-  context.fillStyle = 'rgba(61, 87, 54, 0.27)'
+  context.fillStyle = '#9cc679'
   context.lineWidth = Math.max(1, size * 0.055)
   for (const [offsetX, offsetY, canopySize] of [
     [-size * 0.42, size * 0.06, size * 0.28],
@@ -110,37 +46,28 @@ function drawMap(
   pointerX: number,
   pointerY: number,
 ) {
-  const wideDesktop = width >= 1100 && height >= 740
-  const desktop = width >= 760
-  const mapWidth = wideDesktop
-    ? Math.min(Math.max(width * 0.69, 300), 700)
-    : desktop
-      ? Math.min(Math.max(width * 0.66, 280), 600)
-      : Math.min(Math.max(width * 0.62, 270), 560)
-  const mapHeight = mapWidth * 0.48
-  const scale = wideDesktop
-    ? 0.88 + reveal * 0.18
-    : desktop
-      ? 0.84 + reveal * 0.22
-      : 0.78 + reveal * 0.34
-  const x = width * 0.5 + pointerX * 7
-  const restingY = wideDesktop ? 0.74 : desktop ? 0.8 : 0.81
-  const y = height * (restingY - reveal * 0.13) + pointerY * 4
+  const mapWidth = width - 16
+  const mapHeight = height - 16
+  const scale = 0.98 + reveal * 0.02
+  const x = width * 0.5 + pointerX * 2
+  const y = height * 0.5 + pointerY * 1.5
 
   context.save()
   context.translate(x, y)
-  context.rotate(-0.025 + pointerX * -0.004)
+  context.rotate(pointerX * -0.002)
   context.scale(scale, scale)
 
-  context.shadowColor = 'rgba(0, 0, 0, 0.4)'
-  context.shadowBlur = 32
-  context.shadowOffsetY = 18
+  context.shadowColor = 'rgba(29, 45, 36, 0.20)'
+  context.shadowBlur = 0
+  context.shadowOffsetX = 3
+  context.shadowOffsetY = 4
   context.beginPath()
   context.roundRect(-mapWidth / 2 - 7, -mapHeight / 2 - 7, mapWidth + 14, mapHeight + 14, 15)
-  context.fillStyle = '#263b2b'
+  context.fillStyle = '#ffffff'
   context.fill()
   context.shadowColor = 'transparent'
   context.shadowBlur = 0
+  context.shadowOffsetX = 0
   context.shadowOffsetY = 0
 
   const parchment = context.createLinearGradient(
@@ -149,14 +76,14 @@ function drawMap(
     mapWidth / 2,
     mapHeight / 2,
   )
-  parchment.addColorStop(0, '#aab38e')
-  parchment.addColorStop(0.52, '#8f9c78')
-  parchment.addColorStop(1, '#7d8d6c')
+  parchment.addColorStop(0, '#fcfcf5')
+  parchment.addColorStop(0.52, '#f4f8ed')
+  parchment.addColorStop(1, '#f7faf1')
   context.beginPath()
   context.roundRect(-mapWidth / 2, -mapHeight / 2, mapWidth, mapHeight, 11)
   context.fillStyle = parchment
   context.fill()
-  context.strokeStyle = 'rgba(207, 184, 126, 0.7)'
+  context.strokeStyle = 'rgba(39, 51, 45, 0.52)'
   context.lineWidth = 1.25
   context.stroke()
 
@@ -174,7 +101,7 @@ function drawMap(
     mapWidth * 0.8,
   )
   paperWash.addColorStop(0, 'rgba(238, 225, 178, 0.16)')
-  paperWash.addColorStop(1, 'rgba(58, 76, 53, 0.08)')
+  paperWash.addColorStop(1, 'rgba(58, 76, 53, 0.02)')
   context.fillStyle = paperWash
   context.fillRect(-mapWidth / 2, -mapHeight / 2, mapWidth, mapHeight)
 
@@ -197,8 +124,8 @@ function drawMap(
   const pondY = -mapHeight * 0.27
   context.beginPath()
   context.ellipse(pondX, pondY, mapWidth * 0.07, mapHeight * 0.07, -0.18, 0, Math.PI * 2)
-  context.fillStyle = 'rgba(58, 107, 119, 0.32)'
-  context.strokeStyle = 'rgba(48, 75, 51, 0.42)'
+  context.fillStyle = '#b9e3f8'
+  context.strokeStyle = '#79b7d8'
   context.lineWidth = Math.max(1, mapWidth * 0.003)
   context.fill()
   context.stroke()
@@ -212,7 +139,7 @@ function drawMap(
     -0.45,
     Math.PI * 1.25,
   )
-  context.strokeStyle = 'rgba(197, 211, 170, 0.42)'
+  context.strokeStyle = '#ffffff'
   context.lineWidth = Math.max(0.8, mapWidth * 0.0018)
   context.stroke()
 
@@ -237,16 +164,36 @@ function drawMap(
     mapWidth * 0.43,
     -mapHeight * 0.29,
   )
-  context.strokeStyle = 'rgba(55, 83, 58, 0.62)'
+  context.strokeStyle = '#247347'
   context.lineWidth = Math.max(2, mapWidth * 0.006)
   context.lineCap = 'round'
   context.stroke()
 
   context.setLineDash([mapWidth * 0.012, mapWidth * 0.014])
-  context.strokeStyle = 'rgba(191, 195, 149, 0.82)'
+  context.strokeStyle = '#fcfcf5'
   context.lineWidth = Math.max(0.8, mapWidth * 0.0016)
   context.stroke()
   context.setLineDash([])
+
+  for (const [pinX, pinY, fill] of [
+    [-0.42, 0.31, '#247347'], [0.02, -0.02, '#e7bb35'], [0.43, -0.29, '#e57d56'],
+  ] as const) {
+    const px = mapWidth * pinX
+    const py = mapHeight * pinY
+    context.beginPath()
+    context.arc(px, py - 10, 8, Math.PI * 0.15, Math.PI * 0.85, true)
+    context.lineTo(px, py + 4)
+    context.closePath()
+    context.fillStyle = fill
+    context.fill()
+    context.strokeStyle = '#31533a'
+    context.lineWidth = 1.3
+    context.stroke()
+    context.beginPath()
+    context.arc(px, py - 10, 2.5, 0, Math.PI * 2)
+    context.fillStyle = '#fff'
+    context.fill()
+  }
 
   const compassX = mapWidth * 0.39
   const compassY = -mapHeight * 0.29
@@ -278,42 +225,6 @@ function paint(
   motes: Mote[],
 ) {
   context.clearRect(0, 0, width, height)
-  const background = context.createLinearGradient(0, 0, 0, height)
-  background.addColorStop(0, '#06140e')
-  background.addColorStop(0.56, '#0a2217')
-  background.addColorStop(1, '#06140e')
-  context.fillStyle = background
-  context.fillRect(0, 0, width, height)
-
-  const blueGlow = context.createRadialGradient(
-    width * 0.18 + pointerX * 12,
-    height * 0.25 + pointerY * 6,
-    0,
-    width * 0.18,
-    height * 0.3,
-    width * 0.55,
-  )
-  blueGlow.addColorStop(0, 'rgba(0, 33, 165, 0.12)')
-  blueGlow.addColorStop(1, 'rgba(0, 33, 165, 0)')
-  context.fillStyle = blueGlow
-  context.fillRect(0, 0, width, height)
-
-  const lanternGlow = context.createRadialGradient(
-    width * 0.82,
-    height * 0.28,
-    0,
-    width * 0.82,
-    height * 0.28,
-    width * 0.4,
-  )
-  lanternGlow.addColorStop(0, 'rgba(250, 70, 22, 0.07)')
-  lanternGlow.addColorStop(1, 'rgba(250, 70, 22, 0)')
-  context.fillStyle = lanternGlow
-  context.fillRect(0, 0, width, height)
-
-  drawSoftCanopy(context, width, height, time, reveal)
-  drawMist(context, width, height, time, reveal)
-
   motes.forEach((mote, index) => {
     const drift = time * mote.speed
     const x = ((mote.x * width + drift * width * 0.045) % width + width) % width
@@ -329,18 +240,7 @@ function paint(
 
   drawMap(context, width, height, reveal, pointerX, pointerY)
 
-  const vignette = context.createRadialGradient(
-    width * 0.5,
-    height * 0.48,
-    height * 0.22,
-    width * 0.5,
-    height * 0.48,
-    width * 0.82,
-  )
-  vignette.addColorStop(0, 'rgba(0, 0, 0, 0)')
-  vignette.addColorStop(1, 'rgba(0, 0, 0, 0.32)')
-  context.fillStyle = vignette
-  context.fillRect(0, 0, width, height)
+
 }
 
 function GuildhallCanvas({
@@ -354,7 +254,7 @@ function GuildhallCanvas({
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const context = canvas.getContext('2d', { alpha: false, desynchronized: true })
+    const context = canvas.getContext('2d', { alpha: true, desynchronized: true })
     if (!context) return
     const sceneCanvas = canvas
     const sceneContext = context

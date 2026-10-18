@@ -98,6 +98,13 @@ def _load_boundary():
         raise DestinationResolutionError(unavailable=True) from None
 
 
+def _concise_query(text, limit=200):
+    text = " ".join(str(text).split())
+    if len(text) <= limit:
+        return text
+    return text[:limit].rsplit(" ", 1)[0]
+
+
 def _search(name, address, key, location_bias=None):
     body = {"textQuery": f"{name}, {address}", "languageCode": "en", "pageSize": 20}
     if location_bias is not None:
@@ -216,6 +223,20 @@ class VerifiedDestinationSelector:
         return resolve_destination(location_name, location_address)
 
     def _eligible_places(self, preferences):
+        needed = 2 if preferences.multiQuest else 1
+        try:
+            places = self._discover(preferences)
+            if len(places) >= needed:
+                return places
+        except NoEligibleDestination:
+            pass
+        # Overly specific interests can match too little; retry with a broad search.
+        places = self._discover(preferences, "things to do")
+        if len(places) < needed:
+            raise NoEligibleDestination()
+        return places
+
+    def _discover(self, preferences, query_override=None):
         from backend.quests.quest_validation import calculate_distance
 
         polygons = _load_boundary()
@@ -225,7 +246,8 @@ class VerifiedDestinationSelector:
         # Keep the full primary experience; supporting profile text cannot crowd
         # it out or steer the search toward an incompatible interest.
         plan = personalization_context(preferences)
-        user_query = plan["primaryExperience"]
+        # Long profile text makes Places return nothing; search with a concise excerpt.
+        user_query = query_override or _concise_query(plan["primaryExperience"])
         origin = getattr(preferences.location, "coordinates", None)
         bias = None
         if origin is not None:
@@ -276,7 +298,8 @@ class VerifiedDestinationSelector:
         for place in places_by_id.values():
             identity = (_normalized(place["displayName"]["text"]), _normalized_address(place["formattedAddress"]))
             groups.setdefault(identity, []).append(place)
-        eligible = []
+        eligible, outside_distance = [], []
+        min_needed = 2 if preferences.multiQuest else 1
         for group in groups.values():
             if len(group) != 1:  # Same name/address with multiple IDs is ambiguous.
                 continue
@@ -284,18 +307,23 @@ class VerifiedDestinationSelector:
             lat, lon = place["location"]["latitude"], place["location"]["longitude"]
             if not _inside_boundary(polygons, lat, lon):
                 continue
-            if preferences.maxDistanceMiles is not None:
-                if origin is None:
-                    raise NoEligibleDestination()
-                if calculate_distance(origin.latitude, origin.longitude, lat, lon) > preferences.maxDistanceMiles * 1609.344:
-                    continue
-            eligible.append(SelectedDestination(
+            too_far = (
+                preferences.maxDistanceMiles is not None and origin is not None
+                and calculate_distance(origin.latitude, origin.longitude, lat, lon)
+                > preferences.maxDistanceMiles * 1609.344
+            )
+            (outside_distance if too_far else eligible).append(SelectedDestination(
                 locationName=place["displayName"]["text"], locationAddress=place["formattedAddress"],
                 latitude=lat, longitude=lon, placeId=place["id"], scope="gainesville_city",
                 rating=place.get("rating"), userRatingCount=place.get("userRatingCount"),
                 priceLevel=place.get("priceLevel"),
                 discoveryProfiles=sorted(profiles_by_id.get(place["id"], set())),
             ))
+        if len(eligible) < min_needed and outside_distance:
+            # Prefer the closest city places over failing when the distance limit is too tight.
+            outside_distance.sort(key=lambda place: calculate_distance(
+                origin.latitude, origin.longitude, place.latitude, place.longitude))
+            eligible.extend(outside_distance[:max(min_needed - len(eligible), 3)])
         if not eligible:
             raise NoEligibleDestination()
         eligible.sort(key=lambda place: (
@@ -361,6 +389,4 @@ class VerifiedDestinationSelector:
     def select_candidates(self, preferences):
         """Return a diverse, verified candidate pool; Gemini plans a route of up to ten."""
         places = self._eligible_places(preferences)
-        if len(places) < (2 if preferences.multiQuest else 1):
-            raise NoEligibleDestination()
         return places

@@ -135,12 +135,9 @@ class DestinationSelectionTests(unittest.TestCase):
         selected = self.selector.select(self.preferences)
         self.assertEqual(selected.placeId, 'test-depot')
         self.assertIn('circle', self.search.call_args.args[3])
+        # A too-tight limit falls back to the nearest verified city place instead of failing.
         self.search.return_value = {'places': [far]}
-        with patch.object(generation, 'call_gemini') as provider:
-            with self.assertRaises(HTTPException) as caught:
-                generation.generate_preview(self.preferences, self.selector)
-            self.assertEqual(caught.exception.status_code, 409)
-            provider.assert_not_called()
+        self.assertEqual(self.selector.select(self.preferences).placeId, 'far')
 
     def test_empty_outside_and_ambiguous_candidates_do_not_call_gemini(self):
         outside = {**self.place, 'location': {'latitude': 0, 'longitude': 0}}

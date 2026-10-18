@@ -361,7 +361,7 @@ function QuestFilterControls({
 
       <section aria-label="Quest filters">
         <p className="mb-4 text-sm" style={{ color: colors.muted }}>Set your time, budget, and how far you want to go.</p>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="min-w-0 space-y-2">
             <span className="block text-xs font-medium" style={{ color: colors.muted }}>
               <img src="/art/cozy/watch.png" alt="" aria-hidden="true" className="cozy-icon size-7" />Time

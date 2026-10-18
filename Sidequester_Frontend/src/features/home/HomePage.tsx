@@ -125,7 +125,7 @@ function HomePage({
               loading={currentActiveSidequests.isLoading} error={currentActiveSidequests.error} />}
           </section>
 
-          <details open
+          <details
             className="cozy-personalization mt-6 rounded-xl border"
             style={{ borderColor: colors.border, backgroundColor: colors.surface }}
           >

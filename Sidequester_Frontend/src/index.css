@@ -48,7 +48,7 @@
 html { background: var(--color-background); scroll-padding-top: calc(6rem + env(safe-area-inset-top, 0px)); }
 body {
   margin: 0;
-  min-width: 320px;
+  min-width: min(320px, 100%);
   min-height: 100vh;
   min-height: 100dvh;
   color: var(--color-foreground);
@@ -143,6 +143,7 @@ input, textarea, select { accent-color: var(--color-secondary); }
 
 /* Shared navigation and dialogs use the same light, readable palette. */
 .hud-header { position: relative; isolation: isolate; padding-top: calc(.625rem + env(safe-area-inset-top, 0px)); padding-left: max(.75rem, env(safe-area-inset-left, 0px)); padding-right: max(.75rem, env(safe-area-inset-right, 0px)); border-color: #80552f !important; border-bottom-width: 3px !important; background-color: #d9b47c !important; background-image: repeating-linear-gradient(0deg, transparent 0 8px, rgb(105 66 34 / 8%) 9px, transparent 10px 18px), repeating-linear-gradient(89deg, transparent 0 143px, rgb(92 57 27 / 13%) 144px, transparent 147px), linear-gradient(180deg, #f1d7a5 0%, #e7c58f 44%, #d9b47c 100%); box-shadow: inset 0 2px 0 rgb(255 244 207 / 75%), inset 0 -3px 0 rgb(100 62 32 / 24%), 0 4px 0 #a87947, 0 8px 16px rgb(54 40 23 / 17%); }
+.hud-header { overflow-x: clip; }
 .hud-header::before { position: absolute; z-index: 0; inset: 0; content: ""; pointer-events: none; opacity: .72; background: linear-gradient(112deg, transparent 8%, rgb(255 245 207 / 36%) 24%, transparent 39% 63%, rgb(101 136 70 / 12%) 82%, transparent 96%); background-size: 220% 100%; animation: header-glow 9s ease-in-out infinite alternate; }
 .hud-header .header-content { position: relative; z-index: 2; min-height: 2.8rem; }
 .header-pixel-sky { position: absolute; z-index: 1; inset: 0; overflow: hidden; pointer-events: none; user-select: none; }
@@ -973,7 +974,7 @@ input[type='checkbox'],input[type='radio'] { accent-color:#75994c; }
 @media(max-width:639px) {
   .hud-header .brand-title { left:50%; max-width:calc(100vw - 17rem); }
 }
-@media(max-width:359px) {
+@media(max-width:380px) {
   .hud-header .brand-title { font-size:.8rem; max-width:calc(100vw - 13rem); }
   .hud-header .brand-icon { display:none; }
 }

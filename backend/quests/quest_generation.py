@@ -568,7 +568,7 @@ def generate_preview(preferences: NormalizedQuestPreferences,
                     else SelectedDestination.model_validate(resolver.select(preferences))
                 )
         except NoEligibleDestination:
-            raise HTTPException(409, "No eligible destination found in the city search results. Widen your distance limit or change preferences.") from None
+            raise HTTPException(409, "No eligible destination found in the city search results. Widen your distance limit or change preferences. It may be due to preferences violating conduct.") from None
         except DestinationResolutionError:
             raise HTTPException(503, "Destination discovery temporarily unavailable") from None
         except (ValidationError, TypeError):

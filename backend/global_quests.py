@@ -266,6 +266,15 @@ def get_public_event(event_id: str, db=Depends(get_db)):
         raise HTTPException(503, "Event details are temporarily unavailable.") from None
 
 
+def _sync_assigned_reward(personal_ref, event_id, event):
+    """The event is the source of truth for XP; repair stale copies on a user's accepted quest."""
+    personal = personal_ref.get()
+    data = personal.to_dict() if personal.exists else None
+    if (data and data.get("sourceGlobalEventId") == event_id and data.get("status") == "assigned"
+            and data.get("xpReward") != event.xpReward):
+        personal_ref.update({"xpReward": event.xpReward})
+
+
 @router.get("/global-quests")
 def list_events(uid: str = Depends(current_uid), db=Depends(get_db)):
     try:
@@ -278,7 +287,9 @@ def list_events(uid: str = Depends(current_uid), db=Depends(get_db)):
             event = GlobalEvent.model_validate(snapshot.to_dict())
             if event.status != "published" or event.endsAt + timedelta(minutes=event.graceMinutes) < now:
                 continue
-            completed = db.collection(USERS).document(uid).collection(CLAIMS).document(snapshot.id).get().exists
+            user_ref = db.collection(USERS).document(uid)
+            completed = user_ref.collection(CLAIMS).document(snapshot.id).get().exists
+            _sync_assigned_reward(user_ref.collection("sidequests").document(assignment_id(snapshot.id)), snapshot.id, event)
             events.append({
                 **event.model_dump(
                     mode="json",

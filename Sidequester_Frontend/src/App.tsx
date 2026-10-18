@@ -1,3 +1,4 @@
+import GlobalQuests from './componenets/main-ui/GlobalQuests'
 import QuestSlots from './componenets/main-ui/QuestSlots'
 import { QuestConfetti } from './componenets/main-ui/AdventureDecor'
 import { useEffect, useRef, useState } from 'react'
@@ -144,6 +145,7 @@ function HomePage({ onStartQuestGeneration, activeSidequestsState }: HomePagePro
               <UserPreferencesSummary onEdit={() => openSettings('preferences')} />
             </section>
           </div>
+          <GlobalQuests key={userId ?? 'guest'} />
         </div>
       </main>
       <SettingsModal

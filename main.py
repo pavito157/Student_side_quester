@@ -11,6 +11,7 @@ from google.api_core.exceptions import GoogleAPICallError
 from backend.firebase_helpers import current_uid, get_db
 
 from backend.auth_routes import frontend_origins, router as auth_router
+from backend.global_quests import router as global_quest_router
 from backend.dorm_routes import router as dorm_router
 from backend.leaderboard_routes import router as leaderboard_router
 from backend.quest_assignment_routes import router as quest_assignment_router
@@ -35,6 +36,7 @@ app.add_middleware(CORSMiddleware, allow_origins=frontend_origins(),
 app.middleware("http")(measure_quest_request)
 app.include_router(auth_router)
 app.include_router(dorm_router)
+app.include_router(global_quest_router)
 app.include_router(leaderboard_router)
 app.include_router(quest_assignment_router)
 app.include_router(quest_router)

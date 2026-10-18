@@ -1,0 +1,18 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Preserve the pre-existing development policy outside the new feature.
+    // TODO: harden these legacy paths in a separate owner-scoped rules rollout.
+    match /{collection}/{document=**} {
+      allow read, write: if !(collection in ['Organizations', 'GlobalQuests', 'Users']);
+    }
+    match /Users/{userId} {
+      allow read, write: if true;
+      match /{subcollection}/{document=**} {
+        allow read, write: if subcollection != 'globalQuestCompletions';
+      }
+    }
+    // No client grants for Organizations, GlobalQuests, or completion records.
+    // They are accessible only through FastAPI's Admin SDK.
+  }
+}

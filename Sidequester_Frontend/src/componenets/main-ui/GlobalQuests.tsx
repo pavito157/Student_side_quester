@@ -1,0 +1,126 @@
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useUser, SignInButton } from '@clerk/clerk-react'
+import { getFirebaseIdToken } from '../../services/firebaseSession'
+import { checkInGlobalQuest, createGlobalQuest, getGlobalQuests, type GlobalQuestFeed, type GlobalQuest } from '../../services/globalQuests'
+import WhereButton from '../Buttons/WhereButton'
+
+type Coordinates = { latitude: number; longitude: number }
+const eventDate = (value: string) => new Date(value).toLocaleString(undefined, {
+  month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
+})
+
+export default function GlobalQuests() {
+  const { user } = useUser()
+  const uid = user?.id
+  const [feed, setFeed] = useState<GlobalQuestFeed | null>(null)
+  const [feedUid, setFeedUid] = useState<string>()
+  const [attempt, setAttempt] = useState(0)
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [busy, setBusy] = useState('')
+  const lock = useRef(false)
+  const mounted = useRef(true)
+  const [clock, setClock] = useState(() => Date.now())
+  const [location, setLocation] = useState('')
+  const [coordinates, setCoordinates] = useState<Coordinates | null>(null)
+  useEffect(() => {
+    mounted.current = true
+    const timer = window.setInterval(() => setClock(Date.now()), 15000)
+    return () => { mounted.current = false; window.clearInterval(timer) }
+  }, [])
+  useEffect(() => {
+    if (!uid) return
+    const controller = new AbortController()
+    getFirebaseIdToken(uid).then((token) => getGlobalQuests(token, controller.signal))
+      .then((result) => { if (!controller.signal.aborted) { setFeed(result); setFeedUid(uid); setError('') } })
+      .catch((reason) => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : 'Could not load campus events.') })
+    return () => controller.abort()
+  }, [uid, attempt])
+  const currentFeed = feedUid === uid ? feed : null
+  async function checkIn(event: GlobalQuest) {
+    if (!uid || lock.current) return
+    lock.current = true; setBusy(event.id); setNotice(''); setError('')
+    try {
+      const token = await getFirebaseIdToken(uid)
+      const result = await checkInGlobalQuest(token, event)
+      if (mounted.current) {
+        setNotice(`You checked in to ${event.title}! +${result.xpAwarded} XP for you and your residence.`)
+        setFeed((current) => current ? { ...current, quests: current.quests.map((quest) => quest.id === event.id ? { ...quest, completed: true } : quest) } : current)
+      }
+    } catch (reason) { if (mounted.current) setError(reason instanceof Error ? reason.message : 'Check-in failed.') }
+    finally { lock.current = false; if (mounted.current) setBusy('') }
+  }
+  async function publish(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!uid || !coordinates || lock.current) return
+    const form = event.currentTarget
+    const values = new FormData(form)
+    const startsAt = new Date(String(values.get('startsAt')))
+    const endsAt = new Date(String(values.get('endsAt')))
+    if (!Number.isFinite(+startsAt) || !Number.isFinite(+endsAt) || endsAt <= startsAt) {
+      setError('Choose an end time after the start time.'); return
+    }
+    lock.current = true; setBusy('publishing'); setError(''); setNotice('')
+    try {
+      const token = await getFirebaseIdToken(uid)
+      await createGlobalQuest(token, {
+        organizationId: String(values.get('organizationId')), title: String(values.get('title')),
+        description: String(values.get('description')), locationName: location, ...coordinates,
+        startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString(), xpReward: Number(values.get('xpReward')),
+      })
+      if (mounted.current) {
+        form.reset(); setLocation(''); setCoordinates(null)
+        setNotice('Global quest published! It is now available to signed-in users.')
+        setAttempt((value) => value + 1)
+      }
+    } catch (reason) { if (mounted.current) setError(reason instanceof Error ? reason.message : 'Could not publish the event.') }
+    finally { lock.current = false; if (mounted.current) setBusy('') }
+  }
+  return <section className="rpg-panel mt-8 p-4 sm:p-6" aria-labelledby="global-quests-title">
+    <p className="text-xs font-bold uppercase tracking-widest text-secondary">Adventure, together</p>
+    <h2 id="global-quests-title" className="mt-1 text-xl font-bold">Global quests</h2>
+    <p className="mt-2 text-sm text-muted">Campus events from organizations and sponsors. Show up, check in, earn XP.</p>
+    {!uid ? <div className="mt-4"><SignInButton mode="modal"><button className="hud-button px-4 py-2 font-semibold">Sign in to see campus events</button></SignInButton></div> : <>
+      <button type="button" className="hud-button mt-4 px-3 py-2 text-sm" disabled={Boolean(busy)} onClick={() => setAttempt((value) => value + 1)}>Refresh events</button>
+      {!currentFeed && !error && <p role="status" className="mt-4 text-sm text-muted">Loading campus events…</p>}
+      {currentFeed?.quests.length === 0 && <p className="mt-4 text-sm text-muted">No upcoming events yet. Check back soon for your next campus adventure.</p>}
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        {currentFeed?.quests.map((quest) => {
+          const inWindow = clock >= Date.parse(quest.startsAt) - quest.graceMinutes * 60000 && clock <= Date.parse(quest.endsAt) + quest.graceMinutes * 60000
+          return <article key={quest.id} className="quest-subpanel p-4">
+            <p className="text-xs font-semibold text-secondary">{quest.organizationName} · +{quest.xpReward} XP</p>
+            <h3 className="mt-1 font-bold text-lg">{quest.title}</h3>
+            <p className="mt-2 text-sm whitespace-pre-wrap break-words">{quest.description}</p>
+            <p className="mt-3 text-sm font-semibold">{quest.locationName}</p>
+            <p className="mt-1 text-xs text-muted">{eventDate(quest.startsAt)} – {eventDate(quest.endsAt)}</p>
+            <p className="mt-2 text-xs text-muted">{quest.verificationMode === 'gps' ? `GPS check-in within ${quest.radiusMeters}m during the event.` : 'Confirm attendance during the event.'} One reward per person.</p>
+            <div className="mt-4 flex flex-wrap gap-3 items-center">
+              <button type="button" className="magic-cta rounded-lg px-4 py-2 text-sm font-semibold" disabled={Boolean(busy) || quest.completed || !inWindow} onClick={() => void checkIn(quest)}>
+                {quest.completed ? 'Checked in ✓' : busy === quest.id ? 'Checking in…' : inWindow ? 'Check in' : clock < Date.parse(quest.startsAt) ? 'Opens when the event starts' : 'Check-in closed'}
+              </button>
+              <a className="text-sm underline" href={`https://www.google.com/maps/search/?api=1&query=${quest.latitude},${quest.longitude}`} target="_blank" rel="noreferrer">View venue ↗</a>
+            </div>
+          </article>
+        })}
+      </div>
+      {Boolean(currentFeed?.organizations.length) && <details className="mt-6 border-t pt-5 border-border">
+        <summary className="cursor-pointer list-none"><span className="block text-sm text-muted">Hosting or know of an event around campus?</span><span className="hud-button mt-2 inline-block px-4 py-2 font-semibold">Create Global Quest +</span></summary>
+        <form onSubmit={(event) => void publish(event)} className="mt-5 space-y-4">
+          <label className="block text-sm font-semibold">Organization<select name="organizationId" required className="global-event-input">{currentFeed?.organizations.map((org) => <option key={org.id} value={org.id}>{org.name}</option>)}</select></label>
+          <label className="block text-sm font-semibold">Event title<input name="title" required minLength={3} maxLength={160} className="global-event-input" placeholder="First GBM of the semester" /></label>
+          <label className="block text-sm font-semibold">What’s happening?<textarea name="description" required minLength={10} maxLength={3000} className="global-event-input" rows={3} placeholder="Tell students what to expect and where to meet." /></label>
+          <div className="text-sm"><p className="font-semibold mb-2">Event venue</p><WhereButton autoLocate={false} value={location} onChange={(value, point) => { setLocation(value); setCoordinates(point) }} /><p className="mt-1 text-xs text-muted">Choose a place from search so GPS check-in has an exact destination.</p></div>
+          <p className="text-xs text-muted">Enter times in your local timezone ({Intl.DateTimeFormat().resolvedOptions().timeZone}). Times are saved in UTC.</p>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <label className="text-sm font-semibold">Starts<input name="startsAt" type="datetime-local" required className="global-event-input" /></label>
+            <label className="text-sm font-semibold">Ends<input name="endsAt" type="datetime-local" required className="global-event-input" /></label>
+            <label className="text-sm font-semibold">XP reward<input name="xpReward" type="number" required min={1} max={500} defaultValue={currentFeed?.defaults.xpReward} className="global-event-input" /></label>
+          </div>
+          <button type="submit" disabled={Boolean(busy) || !coordinates} className="magic-cta rounded-lg px-5 py-3 font-semibold">{busy === 'publishing' ? 'Publishing…' : 'Publish Global Quest'}</button>
+        </form>
+      </details>}
+      {notice && <p role="status" className="mt-4 text-sm text-secondary">{notice}</p>}
+      {error && <p role="alert" className="mt-4 text-sm" style={{color:'var(--color-error)'}}>{error}</p>}
+    </>}
+  </section>
+}

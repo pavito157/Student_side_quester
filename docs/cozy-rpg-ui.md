@@ -34,3 +34,9 @@ npm run lint
 ```
 
 Visual checks cover the guest board, narrow-screen board, settings, welcome page, event map pin navigation, and event preview. The signed-in journal was additionally rendered with sample display data through a temporary read-only local preview, without writing accounts or quests. Authenticated production completion, GPS check-in, and admin mutations were not performed during this UI pass.
+
+## Main animation integration
+
+Integrated main through `481b48d`: its responsive sidebar shell, scrolling editor and fixed footer, card entrance/hover effects, header sprite motion, settings journal entrance, fireflies, drifting leaves, and button-reactive sprigs. The existing cozy borders, palette, fonts, button frames, pointer/leaf/branch/signpost/compass assets, map pins, and garden remain. New lantern, mushroom, and hanging-vine decorations from main remain as additional animated accents. Motion selectors support image sprites as well as SVGs, including reduced-motion handling.
+
+The sidebar stays fixed to the viewport. Its close delay now matches the 420ms exit animation, and reopening during that delay cancels the close and removes the stale closing class. Regression tests cover interrupted close/reopen, reduced-motion close, and the existing Escape callback. Quest and account handlers were retained.

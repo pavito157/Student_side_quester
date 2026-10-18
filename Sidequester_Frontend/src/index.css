@@ -163,7 +163,7 @@ input, textarea, select { accent-color: var(--color-secondary); }
 .brand-sparkle { width: 1.2rem; height: 1.2rem; flex-shrink: 0; filter: drop-shadow(1px 2px 0 rgb(77 53 29 / 30%)); animation: brand-twinkle 3s ease-in-out infinite; }
 .hud-button { border: 2px solid #80552f; border-radius: 4px; color: #43301f !important; background: linear-gradient(180deg, #f6e5bf, #dfbf8b) !important; box-shadow: inset 0 1px 0 rgb(255 248 219 / 88%), 2px 3px 0 rgb(91 58 31 / 48%); transition: background-color 160ms ease, border-color 160ms ease, translate 160ms ease, box-shadow 160ms ease; }
 .hud-button:hover { border-color: #45683c; background: linear-gradient(180deg, #edf0c9, #c8d39a) !important; box-shadow: inset 0 1px 0 rgb(255 250 220 / 90%), 3px 4px 0 rgb(77 88 48 / 46%); }
-.hud-button:hover > svg, .hud-button:focus-visible > svg { animation: icon-hop 360ms steps(3, end); }
+.hud-button:hover > :is(svg, .cozy-icon), .hud-button:focus-visible > :is(svg, .cozy-icon) { animation: icon-hop 360ms steps(3, end); }
 .quest-count-pixel { border-radius: 2px; box-shadow: 2px 2px 0 #87381f; image-rendering: pixelated; }
 .brand-title:hover .brand-icon, .brand-title:focus-visible .brand-icon { animation: brand-launch 420ms steps(4, end); }
 .brand-title:hover .brand-sparkle, .brand-title:focus-visible .brand-sparkle { animation: brand-twinkle 700ms ease-in-out infinite; }
@@ -524,7 +524,7 @@ input, textarea, select { accent-color: var(--color-secondary); }
   .trail-map-panel:has(button:active) .trail-map-branch,
   .organization-quest-dialog:has(button:active) .quest-dialog-branch,
   .quest-json-modal:has(button:active) .quest-json-branch { animation: none !important; }
-  .hud-button:hover > svg, .hud-button:focus-visible > svg { animation: none; }
+  .hud-button:hover > :is(svg, .cozy-icon), .hud-button:focus-visible > :is(svg, .cozy-icon) { animation: none; }
   .trail-map-action:hover, .trail-map-action:active { transform: none; }
   .settings-journal button:active:not(:disabled), .trail-map-panel button:active:not(:disabled),
   .organization-quest-dialog button:active:not(:disabled), .quest-json-modal button:active:not(:disabled) {
@@ -838,3 +838,76 @@ input[type='checkbox'],input[type='radio'] { accent-color:#75994c; }
 .cozy-credits { color:#4b5638; background:#edf1cde6; padding:.5rem 1rem; width:fit-content; margin-inline:auto; border-radius:3px; }
 
 .quest-slot-filled:nth-child(n) { color:#493d38; border-color:transparent; }
+
+/* Integration: retain main's motion/layout with the existing cozy asset system. */
+.settings-journal.rpg-dialog,.trail-map-panel.rpg-dialog,
+.organization-quest-dialog.rpg-dialog,.quest-json-modal.rpg-dialog {
+  border:12px solid transparent!important;
+  border-image:url('/art/cozy/tile-wood.png') 7 / 13px / 0 stretch!important;
+  border-radius:4px!important;
+  color:var(--color-foreground)!important;
+  background:#fff0d3!important;
+  background-clip:padding-box!important;
+  box-shadow:4px 6px #76513b55!important;
+}
+.trail-map-panel.rpg-dialog {
+  position:fixed;
+  --color-primary:#afca73;
+  --color-primary-hover:#9ebd60;
+  --color-primary-foreground:#343d29;
+}
+.trail-map-panel.rpg-dialog::backdrop,.settings-journal.rpg-dialog::backdrop {
+  background:#344b3c66; backdrop-filter:blur(3px);
+}
+.trail-map-header { background:#e9c797; color:#493d38; border-bottom:2px solid #c5a477!important; box-shadow:0 2px #a0785022; }
+.trail-map-header h2,.journal-header h2,.quest-json-modal h2,
+.organization-quest-dialog h4,.trail-map-content h3,
+.trail-map-content section[aria-labelledby='active-sidequests-heading'] h3 {
+  font-family:'Sprout Pixel',var(--font-sans)!important;
+  color:#503b3e!important; text-shadow:none;
+}
+.trail-map-content { background:transparent; scrollbar-color:#adbc7d #f3e1b7; }
+.trail-map-footer,.trail-map-content .vibe-editor-actions { background:#f3e1b7!important; border-color:#c5a477!important; }
+.trail-map-note,.trail-map-content legend,.trail-map-content label > span,
+.trail-map-content .quest-tag .font-semibold,.trail-map-content .quest-subpanel .font-semibold,
+.journal-option.quest-tag span:first-child { font-family:var(--font-sans); }
+.trail-map-note,.vibe-editor-note { border-radius:3px!important; background:#e5edbf80!important; }
+.trail-map-content .quest-tag,.trail-map-content .quest-subpanel {
+  border:1px solid #c49c6d!important; border-radius:3px!important;
+  background:#fff2d6!important; box-shadow:2px 3px #a0785040!important;
+}
+.trail-map-content input:not([type='checkbox']),.trail-map-content textarea,.trail-map-content select {
+  background:#fff4de!important; border-color:#c49c6d!important; color:#493d38!important;
+}
+.trail-map-panel .trail-map-shell button,.settings-journal .journal-option,
+.settings-journal .journal-header button {
+  border:7px solid transparent!important;
+  border-image:url('/art/cozy/tile-cream.png') 6 / 8px / 0 stretch!important;
+  border-radius:3px!important; background:#f1d8aa!important;
+  color:#49392e!important; background-clip:padding-box!important;
+  box-shadow:2px 3px #805d4345!important; text-shadow:none;
+}
+.trail-map-panel .trail-map-shell :is(.vibe-use-action,.vibe-save-action,.trail-map-action),
+.settings-journal .journal-option { background-color:#c2d58a!important; color:#3f4833!important; }
+.trail-map-panel .trail-map-shell .vibe-delete-action { background-color:#fae0ce!important; color:#a34b46!important; }
+.trail-map-panel .trail-map-shell button:hover:not(:disabled) { filter:brightness(1.06); }
+.trail-map-stamp { font-family:'Sprout Pixel',var(--font-sans); color:#4b5638; background:#e5edbf; border-color:#a3b777; text-shadow:none; }
+.trail-map-action { width:100%; }
+.trail-map-content .quest-tag h3 { font-family:'Sprout Pixel',var(--font-sans)!important; }
+@media(max-width:639px) {
+  .trail-map-panel.rpg-dialog,.settings-journal.rpg-dialog,
+  .organization-quest-dialog.rpg-dialog,.quest-json-modal.rpg-dialog { border-width:8px!important; border-image-width:9px!important; }
+}
+
+/* Keep the animated corner sprigs behind header controls and away from the title. */
+.trail-map-header { padding-left:2.7rem; }
+.trail-map-header > button { position:relative; z-index:1; }
+
+.journal-header { padding-left:.75rem; }
+@media(max-width:639px) {
+  .hud-header .brand-title { left:50%; max-width:calc(100vw - 17rem); }
+}
+@media(max-width:359px) {
+  .hud-header .brand-title { font-size:.8rem; max-width:calc(100vw - 13rem); }
+  .hud-header .brand-icon { display:none; }
+}

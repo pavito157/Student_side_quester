@@ -102,6 +102,7 @@ async function view(organizations, signedIn=true, activities=null, adminRole='re
     if(name==='react/jsx-runtime')return synthetic({jsx,jsxs:jsx,Fragment:'fragment'})
     if(name==='@clerk/clerk-react')return synthetic({useUser:()=>({user:signedIn?{id:'admin'}:null}),SignInButton:()=>null})
     if(name.endsWith('/questAssignment'))return synthetic({MAX_ACTIVE_QUESTS:3,getOrganizationQuestBoard:async()=>activities})
+    if(name.endsWith('/AdventureDecor'))return synthetic(Object.fromEntries(['PixelBranchIcon','PixelHangingVineIcon','PixelCompassIcon'].map(key=>[key,()=>null])))
     if(name.endsWith('/navigation'))return synthetic({navigateTo:()=>{}})
     if(name.endsWith('/colors'))return synthetic({colors:{}})
     if(name.endsWith('/firebaseSession'))return synthetic({getFirebaseIdToken:async()=> 'token'})

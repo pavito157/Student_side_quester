@@ -11,15 +11,7 @@ export function PixelLeafIcon({ className = '' }: { className?: string }) {
 }
 
 export function PixelTrailSignIcon({ className = '' }: { className?: string }) {
-  return <svg aria-hidden="true" viewBox="0 0 32 32" className={className} shapeRendering="crispEdges">
-    <path d="M14 19h5v13h-5z" fill="#38291c" />
-    <path d="M15 20h3v12h-3z" fill="#95643a" />
-    <path d="M3 4h26v16H3z" fill="#3b2a1d" />
-    <path d="M5 6h22v12H5z" fill="#b77a42" />
-    <path d="M7 8h18v8H7z" fill="#e3bd76" />
-    <path d="M8 9h7v2H8zm11 0h5v2h-5zm-7 4h10v2H12z" fill="#547344" />
-    <path d="M3 4h4v2H5v3H3zm22 0h4v5h-2V6h-2zM3 15h2v3h4v2H3zm22 3h2v-3h2v5h-4z" fill="#70462b" />
-  </svg>
+  return <img src="/art/cozy/signpost.png" alt="" aria-hidden="true" draggable={false} className={`cozy-icon ${className}`} />
 }
 
 export function PixelLanternIcon({ className = '' }: { className?: string }) {
@@ -65,29 +57,11 @@ export function PixelHangingVineIcon({ className = '' }: { className?: string })
 }
 
 export function PixelBranchIcon({ className = '' }: { className?: string }) {
-  return <svg aria-hidden="true" viewBox="0 0 64 32" className={className} shapeRendering="crispEdges">
-    <path d="M2 23h7v-4h8v-4h9v-3h8V8h9V5h9V2h7v4h-7v3h-9v4h-9v4h-8v3h-9v4h-8v4H2z" fill="#284a31" />
-    <path d="M4 23h5v-4h8v-4h9v-3h8V8h9V5h9V3h5v2h-7v3h-9v4h-9v4h-8v3h-9v4h-8v4H4z" fill="#78974a" />
-    <path d="M10 18h6v-4h5v-3h5v4h-4v4h-7v3h-5z" fill="#38643b" />
-    <path d="M13 13h3v-4h4V6h6v4h-4v3h-4v3h-5z" fill="#9ab857" />
-    <path d="M26 11h5V7h4V4h6v4h-4v4h-6v3h-5z" fill="#4b7940" />
-    <path d="M29 7h4V4h5V1h6v4h-4v3h-5v3h-6z" fill="#b7cb65" />
-    <path d="M43 5h5V2h4V0h7v4h-5v3h-5v3h-6z" fill="#5c8b43" />
-    <path d="M47 2h5V0h5v3h-4v3h-6z" fill="#bdd36c" />
-    <path d="M49 13h5v-3h4v-3h5v5h-4v3h-5v3h-5z" fill="#47733b" />
-    <path d="M53 10h4V8h4v3h-3v3h-5z" fill="#a6c65d" />
-  </svg>
+  return <img src="/art/cozy/canopy.png" alt="" aria-hidden="true" draggable={false} className={`cozy-icon ${className}`} />
 }
 
 export function PixelCompassIcon({ className = '' }: { className?: string }) {
-  return <svg aria-hidden="true" viewBox="0 0 32 32" className={className} shapeRendering="crispEdges">
-    <path d="M12 1h8v2h5v3h3v5h2v8h-2v5h-3v5h-5v2h-8v-2H7v-3H4v-5H2v-8h2V8h3V3h5z" fill="#443222" />
-    <path d="M12 4h8v2h4v4h2v8h-2v4h-4v4h-8v-2H8v-4H6v-8h2v-4h4z" fill="#d6b66c" />
-    <path d="M12 7h8v2h3v4h2v6h-2v4h-3v2h-8v-2H9v-4H7v-6h2v-4h3z" fill="#f2e3ba" />
-    <path d="M16 8h2v7h5v2h-5v7h-2v-7h-5v-2h5z" fill="#607a43" />
-    <path d="M16 10h2v6h-2zm-2 6h2v2h-2z" fill="#bd5c39" />
-    <path d="M15 1h2v3h-2zm0 27h2v3h-2zM2 15h3v2H2zm25 0h3v2h-3z" fill="#fff0bd" />
-  </svg>
+  return <img src="/art/cozy/compass.png" alt="" aria-hidden="true" draggable={false} className={`cozy-icon ${className}`} />
 }
 
 export function AccentStrokes() {

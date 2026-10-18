@@ -3,6 +3,7 @@ import { useUser, SignInButton } from '@clerk/clerk-react'
 import { getFirebaseIdToken } from '../../../services/firebaseSession'
 import { createGlobalQuest, getGlobalQuests, getPublicGlobalQuests,
   type GlobalQuestFeed, type GlobalQuest, type PublicGlobalQuest } from '../../../services/globalQuests'
+import { shuffleEvents } from '../../../services/shuffleEvents'
 import { navigateTo } from '../../../services/navigation'
 import WhereButton from '../../quest-generation/inputs/buttons/WhereButton'
 import GlobalQuestMap from './GlobalQuestMap'
@@ -43,7 +44,7 @@ export default function GlobalQuests({ activeQuests = [], onAcceptGlobalEvent }:
     if (!uid) return
     const controller = new AbortController()
     getFirebaseIdToken(uid).then((token) => getGlobalQuests(token, controller.signal))
-      .then((result) => { if (!controller.signal.aborted) { setFeed(result); setFeedUid(uid); setError('') } })
+      .then((result) => { if (!controller.signal.aborted) { setFeed((previous) => ({ ...result, quests: shuffleEvents(result.quests, previous?.quests) })); setFeedUid(uid); setError('') } })
       .catch((reason) => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : 'Could not load campus events.') })
     return () => controller.abort()
   }, [uid, attempt])
@@ -107,11 +108,12 @@ export default function GlobalQuests({ activeQuests = [], onAcceptGlobalEvent }:
     {!uid ? <div className="mt-4"><SignInButton mode="modal"><button className="hud-button px-4 py-2 font-semibold">Sign in to add event quests</button></SignInButton></div> : <>
       {!currentFeed && !error && <p role="status" className="mt-4 text-sm text-muted">Loading campus events…</p>}
       {currentFeed?.quests.length === 0 && <p className="mt-4 text-sm text-muted">No upcoming events yet. Check back soon for your next campus adventure.</p>}
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
+      {Boolean(currentFeed?.quests.length) && <p id="event-scroll-hint" className="mt-4 text-xs text-muted">Scroll sideways to browse events. Refresh board to mix them up.</p>}
+      <div className="event-card-scroller mt-3" role="region" aria-label="Campus events" aria-describedby={currentFeed?.quests.length ? "event-scroll-hint" : undefined} tabIndex={0}>
         {currentFeed?.quests.map((quest) => {
           const existing = activeQuests.find((active) => active.sourceGlobalEventId === quest.id)
           const ended = clock > Date.parse(quest.endsAt) + quest.graceMinutes * 60000
-          return <article key={quest.id} className="quest-subpanel p-4">
+          return <article key={quest.id} className="quest-subpanel event-scroll-card p-4">
             <p className="text-xs font-semibold text-secondary">{quest.organizationName} · Event · +{quest.xpReward} XP</p>
             <h3 className="mt-1 font-bold text-lg"><img src="/art/cozy/rose.png" alt="" aria-hidden="true" className="cozy-icon mr-2 inline-block size-7" />{quest.title}</h3>
             <p className="mt-2 text-sm whitespace-pre-wrap break-words">{quest.description}</p>
@@ -120,7 +122,7 @@ export default function GlobalQuests({ activeQuests = [], onAcceptGlobalEvent }:
               <a className="text-sm underline" href={quest.sourceUrl} target="_blank" rel="noreferrer">From UF Calendar ↗</a>}
             <p className="mt-1 text-xs text-muted">{eventDate(quest.startsAt)} – {eventDate(quest.endsAt)}</p>
             <p className="mt-2 text-xs text-muted">{quest.verificationMode === 'gps' ? `GPS check-in within ${quest.radiusMeters}m during the event.` : 'Confirm attendance during the event.'} One reward per person.</p>
-            <div className="mt-4 flex flex-wrap gap-3 items-center">
+            <div className="event-card-actions flex gap-3 items-center">
               <button type="button" className="magic-cta rounded-lg px-4 py-2 text-sm font-semibold" disabled={Boolean(busy) || quest.completed || ended} onClick={() => existing ? navigateTo(`/sidequests/${encodeURIComponent(existing.id)}`) : activeQuests.length >= 3 ? navigateTo(`/global-quests/${encodeURIComponent(quest.id)}`) : void accept(quest)}>
                 {quest.completed ? 'Completed ✓' : existing ? 'View quest' : busy === quest.id ? 'Preparing event quest…' : ended ? 'Event ended' : activeQuests.length >= 3 ? 'View quest' : 'Add to my quests'}
               </button>

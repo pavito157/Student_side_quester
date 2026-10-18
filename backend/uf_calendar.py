@@ -138,7 +138,8 @@ def sync(db, accepted, rejected, now, counts):
             if old:
                 prior = GlobalEvent.model_validate(old)
                 event = event.model_copy(update={field: getattr(prior, field) for field in (
-                    'createdAt', 'xpReward', 'radiusMeters', 'maxAccuracyMeters', 'verificationMode', 'graceMinutes', 'questTemplate')})
+                    'createdAt', 'xpReward', 'radiusMeters', 'maxAccuracyMeters', 'verificationMode', 'graceMinutes')})
+                event = event.model_copy(update={'questTemplate': prior.questTemplate or event.questTemplate})
             transaction.set(ref, event.model_dump())
             return 'updated' if old else 'created'
         outcomes[write(db.transaction())] += 1

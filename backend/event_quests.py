@@ -20,6 +20,8 @@ class EventInstructions(BaseModel):
     steps: list[str] = Field(min_length=2, max_length=4)
 
     def checked(self):
+        if any(ord(char) < 32 and char not in '\n\t' for value in [self.description, *self.steps] for char in value):
+            raise ValueError('Invalid control character in event instructions')
         if any(not step.strip() or len(step) > 500 for step in self.steps):
             raise ValueError('Invalid event steps')
         return self

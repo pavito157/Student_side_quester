@@ -772,7 +772,7 @@ function SidequestDetailPage({
                         href={section.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex min-h-11 items-center justify-center rounded-xl border px-4 py-2 text-sm font-bold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+                        className="quest-action-button inline-flex min-h-11 items-center justify-center rounded-xl border px-4 py-2 text-sm font-bold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2"
                         style={{
                           color: colors.foreground,
                           borderColor: colors.border,
@@ -786,7 +786,7 @@ function SidequestDetailPage({
                       type="button"
                       onClick={() => void handleComplete(nextStopIndex)}
                       disabled={isCompleting || isAbandoning || isReplacing || photoProofBusyStep !== null || missingPhotoProof}
-                      className="min-h-12 cursor-pointer rounded-xl px-4 py-2.5 text-sm font-black transition hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-wait disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 sm:col-span-2 lg:col-span-1"
+                      className="quest-action-button min-h-12 cursor-pointer rounded-xl px-4 py-2.5 text-sm font-black transition hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-wait disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 sm:col-span-2 lg:col-span-1"
                       style={{
                         backgroundColor: colors.primary,
                         color: colors.primaryForeground,
@@ -817,7 +817,7 @@ function SidequestDetailPage({
                     {onGenerateAnother && <div className="space-y-2">
                       <button type="button" onClick={() => void handleGenerateAnother()}
                         disabled={isCompleting || isAbandoning || isReplacing || slotsRemaining === 0}
-                        className="min-h-11 w-full cursor-pointer rounded-xl border px-4 py-2 text-sm font-semibold hover:bg-white/5 disabled:cursor-wait disabled:opacity-60"
+                        className="quest-action-button min-h-11 w-full cursor-pointer rounded-xl border px-4 py-2 text-sm font-semibold hover:bg-white/5 disabled:cursor-wait disabled:opacity-60"
                         style={{ borderColor: colors.border, color: colors.secondary }}>
                         {isReplacing ? 'Generating…' : `Generate another (${slotsRemaining} left)`}
                       </button>
@@ -835,7 +835,7 @@ function SidequestDetailPage({
                           setShowAbandonConfirmation(true)
                         }}
                         disabled={isCompleting || isAbandoning || isReplacing}
-                        className="min-h-11 cursor-pointer rounded-xl border px-4 py-2 text-sm font-semibold transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 sm:col-span-2 lg:col-span-1"
+                        className="quest-action-button min-h-11 cursor-pointer rounded-xl border px-4 py-2 text-sm font-semibold transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 sm:col-span-2 lg:col-span-1"
                         style={{
                           borderColor: colors.errorBorder,
                           color: colors.error,
@@ -858,7 +858,7 @@ function SidequestDetailPage({
                             type="button"
                             onClick={() => setShowAbandonConfirmation(false)}
                             disabled={isAbandoning}
-                            className="min-h-10 cursor-pointer rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-60"
+                            className="quest-action-button min-h-10 cursor-pointer rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-60"
                             style={{ borderColor: colors.border, color: colors.foreground }}
                           >
                             Keep quest
@@ -867,7 +867,7 @@ function SidequestDetailPage({
                             type="button"
                             onClick={() => void handleAbandon()}
                             disabled={isAbandoning}
-                            className="min-h-10 cursor-pointer rounded-lg px-3 py-2 text-xs font-bold disabled:cursor-wait disabled:opacity-60"
+                            className="quest-action-button min-h-10 cursor-pointer rounded-lg px-3 py-2 text-xs font-bold disabled:cursor-wait disabled:opacity-60"
                             style={{ backgroundColor: colors.error, color: colors.primaryForeground }}
                           >
                             {isAbandoning ? 'Abandoning…' : 'Yes, abandon'}

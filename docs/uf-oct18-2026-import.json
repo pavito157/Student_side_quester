@@ -1,0 +1,68 @@
+{
+  "mode": "apply",
+  "events": [
+    {
+      "xpReward": 25,
+      "radiusMeters": 100,
+      "maxAccuracyMeters": 50,
+      "verificationMode": "gps",
+      "graceMinutes": 0,
+      "organizationId": "uf-calendar",
+      "title": "Davin Youngs - THE RESET",
+      "description": "Davin Youngs presents THE RESET, a live sound-bath performance combining music and meditation at the Phillips Center. Attend the scheduled session and check in at the venue. This is a ticketed event: UF student tickets are listed at $15, audience seating at $30, and on-stage seating at $40. Admission is not included with this quest. See the official event page for tickets and details: https://performingarts.ufl.edu/events/davin-youngs-the-reset/",
+      "locationName": "Curtis M. Phillips Center for the Performing Arts",
+      "latitude": 29.635258000000004,
+      "longitude": -82.369306,
+      "startsAt": "2026-10-18T15:00:00Z",
+      "endsAt": "2026-10-18T16:30:00Z",
+      "id": "uf-calendar-40a220d73a3056d14795439635f949615c64cf79",
+      "organizationName": "UF Calendar",
+      "createdBy": "system:uf-calendar",
+      "createdAt": "2026-10-18T08:56:56.790025Z",
+      "status": "published",
+      "source": "uf-calendar",
+      "sourceUrl": "https://performingarts.ufl.edu/events/davin-youngs-the-reset/",
+      "questTemplate": {
+        "description": "Attend Davin Youngs - THE RESET, a live sound-bath performance combining music and meditation.",
+        "steps": [
+          "Arrive at the Curtis M. Phillips Center for the Performing Arts during the scheduled time.",
+          "Attend the Davin Youngs - THE RESET performance.",
+          "Check in at the venue."
+        ]
+      }
+    },
+    {
+      "xpReward": 25,
+      "radiusMeters": 100,
+      "maxAccuracyMeters": 50,
+      "verificationMode": "gps",
+      "graceMinutes": 0,
+      "organizationId": "uf-calendar",
+      "title": "Davin Youngs - THE RESET",
+      "description": "Davin Youngs presents THE RESET, a live sound-bath performance combining music and meditation at the Phillips Center. Attend the scheduled session and check in at the venue. This is a ticketed event: UF student tickets are listed at $15, audience seating at $30, and on-stage seating at $40. Admission is not included with this quest. See the official event page for tickets and details: https://performingarts.ufl.edu/events/davin-youngs-the-reset/",
+      "locationName": "Curtis M. Phillips Center for the Performing Arts",
+      "latitude": 29.635258000000004,
+      "longitude": -82.369306,
+      "startsAt": "2026-10-18T19:00:00Z",
+      "endsAt": "2026-10-18T20:30:00Z",
+      "id": "uf-calendar-694133c1ed6baebf05b9c7809ea161ad7cc64401",
+      "organizationName": "UF Calendar",
+      "createdBy": "system:uf-calendar",
+      "createdAt": "2026-10-18T08:56:56.790025Z",
+      "status": "published",
+      "source": "uf-calendar",
+      "sourceUrl": "https://performingarts.ufl.edu/events/davin-youngs-the-reset/",
+      "questTemplate": {
+        "description": "Attend Davin Youngs - THE RESET, a live sound-bath performance combining music and meditation at the Phillips Center during the scheduled time.",
+        "steps": [
+          "Arrive at the Curtis M. Phillips Center for the Performing Arts during the scheduled time.",
+          "Attend the live sound-bath performance.",
+          "Check in at the venue."
+        ]
+      }
+    }
+  ],
+  "writes": {
+    "updated": 2
+  }
+}

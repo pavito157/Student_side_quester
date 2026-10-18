@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import vm from 'node:vm'
 import ts from 'typescript'
+const shuffleSource = await readFile(new URL('../src/services/shuffleEvents.ts', import.meta.url), 'utf8')
 const source = await readFile(new URL('../src/services/globalQuests.ts', import.meta.url), 'utf8')
 const compiled = ts.transpileModule(source, { compilerOptions: {module: ts.ModuleKind.ESNext, target:ts.ScriptTarget.ES2023} }).outputText
 async function fixture(response, gpsFailure = false) {
@@ -103,6 +104,7 @@ async function view(organizations, signedIn=true, activities=null, adminRole='re
     if(name==='@clerk/clerk-react')return synthetic({useUser:()=>({user:signedIn?{id:'admin'}:null}),SignInButton:()=>null})
     if(name.endsWith('/questAssignment'))return synthetic({MAX_ACTIVE_QUESTS:3,getOrganizationQuestBoard:async()=>activities})
     if(name.endsWith('/AdventureDecor'))return synthetic(Object.fromEntries(['PixelBranchIcon','PixelHangingVineIcon','PixelCompassIcon'].map(key=>[key,()=>null])))
+    if(name.endsWith('/shuffleEvents'))return new vm.SourceTextModule(ts.transpileModule(shuffleSource,{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText,{context})
     if(name.endsWith('/navigation'))return synthetic({navigateTo:()=>{}})
     if(name.endsWith('/colors'))return synthetic({colors:{}})
     if(name.endsWith('/firebaseSession'))return synthetic({getFirebaseIdToken:async()=> 'token'})

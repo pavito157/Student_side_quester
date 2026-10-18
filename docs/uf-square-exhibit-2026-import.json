@@ -1,0 +1,36 @@
+{
+  "mode": "apply",
+  "writes": {
+    "created": 1
+  },
+  "event": {
+    "xpReward": 25,
+    "radiusMeters": 100,
+    "maxAccuracyMeters": 50,
+    "verificationMode": "gps",
+    "graceMinutes": 0,
+    "organizationId": "uf-calendar",
+    "title": "An Unreasonable Commitment to the Square",
+    "description": "Visit Kelsey Barton\u2019s free exhibition An Unreasonable Commitment to the Square at 4Most Gallery & Studio. Explore ceramic works built from repeated square forms and the relationship between structure, repetition, and clay. The exhibit runs October 12\u201323, 2026. The gallery is closed Sunday; this quest\u2019s next check-in window is Monday, October 19, noon\u20135 PM Eastern. Earn 25 XP once per person for the entire exhibit, even if the board is refreshed later.",
+    "locationName": "4Most Gallery",
+    "latitude": 29.648512499999995,
+    "longitude": -82.3306479,
+    "startsAt": "2026-10-19T16:00:00Z",
+    "endsAt": "2026-10-19T21:00:00Z",
+    "id": "uf-calendar-94c28d8137d96320e678716eab9c41a6d1896cc6",
+    "organizationName": "UF Calendar",
+    "createdBy": "system:uf-calendar",
+    "createdAt": "2026-10-18T09:37:43.753907Z",
+    "status": "published",
+    "source": "uf-calendar",
+    "sourceUrl": "https://calendar.ufl.edu/event/58457-an-unreasonable-commitment-to-the-square",
+    "questTemplate": {
+      "description": "Attend Kelsey Barton\u2019s free exhibition 'An Unreasonable Commitment to the Square' at 4Most Gallery during the scheduled time.",
+      "steps": [
+        "Arrive at 4Most Gallery during the scheduled time.",
+        "Attend the exhibition.",
+        "Check in at the venue."
+      ]
+    }
+  }
+}

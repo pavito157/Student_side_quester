@@ -2,7 +2,7 @@ import { ClerkProvider } from '@clerk/clerk-react'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
-import QuestVideoBackground from './components/decor/QuestVideoBackground'
+import AmbientScene from './components/decor/AmbientScene'
 import FirebaseSessionBridge from './auth/FirebaseSessionBridge'
 import './index.css'
 
@@ -14,7 +14,7 @@ if (!clerkPublishableKey) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <QuestVideoBackground />
+    <AmbientScene />
     <ClerkProvider publishableKey={clerkPublishableKey}>
       <FirebaseSessionBridge>
         <App />

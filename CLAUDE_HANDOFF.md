@@ -240,3 +240,40 @@ Server `.env` needs readable `GAINESVILLE_BOUNDARY_PATH` and `GOOGLE_APPLICATION
 ## Latest update: advanced quest defaults
 
 User clarified that “text” was a typo: no new verification method. New quests default to `proofOptions: ['location', 'photo']`; Recreation stays off. Multi-stop defaults OFF for unset/Any time or under 60 minutes, and ON for 60+ minutes, including custom time. Explicit checkbox choices take precedence over subsequent time changes via the frontend-only `multiQuestManual` flag; it is not sent in API payloads. Applying a vibe resets to the time-based default. Multi-stop still requires a starting location. Shared policy is in `features/quest-generation/questFilterDefaults.ts`. Changes are in `features/home/HomePage.tsx`, verification fallbacks in `features/quest-generation/QuestFilterButtons.tsx`, and related `questNavigation`/`questButton` tests. Full suite: 161 passing tests; production build succeeds. These changes are also uncommitted.
+
+## Latest background update (after the leaderboard-defaults push)
+
+The latest user request replaces the nonseamless MP4 with a recreated layered scene in the same pixel-art style. `src/components/decor/AmbientScene.tsx` now mounts in `src/main.tsx`; `QuestVideoBackground.tsx` and its obsolete tests are removed. New lossless WebP assets are under `public/art/ambient/`. Independent CSS cloud drift, dragon breathing/smoke, flames/embers and fireflies avoid any shared rewind; reduced-motion mode leaves a static scene. Header foliage interactions and app functionality remain intact. The MP4 is retained only for reference/rollback. See `docs/seamless-background.md` for prompts/provenance and loop design. Latest suite: 162 passing tests, successful build, no lint errors. This background replacement is local and uncommitted; `leaderboard-defaults` was previously pushed at `7091b4b`.
+
+### One-time UF events import — October 18
+
+Published two verified THE RESET sessions at Phillips Center to live GlobalQuests,
+11:00–12:30 and 15:00–16:30 Eastern Oct 18, 2026. Official UF feed supplies source
+IDs/time; UFPA event page supplies venue and ticketed facts; exact Google Places
+venue resolution plus existing Gainesville polygon verify coordinates. Each has
+cached Gemini JSON tasks and 25 XP GPS/time policy. Existing global map shows both
+pins (same-location offsets), existing three-slot acceptance flow is unchanged.
+Receipt: docs/uf-oct18-2026-import.json. Operator script:
+backend/scripts/import_reviewed_uf_oct18.py (dry-run default, --apply writes).
+No scheduler activated; strict generic importer unchanged. See caveat in
+backend/UF_CALENDAR_IMPORT.md before activating generic sync on curated records.
+Validation: reviewed import/calendar/event tests: 10 passed, 9 emulator-only skipped;
+live import repeated safely: 2 updated, no duplicate records.
+
+### Exhibit replacement (latest)
+
+User explicitly chose ONE completion for the entire exhibit, not 25 XP/day.
+Later THE RESET session 55853 soft-cancelled; 11 AM remains. Reviewed October 18
+importer now excludes 55853 to prevent reappearance. Added Marston's Excavating a
+Legacy exhibit through backend/scripts/import_reviewed_uf_exhibit.py; stable ID
+uf-calendar-f0eaa24d35d101e60cabfcc0add0a15316cf1d13, no date suffix, retained claims.
+Today's reviewed public hours 10 AM–6 PM Eastern; exhibit runs Aug20–Dec18. Future
+refreshes must update this SAME event ID, verify that day's hours, and preserve
+claims. No scheduler activated. Latest receipt docs/uf-exhibit-2026-import.json.
+
+Added the second requested exhibit: An Unreasonable Commitment to the Square at
+4Most Gallery. Script backend/scripts/import_reviewed_uf_square.py; receipt
+ docs/uf-square-exhibit-2026-import.json. Stable event ID
+uf-calendar-94c28d8137d96320e678716eab9c41a6d1896cc6, one completion across whole
+exhibit. Sunday closed per Google Places; published upcoming Monday Oct19 noon–5PM
+Eastern window. Source exhibit runs Oct12–23. Existing Marston and 11AM RESET retained.

@@ -1,0 +1,39 @@
+{
+  "mode": "apply",
+  "retiredEventId": "uf-calendar-694133c1ed6baebf05b9c7809ea161ad7cc64401",
+  "writes": {
+    "cancelled": 1,
+    "updated": 1
+  },
+  "event": {
+    "xpReward": 25,
+    "radiusMeters": 100,
+    "maxAccuracyMeters": 50,
+    "verificationMode": "gps",
+    "graceMinutes": 0,
+    "organizationId": "uf-calendar",
+    "title": "Excavating a Legacy: Dr. Kathleen Deagan",
+    "description": "Explore the free Excavating a Legacy exhibition on Marston Science Library\u2019s second floor. Discover Dr. Kathleen Deagan\u2019s archaeology career through historical artifacts, publications, letters, and oral-history excerpts. The exhibition runs August 20\u2013December 18, 2026. Today\u2019s quest check-in window is October 18, 10 AM\u20136 PM Eastern. One 25 XP completion per person for the entire exhibition; refreshing the board does not reset eligibility.",
+    "locationName": "Marston Science Library - 2nd Floor",
+    "latitude": 29.648058700000004,
+    "longitude": -82.3437462,
+    "startsAt": "2026-10-18T14:00:00Z",
+    "endsAt": "2026-10-18T22:00:00Z",
+    "id": "uf-calendar-f0eaa24d35d101e60cabfcc0add0a15316cf1d13",
+    "organizationName": "UF Calendar",
+    "createdBy": "system:uf-calendar",
+    "createdAt": "2026-10-18T09:21:23.305742Z",
+    "status": "published",
+    "source": "uf-calendar",
+    "sourceUrl": "https://calendar.ufl.edu/event/58454-excavating-a-legacy-dr-kathleen-deagan",
+    "questTemplate": {
+      "description": "Attend the Excavating a Legacy exhibition at Marston Science Library - 2nd Floor during the scheduled time to explore Dr. Kathleen Deagan's archaeology career.",
+      "steps": [
+        "Arrive at Marston Science Library - 2nd Floor during the scheduled time.",
+        "Attend the Excavating a Legacy exhibition.",
+        "Check in at the venue."
+      ]
+    }
+  },
+  "retiredStatus": "cancelled"
+}

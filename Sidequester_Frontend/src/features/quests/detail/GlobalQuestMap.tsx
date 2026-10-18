@@ -86,28 +86,29 @@ function GlobalQuestMap({ quests, activeQuests = EMPTY_ACTIVE }: GlobalQuestMapP
           markerContent.append(pin)
 
           const preview = document.createElement('div')
-          preview.style.cssText = 'max-width:280px;padding:4px;color:#17251d'
+          preview.className = 'quest-map-popup'
           const title = document.createElement('strong')
           title.textContent = quest.title
+          title.className = 'quest-map-popup-title'
           const organization = document.createElement('p')
           organization.textContent = quest.organizationName
-          organization.style.cssText = 'margin:4px 0 0;font-size:12px'
+          organization.className = 'quest-map-popup-organization'
           const location = document.createElement('p')
           location.textContent = `${quest.locationName} · ${quest.xpReward} XP total for this quest`
-          location.style.cssText = 'margin:4px 0 0;font-size:13px;line-height:1.4'
+          location.className = 'quest-map-popup-location'
           const description = document.createElement('p')
           description.textContent = quest.description.length > 220 ? `${quest.description.slice(0,220)}…` : quest.description
-          description.style.cssText = 'margin:6px 0 0;font-size:13px;line-height:1.4'
+          description.className = 'quest-map-popup-description'
           const directions = document.createElement('a')
           directions.href = `https://www.google.com/maps/dir/?api=1&destination=${quest.latitude},${quest.longitude}`
           directions.target = '_blank'
           directions.rel = 'noreferrer'
           directions.textContent = 'Get directions'
-          directions.style.cssText = 'display:inline-block;margin-top:8px;color:#0861e8;font-weight:700'
+          directions.className = 'hud-button quest-map-popup-action'
           const openQuest = document.createElement('a')
           openQuest.href = quest.path
           openQuest.textContent = 'Open quest →'
-          openQuest.style.cssText = 'display:block;margin-top:8px;color:#0861e8;font-weight:700'
+          openQuest.className = 'hud-button quest-map-popup-action'
           openQuest.addEventListener('click', event => { if (!event.metaKey && !event.ctrlKey) { event.preventDefault(); navigateTo(quest.path) } })
           preview.append(title, organization, location, description, openQuest, directions)
 

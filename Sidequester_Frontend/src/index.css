@@ -698,7 +698,7 @@ h1,h2,h3 { text-wrap:balance; }
 .quest-form > section[aria-label='Quest filters'] .min-w-0 > span { display:flex; align-items:center; gap:.6rem; color:#634b3b!important; font-weight:700; font-size:.9rem; }
 .quest-form > section[aria-label='Quest filters'] select { min-height:3rem; }
 #quest-advanced-settings { border:8px solid transparent!important; border-image:url('/art/cozy/tile-cream.png') 6 / 9px / 0 stretch!important; box-shadow:4px 6px #77533c55; }
-.hud-button,.anywhere-button,.current-location-button,
+.hud-button,.anywhere-button,.current-location-button,.quest-action-button,
 button[style*='background-color: var(--color-primary)'],a[style*='background-color: var(--color-primary)'] {
   border:7px solid transparent!important;
   border-image:url('/art/cozy/tile-cream.png') 6 / 8px / 0 stretch!important;
@@ -912,15 +912,6 @@ input[type='checkbox'],input[type='radio'] { accent-color:#75994c; }
   .hud-header .brand-icon { display:none; }
 }
 
-/* Luis's ambient scene is shared by every route, behind all interactive UI. */
-.quest-video-layer {
-  position:fixed; z-index:-1; inset:0; overflow:hidden; pointer-events:none;
-  background:#bfd58a url('/art/cozy/garden.webp') center top / cover no-repeat;
-}
-.quest-background-video { width:100%; height:100%; object-fit:cover; object-position:center; }
-.quest-video-overlay { position:absolute; inset:0; background:linear-gradient(rgb(250 249 242 / 34%),rgb(242 248 238 / 40%)); }
-@media(prefers-reduced-motion:reduce) { .quest-background-video { display:none; } }
-
 /* Aarav's podium/roster structure, rendered with the shared cozy UI kit. */
 .leaderboard-body { padding:1.25rem; }
 .leaderboard-section-heading { display:flex; align-items:baseline; justify-content:space-between; gap:1rem; margin-bottom:1rem; }
@@ -950,3 +941,88 @@ input[type='checkbox'],input[type='radio'] { accent-color:#75994c; }
   .leaderboard-champion .leaderboard-progress { grid-column:2; }
   .leaderboard-section-heading { align-items:flex-start; flex-wrap:wrap; gap:.4rem; }
 }
+
+/* Independent periodic sprites: no video rewind or scene-wide reset. */
+.ambient-scene { position:fixed; z-index:-1; inset:0; overflow:hidden; pointer-events:none; user-select:none; background:#d8e3ca; }
+.ambient-stage { position:absolute; top:50%; left:50%; width:max(100vw,177.777778dvh); height:max(100dvh,56.25vw); transform:translate(-50%,-50%); }
+.ambient-stage img { display:block; image-rendering:pixelated; }
+.ambient-plate { position:absolute; inset:0; width:100%; height:100%; }
+.ambient-soften { position:absolute; inset:0; background:linear-gradient(rgb(250 249 242 / 34%),rgb(242 248 238 / 40%)); }
+.ambient-cloud-lane { position:absolute; left:-15%; width:130%; height:8%; transform:translateX(var(--cloud-rest)); animation:ambient-cloud-drift 100s linear infinite; }
+.ambient-cloud-lane img { width:var(--cloud-width); height:auto; opacity:.9; }
+.ambient-dragon { position:absolute; right:1%; bottom:6.6%; width:14%; transform-origin:50% 100%; animation:ambient-dragon-breathe 6.4s ease-in-out infinite; }
+.ambient-dragon > img { width:100%; height:auto; }
+.ambient-dragon-smoke { position:absolute; left:0; top:35%; width:12%; height:12%; }
+.ambient-dragon-smoke i { position:absolute; width:35%; height:35%; border-radius:2px; opacity:0; background:#706d6199; animation:ambient-smoke 7.2s ease-out infinite; }
+.ambient-dragon-smoke i:nth-child(2) { animation-delay:-2.4s; }
+.ambient-dragon-smoke i:nth-child(3) { animation-delay:-4.8s; }
+.ambient-fire { position:absolute; bottom:7.6%; width:3.7%; transform:translateX(-50%); }
+.ambient-fire-left { left:4.6%; }
+.ambient-fire::before { position:absolute; content:''; inset:20% -60% -20%; background:radial-gradient(ellipse,#f6bc6366,transparent 65%); animation:ambient-firelight 3.2s ease-in-out infinite; }
+.ambient-fire > img { width:100%; height:auto; transform-origin:50% 100%; animation:ambient-flame 2.8s ease-in-out infinite; }
+.ambient-embers { position:absolute; inset:0; }
+.ambient-embers i { position:absolute; left:45%; bottom:35%; width:3px; height:3px; opacity:0; background:#eeb65b; animation:ambient-ember 5.4s ease-out infinite; }
+.ambient-embers i:nth-child(2) { left:65%; animation-delay:-1.8s; }
+.ambient-embers i:nth-child(3) { left:30%; animation-delay:-3.6s; }
+.ambient-firefly { position:absolute; width:4px; height:4px; background:#fff6af; box-shadow:0 0 8px #e9cd7080; opacity:.25; animation:ambient-firefly 8s ease-in-out infinite; }
+.ambient-firefly-one { left:25%; top:60%; }
+.ambient-firefly-two { left:78%; top:38%; animation-delay:-3s; }
+.ambient-firefly-three { left:57%; top:76%; animation-delay:-5s; }
+/* Clouds reset fully off-screen. Every visible cycle has equal endpoints or invisible endpoints. */
+@keyframes ambient-cloud-drift { from { transform:translateX(0); } to { transform:translateX(100%); } }
+@keyframes ambient-dragon-breathe { 0%,100% { transform:scaleY(1); } 50% { transform:scaleY(1.018); } }
+@keyframes ambient-flame { 0%,100% { transform:scale(1,1) skewX(0deg); opacity:.95; } 25% { transform:scale(.96,1.06) skewX(-2deg); opacity:1; } 60% { transform:scale(1.04,.96) skewX(2deg); opacity:.92; } }
+@keyframes ambient-firelight { 0%,100% { opacity:.3; transform:scale(1); } 50% { opacity:.6; transform:scale(1.1); } }
+@keyframes ambient-smoke { 0% { opacity:0; transform:translate(0,0) scale(.5); } 15% { opacity:.35; } 75% { opacity:.12; } 100% { opacity:0; transform:translate(-35px,-35px) scale(1.6); } }
+@keyframes ambient-ember { 0% { opacity:0; transform:translate(0,0); } 20% { opacity:.65; } 100% { opacity:0; transform:translate(10px,-45px); } }
+@keyframes ambient-firefly { 0%,100% { opacity:.15; transform:translate(0,0); } 50% { opacity:.5; transform:translate(6px,-8px); } }
+@media(prefers-reduced-motion:reduce) {
+  .ambient-scene *, .ambient-scene *::before { animation:none!important; transition:none!important; }
+}
+
+/* Soft canopy sits behind the header frame, with enough room for the full tips. */
+.nav-foliage { top:calc(100% - 12px); z-index:-1; overflow:visible; }
+.corner-foliage { opacity:.48; animation:foliage-breeze 9s ease-in-out infinite; }
+.foliage-right { animation-delay:-4.5s; }
+.corner-foliage[data-near="true"] { animation:foliage-breeze 9s ease-in-out infinite,branch-sway 2.6s ease-in-out infinite; }
+@keyframes foliage-breeze {
+  0%,100% { translate:0 0; }
+  35% { translate:2px 2px; }
+  70% { translate:-1px 1px; }
+}
+.released-leaves { z-index:1; }
+@media(prefers-reduced-motion:reduce) {
+  .corner-foliage,.corner-foliage[data-near="true"] { animation:none!important; }
+}
+/* Opaque frame layer masks the canopy roots without clipping the hanging tips. */
+.hud-header::after { content:''; position:absolute; inset:-10px; z-index:0; border:10px solid transparent; border-image:inherit; background:inherit; pointer-events:none; }
+.hud-header::before { z-index:1; }
+
+/* A single browsable row keeps the board compact as more events are published. */
+.event-card-scroller { display:grid; grid-auto-flow:column; grid-auto-columns:min(85vw,26rem); gap:1rem; overflow-x:auto; overscroll-behavior-x:contain; scroll-snap-type:x proximity; padding:2px 3px 14px; scrollbar-width:thin; scrollbar-color:#ad8559 #f8e8c6; }
+.event-card-scroller:focus-visible { outline:2px solid #75994c; outline-offset:4px; }
+.event-scroll-card { display:flex; flex-direction:column; min-width:0; scroll-snap-align:start; }
+.event-card-actions { margin-top:auto; padding-top:1rem; flex-wrap:nowrap; }
+.event-card-actions > a { flex-shrink:0; white-space:nowrap; }
+.event-card-scroller::-webkit-scrollbar { height:10px; }
+.event-card-scroller::-webkit-scrollbar-track { background:#f8e8c6; border-radius:4px; }
+.event-card-scroller::-webkit-scrollbar-thumb { background:#ad8559; border:2px solid #f8e8c6; border-radius:4px; }
+
+/* Quest actions share the completion button's parchment pixel frame. */
+.quest-action-button { min-height:3rem; padding:.625rem 1rem; font-weight:900; text-align:center; }
+.quest-action-button:hover:not(:disabled) { background:#f8e6c1!important; box-shadow:2px 4px #805d4360; }
+.quest-action-button:active:not(:disabled) { translate:1px 2px; box-shadow:0 1px #805d4345; }
+.quest-action-button:disabled { opacity:.6; }
+
+/* Google keeps its popup positioning/controls; the shell matches our parchment UI. */
+.gm-style .gm-style-iw-c:has(.quest-map-popup) { border:8px solid transparent; border-image:url('/art/cozy/tile-cream.png') 6 / 9px / 0 stretch; border-radius:3px!important; background:#fff2d3!important; box-shadow:3px 5px #805d4355!important; padding:10px!important; }
+.gm-style .gm-style-iw-d:has(.quest-map-popup) { background:#fff2d3!important; scrollbar-width:thin; scrollbar-color:#ad8559 #fff2d3; }
+.gm-style .gm-style-iw-t:has(.quest-map-popup) .gm-style-iw-tc::after { background:#fff2d3!important; }
+.gm-style-iw-c:has(.quest-map-popup) button.gm-ui-hover-effect { border-radius:2px; background:#ead09c!important; opacity:1; }
+.quest-map-popup { max-width:280px; padding:3px 4px 8px; color:#49392e; font:400 13px/1.5 var(--font-sans); }
+.quest-map-popup-title,.quest-map-popup > strong { display:block; font-family:'Sprout Pixel',var(--font-sans); font-size:18px; line-height:1.3; color:#443044; }
+.quest-map-popup-organization { margin:6px 0 0; font-weight:700; color:#526f3d; font-size:12px; }
+.quest-map-popup-location { margin:6px 0 0; font-weight:600; }
+.quest-map-popup-description { margin:8px 0 0; white-space:pre-line; }
+.quest-map-popup-action { display:block; margin-top:10px; padding:5px 8px; text-align:center; text-decoration:none; font-weight:700; }
+.quest-map-popup-action:focus-visible { outline:2px solid #526f3d; outline-offset:2px; }

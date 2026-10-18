@@ -78,6 +78,16 @@ export function NavFoliage() {
     const corners = foliage.current?.querySelectorAll<HTMLImageElement>('.corner-foliage')
     let leafId = 0
     const returns = new Map<HTMLImageElement, Animation>()
+    const shedLeaf = (corner: HTMLImageElement) => {
+      if (motion.matches || document.hidden) return
+      const bounds = corner.getBoundingClientRect()
+      const left = Math.max(0, bounds.left)
+      const right = Math.min(document.documentElement.clientWidth, bounds.right)
+      const distance = 16 + Math.random() * Math.max(0, right - left - 32)
+      const x = corner.classList.contains('foliage-left') ? left + distance : right - distance
+      const y = bounds.top + bounds.height * (.35 + Math.random() * .2)
+      setReleasedLeaves((leaves) => [...leaves.slice(-5), { id: ++leafId, x: x - 16, y }])
+    }
     const release = (corner: HTMLImageElement, dropLeaf: boolean) => {
       if (!corner.dataset.near) return
       const angle = Number.parseFloat(getComputedStyle(corner).rotate) || 0
@@ -106,16 +116,7 @@ export function NavFoliage() {
             if (returns.get(corner) === settling) returns.delete(corner)
           }
           if (!dropLeaf) return
-          const bounds = corner.getBoundingClientRect()
-          // The full visible width of either corner is eligible, mirrored.
-          const left = Math.max(0, bounds.left)
-          const right = Math.min(document.documentElement.clientWidth, bounds.right)
-          const distance = 16 + Math.random() * Math.max(0, right - left - 32)
-          const centerX = corner.classList.contains('foliage-left')
-            ? left + distance : right - distance
-          const id = ++leafId
-          const y = bounds.top + bounds.height * (.35 + Math.random() * .2)
-          setReleasedLeaves((leaves) => [...leaves.slice(-5), { id, x: centerX - 16, y }])
+          shedLeaf(corner)
         }
       }
     }
@@ -138,12 +139,24 @@ export function NavFoliage() {
         } else if (!nearby) release(corner, true)
       })
     }
+    // Sparse, staggered shedding: one leaf every 16–24 seconds across both corners.
+    let nextCorner = 0
+    let sheddingTimer: number
+    const scheduleShedding = () => {
+      sheddingTimer = window.setTimeout(() => {
+        const corner = corners?.[nextCorner++ % (corners.length || 1)]
+        if (corner && !corner.dataset.near) shedLeaf(corner)
+        scheduleShedding()
+      }, 16000 + Math.random() * 8000)
+    }
+    scheduleShedding()
     // Observe proximity without making decorative artwork intercept any clicks.
     window.addEventListener('pointermove', reactToPointer, { passive: true })
     window.addEventListener('blur', reset)
     document.documentElement.addEventListener('pointerleave', leaveWindow)
     motion.addEventListener('change', reset)
     return () => {
+      window.clearTimeout(sheddingTimer)
       window.removeEventListener('pointermove', reactToPointer)
       window.removeEventListener('blur', reset)
       document.documentElement.removeEventListener('pointerleave', leaveWindow)

@@ -91,3 +91,66 @@ cancellation blocking attendance, and source failures/collision protection.
 Existing global quest tests cover GPS/time enforcement, duplicate attendance and
 atomic user/residence XP. After activation, confirm imported cards have their UF
 source link and match their source's time and venue before checking in on site.
+
+## Reviewed one-time October 18, 2026 import
+
+`python -m backend.scripts.import_reviewed_uf_oct18 --apply --report docs/uf-oct18-2026-import.json`
+
+This separate operator command imports the two THE RESET performances (11:00–12:30
+and 15:00–16:30 America/New_York) from the official feed. Its missing venue is
+reviewed against https://performingarts.ufl.edu/events/davin-youngs-the-reset/;
+Google Places resolves the exact venue/address and the existing city polygon
+check validates Gainesville. Both are ticketed performances, disclosed in the
+public description. They are distinct sessions at the same physical venue.
+
+The command fails closed if source identity, title, time, URL or virtual metadata
+changes. Gemini generates one shared structured task template per session before
+any new events are written; repeat runs reuse cached tasks and deterministic IDs.
+It uses existing GlobalQuests persistence, map previews, three-slot acceptance,
+GPS/time completion and user/residence XP. No accounts are assigned or awarded XP
+by the import. No scheduler is installed or activated.
+
+All-day gallery listings were excluded because a date alone does not establish a
+valid GPS attendance window. Away athletics were excluded. The regular automated
+importer's strict requirements are unchanged; before enabling it, reviewed venue
+enrichment needs integrating so a later strict sync does not cancel these entries
+for the feed's missing venue/GEO fields. The public JSON import receipt is saved
+in `docs/uf-oct18-2026-import.json`.
+
+### Exhibit replacement and once-per-exhibit rewards
+
+The later THE RESET session (`55853`, 3 PM) is now retired (soft-cancelled), and the
+original October 18 importer only selects the 11 AM session so reruns cannot
+republish the removed duplicate. Its historical import receipt remains an audit
+of the earlier publication, not the current board.
+
+`python -m backend.scripts.import_reviewed_uf_exhibit --apply --report docs/uf-exhibit-2026-import.json`
+
+This reviewed import adds Excavating a Legacy: Dr. Kathleen Deagan at Marston
+Science Library, second floor. The official listing gives an August 20–December
+18 exhibit period and weekend public exhibit hours of 10 AM–6 PM. Today's
+October 18 attendance window uses those hours in America/New_York. Coordinates
+are verified with Places and the Gainesville boundary.
+
+The source-based event ID deliberately has **no day suffix**. Future daily board
+refreshes must update the same record and retain private attendance claims: each
+person earns 25 XP only once for the whole exhibition, not daily. No claims,
+user XP, dorm XP, or accepted personal quest records are erased by this update.
+Future dates require reviewed opening hours (including holiday exceptions) before
+adding to REVIEWED_WINDOWS; no guessed all-day check-in window is accepted.
+No automatic importer/scheduler is activated by this change.
+
+### 4Most Gallery exhibit
+
+`python -m backend.scripts.import_reviewed_uf_square --apply --report docs/uf-square-exhibit-2026-import.json`
+
+Adds An Unreasonable Commitment to the Square (Kelsey Barton, October 12–23),
+verified against the UF feed and https://arts.ufl.edu/event/an-unreasonable-commitment-to-the-square/.
+Venue is 4Most Gallery, 534 SW 4th Ave, verified with Places and the Gainesville
+boundary. Places reports Sunday closed and next opening Monday October 19,
+12–5 PM Eastern; that is the published quest window, not an invented Sunday visit.
+One stable source-based ID, with no day suffix, preserves one 25 XP completion for
+the entire exhibition. Uses the same cached Gemini tasks, three-slot acceptance,
+map pins, GPS/time verification, and user/residence rewards as other global quests.
+Future reviewed windows must update the SAME event ID, retaining all claims.
+No automatic schedule is enabled.

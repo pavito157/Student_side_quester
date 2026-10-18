@@ -8,7 +8,7 @@ import {
 } from '@clerk/clerk-react'
 import { AccountIcon, LeaderboardIcon, MenuIcon, SettingsIcon } from '../ui/icons'
 import { colors } from '../../constants/colors'
-import { FallingLeaves, NavFoliage } from '../decor/AdventureDecor'
+import { FallingLeaves, NavFoliage, PixelLeafIcon } from '../decor/AdventureDecor'
 import { navigateTo } from '../../services/navigation'
 
 interface HeaderProps {
@@ -56,7 +56,17 @@ function Header({
         className="hud-header sticky top-0 z-30 w-full border-b px-3 py-2.5 sm:px-6 sm:py-3"
         style={{ backgroundColor: colors.surface, borderColor: colors.border }}
       >
-        <div className="grid w-full grid-cols-[minmax(2.5rem,1fr)_auto_minmax(2.5rem,1fr)] items-center gap-2">
+        <div className="header-pixel-sky" aria-hidden="true">
+          <PixelLeafIcon className="header-leaf header-leaf-one" />
+          <PixelLeafIcon className="header-leaf header-leaf-two" />
+          <PixelLeafIcon className="header-leaf header-leaf-three" />
+          <PixelLeafIcon className="header-leaf header-leaf-four" />
+          <PixelLeafIcon className="header-leaf header-leaf-five" />
+          <PixelLeafIcon className="header-leaf header-leaf-six" />
+          <PixelLeafIcon className="header-leaf header-leaf-seven" />
+          <PixelLeafIcon className="header-leaf header-leaf-eight" />
+        </div>
+        <div className="header-content grid w-full grid-cols-[minmax(2.5rem,1fr)_auto_minmax(2.5rem,1fr)] items-center gap-2">
           <button
             type="button"
             aria-label={`Open menu${activeSidequestCount > 0
@@ -72,7 +82,7 @@ function Header({
             {activeSidequestCount > 0 && (
               <span
                 aria-hidden="true"
-                className="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border px-1 text-[0.65rem] font-bold leading-none"
+                className="quest-count-pixel absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border px-1 text-[0.65rem] font-bold leading-none"
                 style={{
                   backgroundColor: '#ed592d',
                   borderColor: colors.surface,
@@ -110,6 +120,7 @@ function Header({
             style={{ color: colors.foreground }}
           >
             <img src="/favicon.svg" alt="" aria-hidden="true" width="24" height="24" className="brand-icon" />
+            <PixelLeafIcon className="brand-sparkle" />
             Sidequester
           </a>
 

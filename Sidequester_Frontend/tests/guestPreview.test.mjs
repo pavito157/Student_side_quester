@@ -78,7 +78,7 @@ test('guest preview explains non-persistence and offers responsive next actions'
   assert.match(main.props.className, /100dvh/)
   assert.match(main.props.className, /px-3/)
   assert.match(nextActions.props.className, /sm:flex-row/)
-  assert.ok(rendered.nodes.some((node) => node.props?.children === 'This one-time preview is not saved. Only location- or photo-verified quest steps can award XP; recreation steps are for fun only.'))
+  assert.ok(rendered.nodes.some((node) => node.props?.children === 'This one-time preview is not saved. Only accepted photo proof can award personal quest XP. GPS checks presence only; recreation steps are for fun.'))
   assert.ok(rendered.nodes.some((node) => node.props?.children === 'Sign in for saved quests'))
   const returnButton = rendered.nodes.find((node) => node.props?.children === 'Back to quest board')
   returnButton.props.onClick()

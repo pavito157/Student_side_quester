@@ -96,13 +96,13 @@ function SidequestJsonModal({
               <span>{response.quest.locationName}</span>
               <span>About {response.quest.estimatedMinutes} minutes</span>
               <span>{response.quest.estimatedCostDollars === 0 ? 'Free' : `Estimated $${response.quest.estimatedCostDollars}`}</span>
-              <strong style={{ color: colors.secondary }}>+{response.quest.xpReward} XP on completion</strong>
+              <strong style={{ color: colors.secondary }}>Up to +{response.quest.xpReward} XP with accepted photo proof</strong>
             </div>
             <ol className="list-decimal space-y-2 pl-5 text-sm leading-relaxed">
               {response.quest.steps.map((step, index) => <li key={index}>{step}</li>)}
             </ol>
             <p className="text-xs" style={{ color: colors.muted }}>
-              XP is awarded after successful completion, not when this quest is generated.
+              GPS checks presence only and does not earn XP. Accepted photo proof is required for personal quest XP.
             </p>
             {onGenerateAnother && <div className="space-y-2">
               <button type="button" onClick={onGenerateAnother} disabled={isLoading}

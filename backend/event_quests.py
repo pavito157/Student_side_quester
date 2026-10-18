@@ -130,7 +130,7 @@ def accept_event(db, uid, event_id):
             title=current.title, description=shared.description, steps=shared.steps,
             stepProofMethods=['location'] * len(shared.steps), stepDestinationIndexes=[0] * len(shared.steps),
             locationName=current.locationName, latitude=current.latitude, longitude=current.longitude,
-            radiusMeters=float(current.radiusMeters), xpReward=current.xpReward, isActive=True,
+            radiusMeters=float(current.radiusMeters), xpReward=0, isActive=True,
             estimatedMinutes=max(1, math.ceil((current.endsAt-current.startsAt).total_seconds()/60)), estimatedCostDollars=0.0)
         assignment = SavedAssignment(id=f'{uid}_{quest_id}', userId=uid, questId=quest_id,
             status='assigned', assignedAt=utc_now())

@@ -45,7 +45,7 @@ function GuestQuestPreviewPage({
           >
             <h2 className="font-bold">Guest preview — this quest was not saved</h2>
             <p className="mt-1 text-sm leading-relaxed" style={{ color: colors.foreground }}>
-              This one-time preview is not saved. Only location- or photo-verified quest steps can award XP; recreation steps are for fun only.
+              This one-time preview is not saved. Only accepted photo proof can award personal quest XP. GPS checks presence only; recreation steps are for fun.
             </p>
             <SignedOut>
               <p className="mt-2 text-sm leading-relaxed" style={{ color: colors.foreground }}>
@@ -83,9 +83,9 @@ function GuestQuestPreviewPage({
                         {step}
                         <span className="mt-1 block text-xs font-semibold" style={{ color: colors.muted }}>
                           {result.quest.stepProofMethods[index] === 'photo'
-                            ? 'Photo verification · XP eligible'
+                            ? 'Photo verification · XP eligible after acceptance'
                             : result.quest.stepProofMethods[index] === 'location'
-                              ? 'Location verification · XP eligible'
+                              ? 'Location check · presence only · no XP'
                               : 'Recreation · no verification or XP'}
                         </span>
                       </span>

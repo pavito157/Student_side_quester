@@ -70,7 +70,15 @@ function ActiveSidequests({
                   <span>
                     {sidequest.locationName}
                   </span>
-                  <span className="shrink-0">+{sidequest.xpValue} XP</span>
+                  <span className="shrink-0">
+                    {sidequest.sourceGlobalEventId
+                      ? 'Event · no XP'
+                      : sidequest.stepProofMethods.includes('photo')
+                        ? `Up to +${sidequest.xpValue} XP`
+                        : sidequest.stepProofMethods.every((method) => method === 'recreation')
+                          ? 'Recreation · no XP'
+                          : 'Location checks · no XP'}
+                  </span>
                 </span>
               </button>
             </li>

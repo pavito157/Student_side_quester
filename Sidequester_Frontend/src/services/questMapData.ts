@@ -19,7 +19,7 @@ export function buildQuestMapPins(events: PublicGlobalQuest[], active: ActiveSid
       id: `global:${event.id}`, questId: event.id, title: event.title,
       description: event.description, organizationName: event.organizationName,
       locationName: event.locationName, latitude: event.latitude, longitude: event.longitude,
-      xpReward: event.xpReward, color: AVAILABLE_EVENT_COLOR, label: `+${event.xpReward} XP`,
+      xpReward: 0, color: AVAILABLE_EVENT_COLOR, label: 'Check-in',
       path: accepted ? `/sidequests/${encodeURIComponent(accepted.id)}` : `/global-quests/${encodeURIComponent(event.id)}`,
     }
   })

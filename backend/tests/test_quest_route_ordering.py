@@ -139,13 +139,84 @@ class RouteOrderingTests(unittest.TestCase):
             quest['verifiedPhotoSteps'] = [0]  # Near's photo moved from step 2 to step 0.
             first = quest_completion.complete_quest(db, 'student', 'quest', None, None, None)
             self.assertEqual(first['completedStops'], [0])
-            self.assertEqual(first['xpAwarded'], 5)
+            self.assertEqual(first['xpAwarded'], 8)
             quest['completedStops'] = [0]
             quest['verifiedPhotoSteps'] = [0, 1]  # East's photo is now step 1.
             second = quest_completion.complete_quest(db, 'student', 'quest', None, None, None, stop_index=1)
             self.assertEqual(second['completedStops'], [0, 1])
-            self.assertEqual(second['xpAwardedSoFar'], 10)
-            self.assertEqual(second['xpAwarded'], 5)  # Recreation adds no extra award.
+            self.assertEqual(second['xpAwardedSoFar'], 15)
+            self.assertEqual(second['xpAwarded'], 7)  # Recreation adds no extra award.
+
+    def test_location_only_stop_completes_without_xp(self):
+        proposal, stops = order_new_quest(self.proposal, self.stops, self.origin)
+        collections = defaultdict(MagicMock)
+        db = MagicMock()
+        db.collection.side_effect = lambda name: collections[name]
+        user = collections[USERS].document.return_value
+        nested = user.collection.return_value.document.return_value
+        quest = {
+            **proposal.model_dump(), 'userId': 'student', 'ownerId': 'student',
+            'questId': 'quest', 'status': 'assigned', 'isActive': True,
+            'destinations': [
+                stop.model_dump(exclude={
+                    'locationAddress', 'rating', 'priceLevel', 'userRatingCount', 'discoveryProfiles',
+                })
+                for stop in stops
+            ],
+            'stepProofMethods': ['location'] * len(proposal.steps),
+            'verifiedPhotoSteps': [], 'skippedPhotoSteps': [], 'completedStops': [],
+            'xpReward': 15, 'radiusMeters': 50,
+        }
+        nested.get.return_value.exists = True
+        nested.get.return_value.to_dict.return_value = quest
+        user.get.return_value.exists = True
+        user.get.return_value.to_dict.return_value = {'xp': 0, 'dormId': 'dorm'}
+        dorm = collections['dorms'].document.return_value
+        dorm.get.return_value.exists = True
+        dorm.get.return_value.to_dict.return_value = {'xp': 0}
+
+        with patch.object(quest_completion.firestore, 'transactional', side_effect=lambda callback: callback):
+            result = quest_completion.complete_quest(
+                db, 'student', 'quest', stops[0].latitude, stops[0].longitude, 10,
+            )
+
+        self.assertEqual(result['status'], 'in_progress')
+        self.assertEqual(result['xpAwarded'], 0)
+        self.assertEqual(result['xpAwardedSoFar'], 0)
+
+    def test_single_location_only_quest_reports_zero_xp(self):
+        collections = defaultdict(MagicMock)
+        db = MagicMock()
+        db.collection.side_effect = lambda name: collections[name]
+        user = collections[USERS].document.return_value
+        nested = user.collection.return_value.document.return_value
+        destination = self.stops[0].model_dump(exclude={
+            'locationAddress', 'rating', 'priceLevel', 'userRatingCount', 'discoveryProfiles',
+        })
+        quest = {
+            'userId': 'student', 'ownerId': 'student', 'questId': 'quest',
+            'status': 'assigned', 'isActive': True, 'steps': ['Visit the destination.'],
+            'destinations': [destination], 'stepProofMethods': ['location'],
+            'stepDestinationIndexes': [0], 'verifiedPhotoSteps': [],
+            'skippedPhotoSteps': [], 'completedStops': [], 'xpReward': 15,
+            'radiusMeters': 50,
+        }
+        nested.get.return_value.exists = True
+        nested.get.return_value.to_dict.return_value = quest
+        user.get.return_value.exists = True
+        user.get.return_value.to_dict.return_value = {'xp': 0, 'dormId': 'dorm'}
+        dorm = collections['dorms'].document.return_value
+        dorm.get.return_value.exists = True
+        dorm.get.return_value.to_dict.return_value = {'xp': 0}
+
+        with patch.object(quest_completion.firestore, 'transactional', side_effect=lambda callback: callback):
+            result = quest_completion.complete_quest(
+                db, 'student', 'quest', self.stops[0].latitude, self.stops[0].longitude, 10,
+            )
+
+        self.assertEqual(result['status'], 'completed')
+        self.assertEqual(result['xpAwarded'], 0)
+        self.assertEqual(result['xpAwardedSoFar'], 0)
 
 
 if __name__ == '__main__':

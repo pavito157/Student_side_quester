@@ -76,10 +76,10 @@ function GlobalQuestMap({ quests, activeQuests = EMPTY_ACTIVE }: GlobalQuestMapP
           if (samePlace > 1) markerContent.style.transform = `translateX(${(ordinal - (samePlace - 1) / 2) * 72}px)`
           const pin = document.createElement('button')
           pin.type = 'button'
-          pin.textContent = `+${quest.xpReward} XP`
+          pin.textContent = 'Check-in'
           pin.setAttribute(
             'aria-label',
-            `${quest.title} at ${quest.locationName}, ${quest.xpReward} XP. Open global quest.`,
+            `${quest.title} at ${quest.locationName}. Attendance check-in, no XP. Open global quest.`,
           )
           pin.className = 'cozy-map-pin'
           markerContent.style.paddingBottom = '12px'
@@ -93,7 +93,7 @@ function GlobalQuestMap({ quests, activeQuests = EMPTY_ACTIVE }: GlobalQuestMapP
           organization.textContent = quest.organizationName
           organization.style.cssText = 'margin:4px 0 0;font-size:12px'
           const location = document.createElement('p')
-          location.textContent = `${quest.locationName} · ${quest.xpReward} XP total for this quest`
+          location.textContent = `${quest.locationName} · attendance check-in only; no XP`
           location.style.cssText = 'margin:4px 0 0;font-size:13px;line-height:1.4'
           const description = document.createElement('p')
           description.textContent = quest.description.length > 220 ? `${quest.description.slice(0,220)}…` : quest.description
@@ -114,7 +114,7 @@ function GlobalQuestMap({ quests, activeQuests = EMPTY_ACTIVE }: GlobalQuestMapP
           const marker = new AdvancedMarkerElement({
             map: mapInstance,
             position: { lat: quest.latitude, lng: quest.longitude },
-            title: `${quest.title} · +${quest.xpReward} XP`,
+            title: `${quest.title} · attendance check-in`,
             content: markerContent,
           })
           const showPreview = () => {
@@ -221,13 +221,13 @@ function GlobalQuestMap({ quests, activeQuests = EMPTY_ACTIVE }: GlobalQuestMapP
   return (
     <div className="mt-4 overflow-hidden rounded-xl border border-border">
       <div aria-label="Map key" className="flex flex-wrap gap-3 border-b border-border px-3 py-3 text-xs">
-        <span><span aria-hidden="true" style={{color:'#e88932'}}>●</span> Orange XP pins: campus and organization global quests</span>
+        <span><span aria-hidden="true" style={{color:'#e88932'}}>●</span> Orange pins: event check-ins · no XP</span>
         <span><span aria-hidden="true" style={{color:'#0861e8'}}>●</span> You: current location</span>
       </div>
       <div
         ref={mapElementRef}
         role="region"
-        aria-label="Global quest map: campus and organization events with XP pins."
+        aria-label="Global quest map: campus and organization event check-ins; no XP."
         className="h-[min(62vh,34rem)] min-h-72 w-full"
       />
       {mappableQuests.length === 0 && (

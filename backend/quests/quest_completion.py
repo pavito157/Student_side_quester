@@ -167,7 +167,7 @@ def complete_quest(
         eligible_stops = [
             index for index in range(stop_count)
             if any(
-                method in ("location", "photo")
+                method == "photo"
                 for step_index, method in enumerate(proof_methods)
                 if step_destinations[step_index] == index
             )
@@ -188,7 +188,7 @@ def complete_quest(
                 for index in updated_stops
             )
         else:
-            total_awarded = 0 if skipped_stops else total_reward
+            total_awarded = 0 if skipped_stops or not eligible_stops else total_reward
         quest_complete = len(updated_stops) == stop_count
 
         user_snapshot = user_ref.get(transaction=transaction)

@@ -290,7 +290,7 @@ function QuestFilterControls({
               <span>
                 <span className="block text-sm font-semibold">Multi-stop sidequest</span>
                 <span className="mt-1 block text-xs leading-relaxed" style={{ color: colors.muted }}>
-                  Visit two or more verified destinations in order and earn a share of XP at each stop. Choose a starting location.
+                  Visit two or more verified destinations in order. Stops with accepted photo proof can earn a share of XP. Choose a starting location.
                 </span>
               </span>
             </label>
@@ -304,8 +304,8 @@ function QuestFilterControls({
                 Choose one or more. Gemini can mix the selected methods across quest steps.
               </p>
               {([
-                ['location', 'Location verification', 'Reach the destination to verify the quest and earn XP.'],
-                ['photo', 'Photo verification', 'Submit a photo of a visible result for Gemini to review and earn XP.'],
+                ['location', 'Location verification', 'Use GPS to check your presence at the destination. Location checks do not earn XP.'],
+                ['photo', 'Photo verification', 'Submit a photo of a visible result for Gemini to review; accepted proof can earn XP.'],
                 ['recreation', 'Recreation only', 'A fun activity with no verification and no XP.'],
               ] as const).map(([method, title, description]) => (
                 <label key={method} className="flex cursor-pointer items-start gap-3 rounded-lg p-2 hover:bg-white/5">

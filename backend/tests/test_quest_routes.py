@@ -6,8 +6,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from firebase_admin import auth
 
-from backend import firebase_helpers, quest_routes
-from backend.quest_completion import CompletionError
+from backend.auth import firebase_helpers
+from backend.api import quest_routes
+from backend.quests.quest_completion import CompletionError
 
 
 class RouteTests(unittest.TestCase):
@@ -127,7 +128,7 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(response.json()["detail"], "This quest is not currently assigned.")
 
     def test_photo_proof_requires_auth_and_valid_image_and_saves_only_accepted_status(self):
-        from backend.photo_proof import PhotoReview
+        from backend.quests.photo_proof import PhotoReview
 
         image = b"\x89PNG\r\n\x1a\n" + b"test-image-bytes"
         with patch.object(quest_routes, "get_photo_proof_step", return_value="Draw a labeled diagram."), \
@@ -147,7 +148,7 @@ class RouteTests(unittest.TestCase):
         record.assert_called_once_with(self.db, "token-owner", "quest", 1)
 
     def test_photo_rejection_does_not_persist_proof(self):
-        from backend.photo_proof import PhotoReview
+        from backend.quests.photo_proof import PhotoReview
 
         image = b"\xff\xd8\xff" + b"test-image-bytes"
         with patch.object(quest_routes, "get_photo_proof_step", return_value="Draw a diagram."), \

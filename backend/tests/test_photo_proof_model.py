@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import httpx
 
-from backend import photo_proof
+from backend.quests import photo_proof
 
 
 class PhotoProofModelTests(unittest.TestCase):

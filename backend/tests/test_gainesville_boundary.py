@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from backend.destination_resolver import _load_boundary, _inside_boundary
+from backend.quests.destination_resolver import _load_boundary, _inside_boundary
 
 
 class GainesvilleBoundaryTests(unittest.TestCase):

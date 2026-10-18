@@ -9,8 +9,8 @@ from concurrent.futures import ThreadPoolExecutor
 from google.auth.credentials import AnonymousCredentials
 from google.cloud.firestore import Client
 
-from backend.quest_completion import ASSIGNMENTS, CompletionError, complete_quest
-from backend.auth_routes import ensure_profile
+from backend.quests.quest_completion import ASSIGNMENTS, CompletionError, complete_quest
+from backend.api.auth_routes import ensure_profile
 
 
 @unittest.skipUnless(os.environ.get("FIRESTORE_EMULATOR_HOST"), "Local Firestore emulator not configured")

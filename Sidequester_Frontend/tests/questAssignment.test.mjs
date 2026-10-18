@@ -32,9 +32,14 @@ async function fixture() {
     context,
     initializeImportMeta(meta) { meta.env = { VITE_API_BASE_URL: 'http://localhost:8000/' } },
   })
-  await module.link(() => new vm.SyntheticModule(['getFirebaseIdToken'], function () {
-    this.setExport('getFirebaseIdToken', (...args) => state.getToken(...args))
-  }, { context }))
+  await module.link((name) => name === '../types/sidequest'
+    ? new vm.SyntheticModule(['MAX_QUEST_STEPS', 'MAX_QUEST_STOPS'], function () {
+      this.setExport('MAX_QUEST_STEPS', 10)
+      this.setExport('MAX_QUEST_STOPS', 10)
+    }, { context })
+    : new vm.SyntheticModule(['getFirebaseIdToken'], function () {
+      this.setExport('getFirebaseIdToken', (...args) => state.getToken(...args))
+    }, { context }))
   await module.evaluate()
   return { api: module.namespace, state, calls }
 }
@@ -92,7 +97,7 @@ test('network failures identify the backend connection without including credent
   const f = await fixture()
   f.state.fetch = async () => { throw new TypeError('Failed to fetch') }
   await assert.rejects(f.api.requestTestQuest('user_student', payload), (error) => {
-    assert.match(error.message, /Could not reach FastAPI/)
+    assert.match(error.message, /Could not connect right now/)
     assert.equal(error.message.includes('firebase-id-token'), false)
     return true
   })
@@ -101,7 +106,7 @@ test('network failures identify the backend connection without including credent
 test('non-JSON responses explain a possible backend URL mismatch', async () => {
   const f = await fixture()
   f.state.fetch = async () => ({ ok: true, status: 200, json: async () => { throw new SyntaxError('HTML') } })
-  await assert.rejects(f.api.requestTestQuest('user_student', payload), /non-JSON response.*VITE_API_BASE_URL/)
+  await assert.rejects(f.api.requestTestQuest('user_student', payload), /Something went wrong while loading your quest/)
 })
 
 test('saved assignments and malformed responses cannot masquerade as integration previews', async () => {

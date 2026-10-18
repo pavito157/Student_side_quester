@@ -1,6 +1,6 @@
 import unittest
 
-from backend.xp import quest_xp_reward, read_xp, xp_for_stop
+from backend.users.xp import quest_xp_reward, read_xp, xp_for_stop
 
 
 class XpTests(unittest.TestCase):

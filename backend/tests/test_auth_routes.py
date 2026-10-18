@@ -14,7 +14,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from firebase_admin import auth
 
-from backend import auth_routes, firebase_helpers
+from backend.api import auth_routes
+from backend.auth import firebase_helpers
 
 
 class BridgeRouteTests(unittest.TestCase):

@@ -6,8 +6,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 from fastapi import HTTPException
-from backend import destination_resolver as resolver, quest_generation as generation
-from backend.quest_contracts import (
+from backend.quests import destination_resolver as resolver
+from backend.quests import quest_generation as generation
+from backend.quests.quest_contracts import (
     GenerateQuestRequest, GeneratedQuestProposal, GeneratedQuestResponse, SelectedDestination,
 )
 

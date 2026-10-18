@@ -1,6 +1,6 @@
 # Quest assignment JSON contract
 
-**Current handoff:** [TASK5_API.md](../TASK5_API.md). `/quests/assign` now returns
+**Current handoff:** [TASK5_API.md](../docs/TASK5_API.md). `/quests/assign` now returns
 the saved response below (201 new, up to three active total).
 `/quests/{quest_id}/another` adds without replacing and `/me/active-quests` returns
 an array of all active saved responses. `/me/quest` returns the most recent one. The
@@ -11,22 +11,21 @@ this API handoff.
 
 Step 4 adds a direct Gemini `POST /quests/generate` preview (no quest catalog) and
 `generation.request.schema.json` / `generation.preview.schema.json`; see
-[`TASK4_GEMINI.md`](../TASK4_GEMINI.md). It accepts the same inputs plus optional
+[`TASK4_GEMINI.md`](../docs/TASK4_GEMINI.md). It accepts the same inputs plus optional
 `originCoordinates` (required with a distance limit). The Step 3 contracts below
 remain unchanged. Gemini generation is read-only until the persistence step. Its destination and any
 requested distance stay explicitly unverified until the teammate resolver is connected.
 
 The `POST /quests/assign` request matches the frontend team's example JSON.
-The fixed-quest preview is now at `/quests/preview`; see
-`backend/TASK3_INTEGRATION.md`. That test returns `QuestPreviewResponse` with `saved: false`; `/quests/assign`
-returns the persisted `AssignQuestResponse` documented below.
-These models introduce no Gemini calls, Firestore writes, or UI component changes.
+The fixed-quest preview is now at `/quests/preview` and returns
+`QuestPreviewResponse` with `saved: false`; `/quests/assign` returns the
+persisted `AssignQuestResponse` documented below.
 
-`backend/quest_contracts.py` is the executable source. Regenerate schemas and test
+`backend/quests/quest_contracts.py` is the executable source. Regenerate schemas and test
 from the repository root using an environment with the backend dependencies:
 
 ```sh
-python -m backend.quest_contracts
+python -m backend.quests.quest_contracts
 python -m unittest backend.tests.test_quest_contracts -v
 ```
 
@@ -172,7 +171,7 @@ quest against requested limits belongs in the generation step.
 The frontend stores preferences/goals under `Users/{Clerk user ID}` and vibes
 under `Users/{Clerk user ID}/vibes`; preserve those paths and existing fields.
 Step 2 now provides a Clerk-to-Firebase identity bridge and updates completion to
-read `Users`; see `backend/AUTH_SETUP.md` for configuration and frontend handoff.
+read `Users`; see [AUTH_SETUP.md](../docs/AUTH_SETUP.md) for configuration and frontend handoff.
 Historical lowercase `users` documents are not migrated automatically.
 The planned quest/assignment paths remain
 `quests/{questId}` and `userQuests/{userId}_{questId}`. Embedded `id` fields in API

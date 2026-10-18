@@ -60,7 +60,7 @@ Tests from repository root:
 
 ```sh
 python -m unittest backend.tests.test_gainesville_boundary -v
-python -m unittest discover -s tests -p 'test_destination_resolver.py' -v
+python -m unittest backend.tests.test_destination_resolver -v
 ```
 
 The standalone resolver suite uses isolated shared-module doubles and synthetic

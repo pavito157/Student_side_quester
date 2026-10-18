@@ -9,8 +9,8 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 from firebase_admin import auth
 
-from backend import firebase_helpers
-from backend.quest_contracts import QuestPreviewResponse
+from backend.auth import firebase_helpers
+from backend.quests.quest_contracts import QuestPreviewResponse
 from main import app
 
 
@@ -60,7 +60,7 @@ class QuestAssignmentPreviewTests(unittest.TestCase):
     def test_no_firestore_or_completion_access(self):
         with patch.object(firebase_helpers, "get_db", side_effect=AssertionError("No database access")), \
                 patch.object(firebase_helpers.firestore, "client", side_effect=AssertionError("No Firestore client")), \
-                patch("backend.quest_completion.complete_quest", side_effect=AssertionError("No completion")):
+                patch("backend.quests.quest_completion.complete_quest", side_effect=AssertionError("No completion")):
             self.assertEqual(self.post().status_code, 200)
             self.assertEqual(self.post().status_code, 200)
 

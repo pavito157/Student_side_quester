@@ -83,7 +83,10 @@ export function buildSidequestRequest(
     throw new Error('Choose a location with valid coordinates.')
   }
   if (input.distance !== null && !origin) {
-    throw new Error('Select a starting place or use your location to apply a distance limit.')
+    throw new Error(
+      'Select a starting place or use your current location to apply a distance limit. '
+      + 'Saved vibes need a place selected again to capture its coordinates.',
+    )
   }
   if (origin && ['', 'any', 'anywhere', 'not selected'].includes(input.location.trim().toLowerCase())) {
     throw new Error('Choose a starting place for these coordinates.')

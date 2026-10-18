@@ -277,3 +277,32 @@ Added the second requested exhibit: An Unreasonable Commitment to the Square at
 uf-calendar-94c28d8137d96320e678716eab9c41a6d1896cc6, one completion across whole
 exhibit. Sunday closed per Google Places; published upcoming Monday Oct19 noon–5PM
 Eastern window. Source exhibit runs Oct12–23. Existing Marston and 11AM RESET retained.
+
+### Main integration — 2026-10-18
+
+Saved all pending scenery/UI/event work in checkpoint 52e1d29, then merged
+origin/main at 861a643 into leaderboard-defaults. Main's CinematicHero, welcome
+transition, /home board route, pixel navigation arrows, sidebar refinements,
+saved-vibe coordinates, detail-page settings and compatible Gemini/security fixes
+are integrated. / and /welcome show the new hero; CTA and internal return links
+reach /home. Brand still opens /welcome.
+
+Explicit user requirement was to KEEP existing functionality. Main had changed
+GPS and global events to no-XP; this merge intentionally retains this branch's
+location/photo XP and 25-default global-event rewards, including user/dorm atomic
+awards and once-per-event claims. Main's public-feed creator metadata redaction is
+retained. Tests/documentation were reconciled to the preserved reward policy.
+
+Kept: seamless AmbientScene, grounded dragon, no ladder/right fire, softened
+reactive foliage and rare leaf shedding, no header signpost, horizontal shuffled
+event row with bottom-aligned actions, consistent parchment action buttons,
+themed Google popup content, existing reviewed UF exhibit imports and stable IDs.
+No live credentials, Firestore rules, scheduler, XP balances or events modified
+by this merge. Unrelated root package-lock.json remains untracked.
+
+Integration validation: production build and lint pass; 186 frontend tests pass;
+370 backend tests pass with isolated Firestore emulator at 127.0.0.1:8789 (all
+emulator cases enabled). Backend tests use explicit local CORS origins to avoid
+root .env deployment-origin overrides. Browser verified new welcome hero, animated
+CTA navigation to /home, preserved ambient board and live event pins. No live
+account was used for acceptance/completion tests.

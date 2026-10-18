@@ -110,6 +110,9 @@ async function view(organizations, signedIn=true, activities=null, adminRole='re
     if(name.endsWith('/firebaseSession'))return synthetic({getFirebaseIdToken:async()=> 'token'})
     if(name.endsWith('/OrganizationAdmin'))return synthetic({default:'OrganizationAdmin'})
     if(name.endsWith('/globalQuests'))return synthetic({getGlobalQuests:async()=>({quests:events,organizations,adminRole,defaults:{xpReward:25}}),getPublicGlobalQuests:async()=>[],createGlobalQuest:async()=>{},checkInGlobalQuest:async()=>{}})
+    if(name.endsWith('/AdventureDecor'))return synthetic({
+      PixelBranchIcon:()=>null, PixelCompassIcon:()=>null, PixelHangingVineIcon:()=>null,
+    })
     return synthetic({default:()=>null})
   });await mod.evaluate();const props = activities === null ? {activeQuests,onAcceptGlobalEvent:async()=>{},onAcceptOrganizationQuest:async()=>{}} : {userId:signedIn?'admin':null,activeQuests:[],onAccept:async()=>{}}
   cursor=0;mod.namespace.default(props);effects.forEach(fn=>fn());await new Promise(resolve=>setImmediate(resolve));cursor=0
@@ -188,7 +191,7 @@ test('events can be added before their start and existing event quests remain vi
   assert.match(fullBoard,/View quest/)
   assert.match(fullBoard,/Maximum quests reached \(3\/3\)/)
   assert.doesNotMatch(fullBoard,/All 3 slots full/)
-  assert.match(fullBoard,/\"disabled\":false,\"children\":\"View quest\"/)
+  assert.match(fullBoard,/"disabled":false,"children":"View quest"/)
   active[0].sourceGlobalEventId='gbm'
   assert.match(await view([],true,null,'member',[event],active),/View quest/)
   assert.match(await view([],true,null,'member',[{...event,completed:true}]),/Completed ✓/)

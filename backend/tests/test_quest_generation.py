@@ -448,6 +448,58 @@ class GenerationTests(unittest.TestCase):
                 else:
                     self.assert_status(502, self.generate)
 
+    def test_time_budget_mismatch_retries_once_with_specific_feedback(self):
+        self.preferences = GenerateQuestRequest.model_validate({
+            **self.body,
+            "time": {"selection": "60"},
+            "budget": {"selection": "10-25"},
+        }).normalize()
+        initial = {
+            **self.provider_draft(),
+            "estimatedMinutes": 61,
+            "estimatedCostDollars": 26,
+        }
+        corrected = {
+            **self.provider_draft(),
+            "estimatedMinutes": 55,
+            "estimatedCostDollars": 12,
+        }
+        drafts = [initial, corrected]
+
+        def respond(_request):
+            draft = drafts.pop(0)
+            return httpx.Response(200, json={"candidates": [{
+                "finishReason": "STOP",
+                "content": {"parts": [{"text": json.dumps(draft)}]},
+            }]})
+
+        self.http(handler=respond)
+        result = self.generate()
+
+        self.assertEqual(result.quest.estimatedMinutes, 55)
+        self.assertEqual(result.quest.estimatedCostDollars, 12)
+        self.assertEqual(len(self.requests), 2)
+        initial_instruction, correction_instruction = [
+            json.loads(request.content)["systemInstruction"]["parts"][0]["text"]
+            for request in self.requests
+        ]
+        self.assertIn("no more than 60 minutes", initial_instruction)
+        self.assertIn("at least $10 and no more than $25", initial_instruction)
+        self.assertIn("estimatedMinutes was 61, above the maximum of 60", correction_instruction)
+        self.assertIn("estimatedCostDollars was $26, outside the maximum of $25", correction_instruction)
+        self.assertIn("Revise the complete quest", correction_instruction)
+
+    def test_time_budget_mismatch_still_fails_after_one_correction(self):
+        self.proposal["estimatedMinutes"] = 61
+        self.http()
+
+        with self.assertRaises(HTTPException) as caught:
+            self.generate()
+
+        self.assertEqual(caught.exception.status_code, 502)
+        self.assertIn("after one correction", caught.exception.detail)
+        self.assertEqual(len(self.requests), 2)
+
     def test_resolver_supplies_verified_coordinates_and_distance_is_checked_in_miles(self):
         self.preferences = GenerateQuestRequest.model_validate({
             **self.body, "distance": 1,

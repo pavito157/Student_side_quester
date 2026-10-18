@@ -46,7 +46,7 @@ export default function GlobalQuestPreviewPage({ eventId, activeQuests, slotsLoa
     <Header activeSidequestCount={activeQuests.length} />
     <main className="min-h-[calc(100dvh-4rem)] px-3 py-5 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-5xl space-y-5">
-        <button type="button" className="hud-button px-4 py-3" onClick={() => navigateTo('/')}>← Back to Sidequester</button>
+        <button type="button" className="hud-button px-4 py-3" onClick={() => navigateTo('/home')}>← Back to Sidequester</button>
         {event ? <section className="rpg-panel p-5 sm:p-8">
           <p className="text-xs font-bold uppercase tracking-widest text-secondary">Global quest · {event.organizationName}</p>
           <h1 className="mt-2 text-3xl font-black sm:text-4xl">{event.title}</h1>

@@ -187,6 +187,8 @@ class PersistenceTests(unittest.TestCase):
         self.assertEqual(saved["estimatedMinutes"], 31)
         self.assertEqual(saved["estimatedCostDollars"], 2)
         self.assertEqual(saved["locationName"], "Verified park")
+        self.assertEqual(saved["latitude"], 29.65)
+        self.assertEqual(saved["longitude"], -82.34)
         self.assertEqual(saved["placeId"], "verified-place")
         self.assertNotIn("locationAddress", saved)
         self.assertEqual(saved["ownerId"], "user_student")

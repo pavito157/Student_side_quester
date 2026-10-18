@@ -43,7 +43,7 @@ test('every scenery sprite is bundled and has empty decorative alt text', async 
 
 test('reduced motion keeps the scene visible and stops sprite and glow animations', async () => {
   const css = await readFile(new URL('../src/index.css', import.meta.url), 'utf8')
-  const rule = css.slice(css.lastIndexOf('@media(prefers-reduced-motion:reduce)'))
+  const rule = css.match(/@media\(prefers-reduced-motion:reduce\)\s*\{\s*\.ambient-scene[\s\S]*?\n\}/)?.[0] ?? ''
   assert.match(rule, /\.ambient-scene \*, \.ambient-scene \*::before/)
   assert.match(rule, /animation:none!important/)
   assert.doesNotMatch(rule, /display:none|visibility:hidden/)

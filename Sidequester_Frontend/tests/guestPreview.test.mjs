@@ -82,7 +82,7 @@ test('guest preview explains non-persistence and offers responsive next actions'
   assert.ok(rendered.nodes.some((node) => node.props?.children === 'Sign in for saved quests'))
   const returnButton = rendered.nodes.find((node) => node.props?.children === 'Back to quest board')
   returnButton.props.onClick()
-  assert.deepEqual(rendered.navigations, ['/'])
+  assert.deepEqual(rendered.navigations, ['/home'])
 })
 
 test('guest preview with expired in-memory data has an explicit return action', async () => {
@@ -90,5 +90,5 @@ test('guest preview with expired in-memory data has an explicit return action', 
   const returnButton = rendered.nodes.find((node) => node.props?.children === 'Return to quest board')
   assert.ok(returnButton)
   returnButton.props.onClick()
-  assert.deepEqual(rendered.navigations, ['/'])
+  assert.deepEqual(rendered.navigations, ['/home'])
 })

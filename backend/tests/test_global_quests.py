@@ -3,7 +3,7 @@ import unittest
 import uuid
 from datetime import datetime, timezone, timedelta
 from concurrent.futures import ThreadPoolExecutor
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
@@ -69,7 +69,7 @@ class GlobalQuestRouteTests(unittest.TestCase):
             "status": "published",
             "questTemplate": {
                 "description": "Internal generation template",
-                "steps": ["Do not expose this"],
+                "steps": ["Meet the group.", "Learn about the next event."],
             },
         }
         self.db.collection.return_value.where.return_value.order_by.return_value.stream.return_value = [snapshot]
@@ -84,6 +84,7 @@ class GlobalQuestRouteTests(unittest.TestCase):
         self.assertEqual(event["latitude"], 29.65)
         self.assertEqual(event["longitude"], -82.34)
         self.assertEqual(event["locationName"], "Campus meeting room")
+        self.assertEqual(event["xpReward"], 25)
         self.assertNotIn("createdBy", event)
         self.assertNotIn("createdAt", event)
         self.assertNotIn("radiusMeters", event)
@@ -101,7 +102,10 @@ class GlobalQuestRouteTests(unittest.TestCase):
             "createdBy": "private-admin-id",
             "createdAt": NOW,
             "status": "published",
-            "questTemplate": {"steps": ["Internal-only step"]},
+            "questTemplate": {
+                "description": "Internal instructions.",
+                "steps": ["Internal-only step.", "Keep this private."],
+            },
         }
         self.db.collection.return_value.where.return_value.order_by.return_value.stream.return_value = [snapshot]
 
@@ -112,6 +116,7 @@ class GlobalQuestRouteTests(unittest.TestCase):
             result = g.list_events("verified-user", self.db)
 
         self.assertEqual(result["quests"][0]["id"], snapshot.id)
+        self.assertEqual(result["quests"][0]["xpReward"], 25)
         self.assertNotIn("questTemplate", result["quests"][0])
 
     def test_public_detail_is_allowlisted_and_rejects_cancelled_or_missing_events(self):
@@ -149,6 +154,50 @@ class GlobalQuestRouteTests(unittest.TestCase):
                                   ("POST", "/global-quests/event/check-in", {})]:
             response = self.client.request(method, path, **({"json": body} if body is not None else {}))
             self.assertEqual(response.status_code, 401)
+
+    def test_legacy_event_reward_cannot_award_xp_from_client_gps(self):
+        collections = {name: Mock() for name in (g.EVENTS, g.USERS, "dorms")}
+        db = Mock()
+        db.collection.side_effect = lambda name: collections[name]
+        event_ref = collections[g.EVENTS].document.return_value
+        event_snapshot = Mock(exists=True)
+        event_snapshot.to_dict.return_value = {
+            **payload().model_dump(), **g.default_policy().model_dump(),
+            "id": "legacy-event", "organizationName": "Campus Events",
+            "createdBy": "admin", "createdAt": NOW, "xpReward": 25,
+        }
+        event_ref.get.return_value = event_snapshot
+
+        user_ref = collections[g.USERS].document.return_value
+        claim_collection, sidequest_collection = Mock(), Mock()
+        user_ref.collection.side_effect = lambda name: (
+            claim_collection if name == g.CLAIMS else sidequest_collection
+        )
+        claim_ref = claim_collection.document.return_value
+        claim_ref.get.return_value.exists = False
+        sidequest_collection.document.return_value.get.return_value.exists = False
+        profile = Mock(exists=True)
+        profile.to_dict.return_value = {"xp": 10, "dormId": "off_campus"}
+        user_ref.get.return_value = profile
+
+        dorm_ref = collections["dorms"].document.return_value
+        dorm_snapshot = Mock(exists=True)
+        dorm_snapshot.to_dict.return_value = {"xp": 100}
+        dorm_ref.get.return_value = dorm_snapshot
+        transaction = Mock()
+        db.transaction.return_value = transaction
+
+        with patch.object(g, "utc_now", return_value=NOW), \
+                patch.object(g.firestore, "transactional", side_effect=lambda callback: callback):
+            result = g.check_in(
+                db, "verified-user", "legacy-event",
+                g.CheckIn(latitude=29.65, longitude=-82.34, accuracy=10),
+            )
+
+        self.assertEqual(result["xpAwarded"], 25)
+        self.assertEqual(transaction.create.call_args.args[1]["xpAwarded"], 25)
+        self.assertIn(call(user_ref, {"xp": 35}), transaction.update.call_args_list)
+        self.assertIn(call(dorm_ref, {"xp": 125}), transaction.update.call_args_list)
 
 
 @unittest.skipUnless(os.environ.get("FIRESTORE_EMULATOR_HOST"), "Local emulator required")
@@ -233,6 +282,7 @@ class GlobalQuestEmulatorTests(unittest.TestCase):
         self.addCleanup(self.db.collection(g.EVENTS).document(event.id).delete)
         self.addCleanup(self.user_ref.collection(g.CLAIMS).document(event.id).delete)
         self.assertEqual(self.event.verificationMode, "gps")
+        self.assertEqual(event.xpReward, 40)
         self.assertEqual(g.check_in(self.db, self.uid, event.id, g.CheckIn())["xpAwarded"], 40)
 
     def test_non_admin_and_revoked_admin_cannot_publish(self):

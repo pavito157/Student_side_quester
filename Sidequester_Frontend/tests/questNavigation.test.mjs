@@ -14,7 +14,7 @@ const plain = (x) => JSON.parse(JSON.stringify(x))
 const tick = () => new Promise((resolve) => setImmediate(resolve))
 const payload = { location: 'Anywhere', time: { selection: '30' }, budget: { selection: '0' }, preferences: 'Nature' }
 const saved = (id) => ({ quest: { id }, assignment: { userId: 'alice' }, reusedExisting: false })
-async function fixture(file = 'App.tsx', path = '/') {
+async function fixture(file = 'App.tsx', path = '/home') {
   const f = { user: { id: 'alice' }, calls: [], navigations: [],
     assign: async () => saved('quest-1'), replace: async () => saved('quest-2'),
     preferences: async () => 'Nature', goals: async () => ['Explore'],
@@ -220,12 +220,32 @@ test('selected quest displays its contents and steps and abandons only that ques
   f.sidequest = { ...f.sidequest, id: 'quest-2', title: 'Second quest',
     description: 'Second quest contents.', steps: ['Find a bench.', 'Sketch three leaves.'] }
   f.render(); f.render()
+  const rendered = JSON.stringify(f.tree)
   assert.match(JSON.stringify(f.tree), /Second quest contents/)
   assert.match(JSON.stringify(f.tree), /Find a bench/)
   assert.match(JSON.stringify(f.tree), /Sketch three leaves/)
+  assert.match(rendered, /What you asked for/)
+  assert.doesNotMatch(rendered, /View full request JSON/)
+  assert.doesNotMatch(rendered, /"selection"/)
+  assert.match(f.button('Complete sidequest').className, /quest-action-button/)
+  assert.match(f.button('Generate another').className, /quest-action-button/)
+  assert.match(f.button('Abandon sidequest').className, /quest-action-button/)
   f.button('Abandon sidequest').onClick(); f.render()
   f.button('Yes, abandon').onClick(); await f.settle()
   assert.deepEqual(f.calls.find(([name]) => name === 'abandon'), ['abandon', 'alice', 'quest-2'])
+})
+
+test('sidequest details opens the shared settings modal from the header', async () => {
+  const f = await fixture('features/quests/detail/SidequestDetailPage.tsx')
+  const header = f.props('Header')
+  assert.equal(typeof header.onSettingsClick, 'function')
+  assert.equal(f.props('SettingsModal').isOpen, false)
+
+  header.onSettingsClick()
+  f.render()
+
+  assert.equal(f.props('SettingsModal').isOpen, true)
+  assert.equal(f.props('SettingsModal').section, null)
 })
 
 test('root reconciles old alternatives once and keeps the list and detail count current', async () => {
@@ -304,13 +324,17 @@ test('quest flags cannot be selected during loading or a subscription error', as
 })
 
 
-test('welcome route contains the separate hero and main route goes directly to the quest board', async () => {
-  const board = await fixture('App.tsx', '/')
-  assert.ok(board.props('HomePage'))
-  assert.equal(board.props('CinematicHero'), undefined)
+test('the landing route shows the welcome hero and the home route opens the quest board', async () => {
+  const landing = await fixture('App.tsx', '/')
+  assert.ok(landing.props('CinematicHero'))
+  assert.equal(landing.props('Header'), undefined)
+  assert.equal(landing.props('HomePage'), undefined)
   const welcome = await fixture('App.tsx', '/welcome')
   assert.ok(welcome.props('CinematicHero'))
   assert.equal(welcome.props('HomePage'), undefined)
+  const board = await fixture('App.tsx', '/home')
+  assert.ok(board.props('HomePage'))
+  assert.equal(board.props('CinematicHero'), undefined)
 })
 
 

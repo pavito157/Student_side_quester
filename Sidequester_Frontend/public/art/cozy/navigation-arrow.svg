@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" shape-rendering="crispEdges">
+  <!-- Original stepped arrow: dark outline, golden shaft and readable arrowhead. -->
+  <path fill="#493625" d="M8 1h2v2h2v2h2v2h2v2h-2v2h-2v2h-2v2H8v-4H0V5h8z"/>
+  <path fill="#e7bc68" d="M9 3h1v2h2v2h2v2h-2v2h-2v2H9V9H2V7h7z"/>
+  <path fill="#fff0bd" d="M2 7h7v1H2zM9 4h1v3H9z"/>
+</svg>

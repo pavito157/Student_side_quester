@@ -10,9 +10,23 @@ import {
 } from 'firebase/firestore'
 import { db } from '../configs/FirebaseConfig'
 import type { Vibe, VibeInput } from '../types/vibe'
+import type { OriginCoordinates } from '../types/sidequest'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isOriginCoordinates(value: unknown): value is OriginCoordinates {
+  return isRecord(value)
+    && Object.keys(value).length === 2
+    && 'latitude' in value
+    && 'longitude' in value
+    && typeof value.latitude === 'number'
+    && Number.isFinite(value.latitude)
+    && Math.abs(value.latitude) <= 90
+    && typeof value.longitude === 'number'
+    && Number.isFinite(value.longitude)
+    && Math.abs(value.longitude) <= 180
 }
 
 function readTimestamp(value: unknown, fieldName: string): string | undefined {
@@ -33,6 +47,7 @@ function readVibe(id: string, value: unknown): Vibe {
     name,
     preferences,
     where,
+    whereCoordinates,
     time,
     budget,
     distance,
@@ -47,6 +62,8 @@ function readVibe(id: string, value: unknown): Vibe {
     typeof time !== 'string' ||
     typeof budget !== 'string' ||
     (distance !== undefined && typeof distance !== 'string') ||
+    (whereCoordinates !== undefined && whereCoordinates !== null
+      && !isOriginCoordinates(whereCoordinates)) ||
     (customTime !== undefined && typeof customTime !== 'string') ||
     (customBudget !== undefined && typeof customBudget !== 'string') ||
     (customDistance !== undefined && typeof customDistance !== 'string')
@@ -59,6 +76,7 @@ function readVibe(id: string, value: unknown): Vibe {
     name,
     preferences,
     where,
+    whereCoordinates: isOriginCoordinates(whereCoordinates) ? whereCoordinates : null,
     time,
     budget,
     distance: typeof distance === 'string' ? distance : 'any',
@@ -75,6 +93,7 @@ function normalizeVibe(vibe: VibeInput): VibeInput {
     name: vibe.name.trim(),
     preferences: vibe.preferences.trim(),
     where: vibe.where.trim(),
+    whereCoordinates: vibe.whereCoordinates ?? null,
     time: vibe.time.trim(),
     budget: vibe.budget.trim(),
     distance: vibe.distance.trim(),
@@ -85,6 +104,9 @@ function normalizeVibe(vibe: VibeInput): VibeInput {
 
   if (!normalized.name || !normalized.preferences) {
     throw new Error('A vibe needs a name and preferences.')
+  }
+  if (normalized.whereCoordinates !== null && !isOriginCoordinates(normalized.whereCoordinates)) {
+    throw new Error('Choose a location with valid coordinates before saving this vibe.')
   }
   if (!['any', '30', '60', '120', 'custom'].includes(normalized.time)) {
     throw new Error('Choose a valid time filter before saving this vibe.')

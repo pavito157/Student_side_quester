@@ -279,7 +279,14 @@ def list_events(uid: str = Depends(current_uid), db=Depends(get_db)):
             if event.status != "published" or event.endsAt + timedelta(minutes=event.graceMinutes) < now:
                 continue
             completed = db.collection(USERS).document(uid).collection(CLAIMS).document(snapshot.id).get().exists
-            events.append({**event.model_dump(mode="json", exclude={"questTemplate"}), "completed": completed})
+            events.append({
+                **event.model_dump(
+                    mode="json",
+                    exclude={"createdBy", "createdAt", "questTemplate"},
+                ),
+                "xpReward": event.xpReward,
+                "completed": completed,
+            })
             if len(events) >= 50:
                 break
         events.sort(key=lambda event: event["startsAt"])

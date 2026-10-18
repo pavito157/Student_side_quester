@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { colors } from '../../../constants/colors'
 import type { Vibe } from '../../../types/vibe'
+import type { OriginCoordinates } from '../../../types/sidequest'
 import BudgetButton from '../../quest-generation/inputs/buttons/BudgetButton'
 import DistanceButton from '../../quest-generation/inputs/buttons/DistanceButton'
 import TimeButton from '../../quest-generation/inputs/buttons/TimeButton'
@@ -22,6 +23,9 @@ function VibeEditor({
   const [name, setName] = useState(vibeToEdit?.name ?? '')
   const [preferences, setPreferences] = useState(vibeToEdit?.preferences ?? '')
   const [where, setWhere] = useState(vibeToEdit?.where ?? '')
+  const [whereCoordinates, setWhereCoordinates] = useState<OriginCoordinates | null>(
+    vibeToEdit?.whereCoordinates ?? null,
+  )
   const [time, setTime] = useState(vibeToEdit?.time ?? 'any')
   const [customTime, setCustomTime] = useState(vibeToEdit?.customTime ?? '')
   const [budget, setBudget] = useState(vibeToEdit?.budget ?? 'any')
@@ -40,6 +44,7 @@ function VibeEditor({
         name: name.trim(),
         preferences: preferences.trim(),
         where,
+        whereCoordinates,
         time,
         customTime,
         budget,
@@ -137,7 +142,14 @@ function VibeEditor({
           <span className="block text-xs font-medium" style={{ color: colors.muted }}>
             Where
           </span>
-          <WhereButton autoLocate={false} value={where} onChange={setWhere} />
+          <WhereButton
+            autoLocate={false}
+            value={where}
+            onChange={(nextWhere, coordinates) => {
+              setWhere(nextWhere)
+              setWhereCoordinates(coordinates)
+            }}
+          />
         </div>
         <div className="vibe-filter-grid grid grid-cols-1 gap-4">
           <div className="space-y-2">

@@ -80,8 +80,8 @@ function HomePage({
           setVibeToApply({ ...vibe })
           setQuestFilters({
             where: vibe.where || 'any',
-            latitude: null,
-            longitude: null,
+            latitude: vibe.whereCoordinates?.latitude ?? null,
+            longitude: vibe.whereCoordinates?.longitude ?? null,
             time: vibe.time || 'any',
             budget: vibe.budget || 'any',
             customTime: vibe.customTime ?? '',

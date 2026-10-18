@@ -1,127 +1,99 @@
-import {
-  lazy,
-  Suspense,
-  useRef,
-  type PointerEvent as ReactPointerEvent,
-} from 'react'
-import {
-  motion,
-  useMotionValueEvent,
-  useReducedMotion,
-  useScroll,
-  useSpring,
-  useTransform,
-} from 'framer-motion'
+import { useEffect, useState } from 'react'
+import { motion, useReducedMotion } from 'framer-motion'
 
-import { AccentStrokes, SparkleIcon } from '../../components/decor/AdventureDecor'
 import { navigateTo } from '../../services/navigation'
 
-const GuildhallCanvas = lazy(() => import('./GuildhallCanvas'))
-
 function CinematicHero() {
-  const stageRef = useRef<HTMLElement>(null)
   const prefersReducedMotion = useReducedMotion() === true
-  const { scrollYProgress } = useScroll({
-    target: stageRef,
-    offset: ['start start', 'end start'],
-  })
-  const sceneProgress = useSpring(0, {
-    stiffness: 38,
-    damping: 19,
-    mass: 1.05,
-  })
-  const pointerX = useSpring(0, { stiffness: 120, damping: 22 })
-  const pointerY = useSpring(0, { stiffness: 120, damping: 22 })
-  const contentOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0.2])
-  const contentY = useTransform(scrollYProgress, [0, 1], [0, -36])
+  const [isLeaving, setIsLeaving] = useState(false)
 
-  useMotionValueEvent(scrollYProgress, 'change', (value) => {
-    if (prefersReducedMotion) sceneProgress.jump(value)
-    else sceneProgress.set(value)
-  })
-
-  function handlePointerMove(event: ReactPointerEvent<HTMLElement>) {
-    if (prefersReducedMotion || event.pointerType !== 'mouse') return
-    const bounds = event.currentTarget.getBoundingClientRect()
-    pointerX.set(Math.max(-1, Math.min(1, ((event.clientX - bounds.left) / bounds.width - 0.5) * 2)))
-    pointerY.set(Math.max(-1, Math.min(1, ((event.clientY - bounds.top) / bounds.height - 0.5) * 2)))
-  }
-
-  function resetPointer() {
-    pointerX.set(0)
-    pointerY.set(0)
-  }
+  useEffect(() => {
+    if (!isLeaving) return
+    const timer = window.setTimeout(() => navigateTo('/home'), 600)
+    return () => window.clearTimeout(timer)
+  }, [isLeaving])
 
   function beginJourney() {
-    navigateTo('/')
+    if (isLeaving) return
+    if (prefersReducedMotion) {
+      navigateTo('/home')
+      return
+    }
+    setIsLeaving(true)
   }
 
   return (
-    <section
-      ref={stageRef}
-      aria-label="Welcome to the Sidequester guild"
-      className="cinematic-hero relative isolate"
-      onPointerMove={handlePointerMove}
-      onPointerLeave={resetPointer}
-    >
-      <motion.div
-        className="guild-hero-content relative z-10 mx-auto flex min-h-[min(54rem,calc(100dvh-4rem))] w-full max-w-7xl flex-col items-center px-4 pb-8 pt-12 text-center sm:px-8 sm:pt-20"
-        style={{
-          opacity: prefersReducedMotion ? 1 : contentOpacity,
-          y: prefersReducedMotion ? 0 : contentY,
-        }}
-      >
-        <motion.div
-          className="hero-copy flex w-full flex-col items-center"
-          initial={prefersReducedMotion ? false : { opacity: 0, y: 22 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: [0.2, 0.8, 0.2, 1] }}
-        >
-          <h1 className="hero-title">
-            A little adventure,<AccentStrokes />
-            <span className="mt-2 block text-secondary">close to home.</span>
-          </h1>
-          <p className="hero-description mt-5 max-w-2xl text-sm leading-relaxed sm:text-lg">
-            A little more Gainesville, a little less routine. Choose a place and tell us what kind
-            of day you’re after.
-          </p>
-          <motion.button
-            type="button"
-            onClick={beginJourney}
-            whileHover={prefersReducedMotion ? undefined : { y: -3, scale: 1.02 }}
-            whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }}
-            className="realm-cta mt-7 inline-flex min-h-14 items-center gap-3 rounded-lg px-7 py-3 text-base font-semibold focus-visible:outline-2 focus-visible:outline-offset-4"
-          >
-            <SparkleIcon className="size-6" />
-            <span>Begin journey</span>
-            <img src="/art/cozy/pointer.png" alt="" aria-hidden="true" className="cozy-icon size-5" />
-          </motion.button>
-          <p className="hero-caption mt-4 text-sm">
-            Your next favorite place might be closer than you think.
-          </p>
-        </motion.div>
-
-        <div className="guildhall-scene adventure-map" aria-hidden="true">
-          <Suspense fallback={<div className="guildhall-scene-fallback" />}>
-            <GuildhallCanvas
-              progress={sceneProgress}
-              pointerX={pointerX}
-              pointerY={pointerY}
-              reducedMotion={prefersReducedMotion}
-            />
-          </Suspense>
-        </div>
+    <section aria-labelledby="welcome-title" className="pixel-welcome-hero">
+      <div className="pixel-welcome-copy">
+        <p className="pixel-welcome-brand">
+          <img src="/art/cozy/sprout.png" alt="" aria-hidden="true" />
+          <span>Sidequester</span>
+        </p>
         <motion.p
-          className="guild-map-caption mt-4"
-          initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+          className="pixel-welcome-eyebrow"
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.45, duration: 0.7 }}
+          transition={{ duration: 0.35 }}
         >
-          <span aria-hidden="true">✦</span>
-          A city to explore
-          <span aria-hidden="true">✦</span>
+          <span aria-hidden="true" className="pixel-welcome-eyebrow-icon">✦</span>
+          Your Gainesville adventure starts here
         </motion.p>
-      </motion.div>
+        <motion.h1
+          id="welcome-title"
+          className="pixel-welcome-title"
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.06, duration: 0.42 }}
+        >
+          A little adventure,
+          <span>close to home.</span>
+        </motion.h1>
+        <p className="pixel-welcome-description">
+          Turn an ordinary day into a sidequest. Find a new trail, visit a
+          Gainesville favorite, and make a story that is yours.
+        </p>
+        <motion.button
+          type="button"
+          onClick={beginJourney}
+          disabled={isLeaving}
+          aria-busy={isLeaving}
+          whileHover={prefersReducedMotion ? undefined : { y: -3, scale: 1.025 }}
+          whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }}
+          className="pixel-welcome-cta"
+        >
+          <span className="pixel-welcome-cta-spark" aria-hidden="true">✦</span>
+          <span>{isLeaving ? 'Following the trail…' : 'Enter the quest board'}</span>
+          <img src="/art/cozy/navigation-arrow.svg" alt="" aria-hidden="true" draggable={false} className="pixel-welcome-cta-arrow cozy-icon size-5" />
+        </motion.button>
+        <p className="pixel-welcome-caption">
+          No long tutorial. Just pick a vibe and head out.
+        </p>
+      </div>
+
+      <div className="pixel-welcome-foreground" aria-hidden="true">
+        <img
+          className="pixel-welcome-ground"
+          src="/art/pixel-trail-foreground.svg"
+          alt=""
+          draggable={false}
+        />
+        <img className="pixel-welcome-traveler" src="/art/pixel-adventurer.svg" alt="" draggable={false} />
+        <img className="pixel-welcome-firefly pixel-welcome-firefly-one" src="/art/pixel-firefly.svg" alt="" aria-hidden="true" />
+        <img className="pixel-welcome-firefly pixel-welcome-firefly-two" src="/art/pixel-firefly.svg" alt="" aria-hidden="true" />
+        <img className="pixel-welcome-firefly pixel-welcome-firefly-three" src="/art/pixel-firefly.svg" alt="" aria-hidden="true" />
+      </div>
+      {isLeaving && (
+        <div
+          className="pixel-welcome-exit"
+          aria-hidden="true"
+        >
+          <div className="pixel-welcome-exit-card">
+            <img src="/art/pixel-adventurer.svg" alt="" />
+            <span>Next stop: the quest board</span>
+            <span className="pixel-welcome-exit-spark" aria-hidden="true">✦</span>
+          </div>
+        </div>
+      )}
     </section>
   )
 }

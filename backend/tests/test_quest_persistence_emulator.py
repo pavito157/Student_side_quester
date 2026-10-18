@@ -155,7 +155,7 @@ class PersistenceEmulatorTests(unittest.TestCase):
     def test_concurrent_requests_can_fill_two_free_slots_without_replacing_original(self):
         first = self.create()
         barrier = threading.Barrier(2)
-        def generate(*args):
+        def generate(*args, **kwargs):
             barrier.wait(timeout=15)
             return self.proposal
         self.provider.side_effect = generate

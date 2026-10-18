@@ -115,6 +115,7 @@ function QuestFilterControls({
   const { isLoaded, isSignedIn, user } = useUser()
   const [isLoadingPreview, setIsLoadingPreview] = useState(false)
   const [previewError, setPreviewError] = useState('')
+  const [isAdvancedSettingsOpen, setIsAdvancedSettingsOpen] = useState(false)
   const inFlightRef = useRef(false)
   const [guestPreference, setGuestPreference] = useState('')
 
@@ -252,8 +253,112 @@ function QuestFilterControls({
         />
       </section>
 
+      <div className="relative mt-3">
+        <div className="flex min-h-11 items-center justify-between gap-4">
+          <h3 className="section-title">Fine-tune your quest</h3>
+          <button
+            type="button"
+            aria-expanded={isAdvancedSettingsOpen}
+            aria-controls="quest-advanced-settings"
+            onClick={() => setIsAdvancedSettingsOpen((open) => !open)}
+            className="inline-flex min-h-11 w-auto cursor-pointer items-center justify-end gap-2 rounded-lg px-2 text-right text-sm font-semibold transition-colors hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-offset-2"
+            style={{ color: colors.secondary, outlineColor: colors.primary }}
+          >
+            <span>Advanced settings</span>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 20 20"
+              fill="none"
+              className={`size-4 shrink-0 transition-transform ${isAdvancedSettingsOpen ? 'rotate-180' : ''}`}
+            >
+              <path
+                d="m5 7.5 5 5 5-5"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
+        <div
+          id="quest-advanced-settings"
+          hidden={!isAdvancedSettingsOpen}
+          className="absolute right-0 top-full z-30 mt-2 max-h-[min(75vh,36rem)] w-[min(90vw,28rem)] space-y-4 overflow-y-auto rounded-xl border p-4 shadow-xl"
+          style={{
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            color: colors.foreground,
+          }}
+        >
+            <label
+              className="flex cursor-pointer items-start gap-3 rounded-xl border p-4"
+              style={{ backgroundColor: colors.surfaceRaised, borderColor: colors.border }}
+            >
+              <input
+                type="checkbox"
+                checked={filters.multiQuest}
+                onChange={(event) => setFilters((current) => ({
+                  ...current,
+                  multiQuest: event.target.checked,
+                }))}
+                className="mt-0.5 size-5 accent-green-700"
+              />
+              <span>
+                <span className="block text-sm font-semibold">Multi-stop sidequest</span>
+                <span className="mt-1 block text-xs leading-relaxed" style={{ color: colors.muted }}>
+                  Visit two or more verified destinations in order and earn a share of XP at each stop. Choose a starting location.
+                </span>
+              </span>
+            </label>
+
+            <fieldset
+              className="space-y-3 rounded-xl border p-4"
+              style={{ borderColor: colors.border }}
+            >
+              <legend className="px-1 text-sm font-semibold">Quest verification options</legend>
+              <p className="text-xs leading-relaxed" style={{ color: colors.muted }}>
+                Choose one or more. Gemini can mix the selected methods across quest steps.
+              </p>
+              {([
+                ['location', 'Location verification', 'Reach the destination to verify the quest and earn XP.'],
+                ['photo', 'Photo verification', 'Submit a photo of a visible result for Gemini to review and earn XP.'],
+                ['recreation', 'Recreation only', 'A fun activity with no verification and no XP.'],
+              ] as const).map(([method, title, description]) => (
+                <label key={method} className="flex cursor-pointer items-start gap-3 rounded-lg p-2 hover:bg-white/5">
+                  <input
+                    type="checkbox"
+                    checked={(filters.proofOptions ?? ['location']).includes(method)}
+                    onChange={(event) => setFilters((current) => {
+                      const selected = new Set(current.proofOptions ?? ['location'])
+                      if (event.target.checked && method === 'recreation') {
+                        selected.clear()
+                        selected.add(method)
+                      } else if (event.target.checked) {
+                        selected.delete('recreation')
+                        selected.add(method)
+                      } else {
+                        selected.delete(method)
+                      }
+                      return selected.size > 0
+                        ? { ...current, proofOptions: [...selected] }
+                        : current
+                    })}
+                    className="mt-0.5 size-4 accent-orange-500"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium">{title}</span>
+                    <span className="mt-0.5 block text-xs leading-relaxed" style={{ color: colors.muted }}>
+                      {description}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+        </div>
+      </div>
+
       <section aria-label="Quest filters">
-        <h3 className="section-title mb-1">Fine-tune your quest</h3>
         <p className="mb-4 text-sm" style={{ color: colors.muted }}>Set your time, budget, and how far you want to go.</p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="min-w-0 space-y-2">
@@ -297,65 +402,6 @@ function QuestFilterControls({
           </div>
         </div>
       </section>
-
-      <label
-        className="flex cursor-pointer items-start gap-3 rounded-xl border p-4"
-        style={{ backgroundColor: colors.surfaceRaised, borderColor: colors.border }}
-      >
-        <input
-          type="checkbox"
-          checked={filters.multiQuest}
-          onChange={(event) => setFilters((current) => ({ ...current, multiQuest: event.target.checked }))}
-          className="mt-0.5 size-5 accent-green-700"
-        />
-        <span>
-          <span className="block text-sm font-semibold">Multi-stop sidequest</span>
-          <span className="mt-1 block text-xs leading-relaxed" style={{ color: colors.muted }}>
-            Visit two or more verified destinations in order and earn a share of XP at each stop. Choose a starting location.
-          </span>
-        </span>
-      </label>
-
-      <fieldset className="space-y-3 rounded-xl border p-4" style={{ borderColor: colors.border }}>
-        <legend className="px-1 text-sm font-semibold">Quest verification options</legend>
-        <p className="text-xs leading-relaxed" style={{ color: colors.muted }}>
-          Choose one or more. Gemini can mix the selected methods across quest steps.
-        </p>
-        {([
-          ['location', 'Location verification', 'Reach the destination to verify the quest and earn XP.'],
-          ['photo', 'Photo verification', 'Submit a photo of a visible result for Gemini to review and earn XP.'],
-          ['recreation', 'Recreation only', 'A fun activity with no verification and no XP.'],
-        ] as const).map(([method, title, description]) => (
-          <label key={method} className="flex cursor-pointer items-start gap-3 rounded-lg p-2 hover:bg-white/5">
-            <input
-              type="checkbox"
-              checked={(filters.proofOptions ?? ['location']).includes(method)}
-              onChange={(event) => setFilters((current) => {
-                const selected = new Set(current.proofOptions ?? ['location'])
-                if (event.target.checked && method === 'recreation') {
-                  selected.clear()
-                  selected.add(method)
-                } else if (event.target.checked) {
-                  selected.delete('recreation')
-                  selected.add(method)
-                } else {
-                  selected.delete(method)
-                }
-                return selected.size > 0
-                  ? { ...current, proofOptions: [...selected] }
-                  : current
-              })}
-              className="mt-0.5 size-4 accent-orange-500"
-            />
-            <span>
-              <span className="block text-sm font-medium">{title}</span>
-              <span className="mt-0.5 block text-xs leading-relaxed" style={{ color: colors.muted }}>
-                {description}
-              </span>
-            </span>
-          </label>
-        ))}
-      </fieldset>
 
       {isLoaded && isSignedIn === false && (
         <section

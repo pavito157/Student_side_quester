@@ -103,7 +103,17 @@ async function fixture() {
     }
     return null
   }
+  function findBy(node, predicate) {
+    if (!node || typeof node !== 'object') return null
+    if (predicate(node)) return node
+    for (const child of [node.props?.children].flat(Infinity)) {
+      const match = findBy(child, predicate)
+      if (match) return match
+    }
+    return null
+  }
   f.props = (name) => find(f.tree, name)?.props
+  f.findBy = (predicate) => findBy(f.tree, predicate)
   f.click = () => f.props('SidequestMeButton').onClick()
   f.settle = async () => { await tick(); f.render() }
   f.render()
@@ -185,6 +195,36 @@ test('the multi-stop option is sent in the quest request', async () => {
   f.filters.multiQuest = true
   f.render(); f.click(); await f.settle()
   assert.equal(f.calls[0][1].multiQuest, true)
+})
+
+test('advanced quest options are tucked below location controls and stay reactive', async () => {
+  const f = await fixture()
+  const toggle = () => f.findBy((node) => node.props?.['aria-controls'] === 'quest-advanced-settings')
+  const panel = () => f.findBy((node) => node.props?.id === 'quest-advanced-settings')
+  assert.equal(toggle().props['aria-expanded'], false)
+  assert.equal(panel().props.hidden, true)
+  assert.match(panel().props.className, /absolute right-0 top-full/)
+  assert.match(panel().props.className, /max-h-/)
+
+  toggle().props.onClick()
+  f.render()
+  assert.equal(toggle().props['aria-expanded'], true)
+  assert.equal(panel().props.hidden, false)
+
+  const multiStop = f.findBy((node) => node.type === 'input' && node.props?.className?.includes('size-5'))
+  multiStop.props.onChange({ target: { checked: true } })
+  assert.equal(f.filters.multiQuest, true)
+  f.render()
+
+  const photoVerification = f.findBy((node) => node.type === 'input'
+    && node.props?.className?.includes('size-4') && node.props.checked === false)
+  photoVerification.props.onChange({ target: { checked: true } })
+  assert.deepEqual(plain(f.filters.proofOptions), ['location', 'photo'])
+  f.render()
+  f.click()
+  await f.settle()
+  assert.equal(f.calls[0][1].multiQuest, true)
+  assert.deepEqual(plain(f.calls[0][1].proofOptions), ['location', 'photo'])
 })
 
 test('choosing Anywhere clears old coordinates before submission', async () => {

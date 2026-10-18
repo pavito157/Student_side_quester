@@ -13,7 +13,7 @@ const tick = () => new Promise((resolve) => setImmediate(resolve))
 const payload = { location: 'Anywhere', time: { selection: '30' }, budget: { selection: '0' }, preferences: 'Nature' }
 const saved = (id) => ({ quest: { id }, assignment: { userId: 'alice' }, reusedExisting: false })
 async function fixture(file = 'App.tsx', path = '/') {
-  const f = { user: { id: 'alice' }, calls: [], navigations: [],
+  const f = { user: { id: 'alice' }, calls: [], navigations: [], generationState: undefined,
     assign: async () => saved('quest-1'), replace: async () => saved('quest-2'),
     preferences: async () => 'Nature', goals: async () => ['Explore'],
     acceptOrganization: async () => saved('org-quest'),
@@ -103,7 +103,8 @@ async function fixture(file = 'App.tsx', path = '/') {
         ? mod.namespace.default({ quests: f.activeQuests, loading: Boolean(f.slotsLoading), error: f.slotsError ?? '' })
         : file.endsWith('ActiveSidequests.tsx')
         ? mod.namespace.default({ sidequests: f.activeQuests, isLoading: false, error: '', isSignedIn: true })
-        : mod.namespace.default({ sidequestId: f.sidequest.id, activeQuestCount: f.activeQuestCount, onGenerateAnother: (...args) => {
+        : mod.namespace.default({ sidequestId: f.sidequest.id, generationState: f.generationState,
+          activeQuestCount: f.activeQuestCount, onGenerateAnother: (...args) => {
         f.calls.push(['detailReplace', ...args]); return f.detailReplace(...args)
       } })
     }
@@ -113,6 +114,7 @@ async function fixture(file = 'App.tsx', path = '/') {
     : [node, ...[node.props?.children].flat(Infinity).flatMap(nodes)]
   f.allButtons = () => nodes(f.tree).filter((node) => node.type === 'button').map((node) => node.props)
   f.props = (name) => nodes(f.tree).find((node) => node.type?.name === name)?.props
+  f.hasComponent = (name) => nodes(f.tree).some((node) => node.type?.name === name)
   f.button = (label) => nodes(f.tree).find((node) => node.type === 'button' && JSON.stringify(node.props.children).includes(label))?.props
   f.settle = async () => { await tick(); f.render() }
   f.render(); return f
@@ -147,6 +149,17 @@ test('replacement errors use the new generating error page without calling aband
   assert.equal(f.props('SidequestDetailPage').generationState.status, 'error')
   assert.match(f.props('SidequestDetailPage').generationState.message, /quota/)
   assert.equal(f.calls.some(([name]) => name === 'abandon'), false)
+})
+
+test('generation screen uses pixel-art progress styling while retaining status semantics', async () => {
+  const f = await fixture('features/quests/detail/SidequestDetailPage.tsx')
+  f.sidequest.id = 'generating'
+  f.generationState = { status: 'loading' }
+  f.render()
+  assert.match(JSON.stringify(f.tree), /pixel-quest-panel/)
+  assert.match(JSON.stringify(f.tree), /pixel-loading-meter/)
+  assert.equal(f.hasComponent('QuestVideoBackground'), true)
+  assert.match(JSON.stringify(f.tree), /Generating your sidequest/)
 })
 
 test('account switch aborts pending generation and cannot navigate to the old account result', async () => {
@@ -215,6 +228,10 @@ test('selected quest displays its contents and steps and abandons only that ques
     description: 'Second quest contents.', steps: ['Find a bench.', 'Sketch three leaves.'] }
   f.render(); f.render()
   assert.match(JSON.stringify(f.tree), /Second quest contents/)
+  assert.match(JSON.stringify(f.tree), /pixel-quest-panel/)
+  assert.match(JSON.stringify(f.tree), /pixel-quest-step/)
+  assert.match(JSON.stringify(f.tree), /pixel-quest-step-number/)
+  assert.equal(f.hasComponent('QuestVideoBackground'), true)
   assert.match(JSON.stringify(f.tree), /Find a bench/)
   assert.match(JSON.stringify(f.tree), /Sketch three leaves/)
   f.button('Abandon sidequest').onClick(); f.render()

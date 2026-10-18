@@ -4,6 +4,7 @@ import SidequestMap, { type SidequestMapStop } from '../detail/SidequestMap'
 import { colors } from '../../../constants/colors'
 import { navigateTo } from '../../../services/navigation'
 import type { GeneratedQuestResponse, GenerateQuestPayload } from '../../../services/questAssignment'
+import QuestVideoBackground from '../components/QuestVideoBackground'
 
 function GuestQuestPreviewPage({
   result,
@@ -24,10 +25,11 @@ function GuestQuestPreviewPage({
   })) ?? []
 
   return (
-    <>
-      <Header title="Quest preview" />
-      <main className="min-h-[calc(100dvh-4rem)] bg-gradient-glow px-3 py-5 sm:px-6 sm:py-12">
-        <div className="mx-auto w-full max-w-5xl space-y-4 sm:space-y-5">
+    <div className="flex h-dvh flex-col overflow-hidden">
+      <Header title="Quest preview" showFoliage={false} />
+      <main className="quest-video-page min-h-0 flex-1 overflow-hidden px-3 py-5 sm:px-6 sm:py-12">
+        <QuestVideoBackground />
+        <div className="quest-video-scroll relative z-10 mx-auto w-full max-w-5xl space-y-4 sm:space-y-5" tabIndex={0} aria-label="Quest preview">
           <button
             type="button"
             onClick={() => navigateTo('/')}
@@ -40,10 +42,10 @@ function GuestQuestPreviewPage({
 
           <section
             role="status"
-            className="rounded-xl border p-4 sm:p-5"
+            className="pixel-quest-notice border p-4 sm:p-5"
             style={{ color: colors.warning, borderColor: colors.warningBorder, backgroundColor: colors.warningBackground }}
           >
-            <h2 className="font-bold">Guest preview — this quest was not saved</h2>
+            <h2 className="pixel-quest-kicker font-bold">Guest preview — this quest was not saved</h2>
             <p className="mt-1 text-sm leading-relaxed" style={{ color: colors.foreground }}>
               This one-time preview is not saved. Only location- or photo-verified quest steps can award XP; recreation steps are for fun only.
             </p>
@@ -61,11 +63,11 @@ function GuestQuestPreviewPage({
 
           {result ? (
             <>
-              <section className="rpg-panel min-w-0 p-4 sm:p-7">
-                <p className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: colors.secondary }}>
+              <section className="rpg-panel pixel-quest-panel min-w-0 p-4 sm:p-7">
+                <p className="pixel-quest-kicker text-xs font-bold uppercase tracking-[0.16em]" style={{ color: colors.secondary }}>
                   {result.destinationVerified ? 'Verified quest preview' : 'Quest draft'}
                 </p>
-                <h1 className="mt-2 break-words text-3xl font-black leading-tight sm:text-5xl">
+                <h1 className="pixel-quest-title mt-2 break-words text-3xl font-black leading-tight sm:text-5xl">
                   {result.quest.title}
                 </h1>
                 <p className="mt-4 max-w-3xl text-base leading-relaxed sm:text-lg">
@@ -73,9 +75,9 @@ function GuestQuestPreviewPage({
                 </p>
                 <ol className="mt-5 space-y-3 sm:mt-6">
                   {result.quest.steps.map((step, index) => (
-                    <li key={`${index}-${step}`} className="flex min-w-0 items-start gap-3 rounded-xl border p-3 sm:p-4"
+                    <li key={`${index}-${step}`} className="pixel-quest-step flex min-w-0 items-start gap-3 border p-3 sm:p-4"
                       style={{ borderColor: colors.border, backgroundColor: colors.background }}>
-                      <span className="flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-black"
+                      <span className="pixel-quest-step-number flex size-8 shrink-0 items-center justify-center text-sm font-black"
                         style={{ backgroundColor: colors.primary, color: colors.primaryForeground }}>
                         {index + 1}
                       </span>
@@ -111,9 +113,9 @@ function GuestQuestPreviewPage({
               </section>
 
               {stops.length > 0 && (
-                <section className="rpg-panel overflow-hidden">
+                <section className="rpg-panel pixel-quest-panel overflow-hidden">
                   <div className="px-5 py-4 sm:px-6">
-                    <p className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: colors.secondary }}>
+                  <p className="pixel-quest-kicker text-xs font-bold uppercase tracking-[0.16em]" style={{ color: colors.secondary }}>
                       Route map
                     </p>
                     <h2 className="mt-1 text-lg font-black">
@@ -209,7 +211,7 @@ function GuestQuestPreviewPage({
           )}
         </div>
       </main>
-    </>
+    </div>
   )
 }
 

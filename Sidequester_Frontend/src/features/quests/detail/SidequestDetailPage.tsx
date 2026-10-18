@@ -13,6 +13,7 @@ import {
 } from '../../../services/sidequests'
 import type { ActiveSidequest } from '../../../types/sidequest'
 import { MAX_ACTIVE_QUESTS } from '../../../services/questAssignment'
+import QuestVideoBackground from '../components/QuestVideoBackground'
 
 type SidequestState =
   | { key: string; status: 'loading' }
@@ -392,10 +393,11 @@ function SidequestDetailPage({
   const directions = remainingQuestDirections(sidequestStops, completedStops.length, originCoordinates)
 
   return (
-    <>
-      <Header title="Sidequest details" activeSidequestCount={activeQuestCount} />
-      <main className="min-h-[calc(100dvh-4rem)] bg-gradient-glow px-3 py-5 sm:px-6 sm:py-12">
-        <div className="mx-auto w-full max-w-6xl">
+    <div className="flex h-dvh flex-col overflow-hidden">
+      <Header title="Sidequest details" activeSidequestCount={activeQuestCount} showFoliage={false} />
+      <main className="quest-video-page min-h-0 flex-1 overflow-hidden px-3 py-5 sm:px-6 sm:py-12">
+        <QuestVideoBackground />
+        <div className="quest-video-scroll relative z-10 mx-auto w-full max-w-6xl" tabIndex={0} aria-label="Quest details">
           <button
             type="button"
             onClick={() => navigateTo('/')}
@@ -412,7 +414,7 @@ function SidequestDetailPage({
 
           {sidequestId === 'generating' && generationState?.status === 'loading' ? (
             <section
-              className="rpg-panel quest-drumroll overflow-hidden p-5 sm:p-8"
+              className="rpg-panel pixel-quest-panel quest-drumroll overflow-hidden p-5 sm:p-8"
               role="status"
               aria-busy="true"
               aria-label="AI is creating your sidequest"
@@ -428,10 +430,13 @@ function SidequestDetailPage({
                     }}
                     aria-hidden="true"
                   >
-                    <span className="drumroll-icon">🥁</span>
+                    <svg className="pixel-forge-icon" viewBox="0 0 32 32" aria-hidden="true">
+                      <path fill="currentColor" d="M12 2h8v4h4v4h4v12h-4v4h-4v4h-8v-4H8v-4H4V10h4V6h4z" />
+                      <path fill="var(--color-accent)" d="M14 8h4v4h4v4h-4v4h-4v-4h-4v-4h4z" />
+                    </svg>
                   </div>
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.18em]" style={{ color: colors.secondary }}>
+                    <p className="pixel-quest-kicker text-xs font-bold uppercase tracking-[0.18em]" style={{ color: colors.secondary }}>
                       Quest forge · AI at work
                     </p>
                     <h1 className="mt-1 text-xl font-black sm:text-2xl">Building your sidequest</h1>
@@ -442,29 +447,34 @@ function SidequestDetailPage({
                   clear steps, and verified map destination will appear here as soon as it’s ready.
                 </p>
                 <QuestGenerationPlay />
+                <div className="pixel-loading-meter mt-5" role="progressbar" aria-label="Generating your sidequest">
+                  {Array.from({ length: 12 }, (_, index) => (
+                    <span key={index} style={{ animationDelay: `${index * 90}ms` }} />
+                  ))}
+                </div>
                 <div
-                  className="mt-6 rounded-2xl border p-4 sm:p-5"
+                  className="pixel-quest-subpanel mt-6 border p-4 sm:p-5"
                   style={{ backgroundColor: colors.background, borderColor: colors.border }}
                 >
-                  <div className="h-4 w-2/3 animate-pulse rounded-full" style={{ backgroundColor: colors.surfaceRaised }} />
-                  <div className="mt-3 h-3 w-full animate-pulse rounded-full" style={{ backgroundColor: colors.surfaceRaised }} />
-                  <div className="mt-2 h-3 w-4/5 animate-pulse rounded-full" style={{ backgroundColor: colors.surfaceRaised }} />
+                  <div className="h-4 w-2/3 animate-pulse" style={{ backgroundColor: colors.surfaceRaised }} />
+                  <div className="mt-3 h-3 w-full animate-pulse" style={{ backgroundColor: colors.surfaceRaised }} />
+                  <div className="mt-2 h-3 w-4/5 animate-pulse" style={{ backgroundColor: colors.surfaceRaised }} />
                   <div className="mt-6 space-y-3">
                     {[0, 1, 2].map((step) => (
                       <div key={step} className="flex items-center gap-3">
                         <span
-                          className="flex size-8 shrink-0 animate-pulse items-center justify-center rounded-full border text-xs font-bold"
+                          className="pixel-quest-step-number flex size-8 shrink-0 animate-pulse items-center justify-center border text-xs font-bold"
                           style={{ borderColor: colors.border, color: colors.muted }}
                         >
                           {step + 1}
                         </span>
-                        <div className="h-3 w-full animate-pulse rounded-full" style={{ backgroundColor: colors.surfaceRaised }} />
+                        <div className="h-3 w-full animate-pulse" style={{ backgroundColor: colors.surfaceRaised }} />
                       </div>
                     ))}
                   </div>
                 </div>
-                <p className="mt-4 flex items-center gap-2 text-xs" style={{ color: colors.muted }}>
-                  <span className="size-2 animate-pulse rounded-full" style={{ backgroundColor: colors.primary }} />
+                <p className="pixel-quest-kicker mt-4 flex items-center gap-2 text-xs" style={{ color: colors.muted }}>
+                  <span className="pixel-status-dot size-2" style={{ backgroundColor: colors.primary }} />
                   Finding a useful, achievable quest and confirming its destination…
                 </p>
               </div>
@@ -524,7 +534,7 @@ function SidequestDetailPage({
               <div className="mb-6">
                 <div className="flex flex-wrap items-center gap-2">
                   <span
-                    className="rounded-full border px-3 py-1 text-[0.65rem] font-bold uppercase tracking-[0.14em]"
+                    className="pixel-quest-stamp border px-3 py-1 text-[0.65rem] font-bold uppercase tracking-[0.14em]"
                     style={{
                       color: colors.success,
                       borderColor: colors.successBorder,
@@ -538,7 +548,7 @@ function SidequestDetailPage({
                   </span>
                 </div>
                 <div className="mt-3">
-                  <h1 className="max-w-4xl break-words text-3xl font-black leading-tight sm:text-5xl">
+                  <h1 className="pixel-quest-title max-w-4xl break-words text-3xl font-black leading-tight sm:text-5xl">
                     {sidequest.title}
                   </h1>
                 </div>
@@ -546,8 +556,8 @@ function SidequestDetailPage({
 
               <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.6fr)]">
                 <div className="space-y-5">
-                  <section className="rpg-panel p-4 sm:p-7">
-                    <p className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: colors.secondary }}>
+                  <section className="rpg-panel pixel-quest-panel p-4 sm:p-7">
+                    <p className="pixel-quest-kicker text-xs font-bold uppercase tracking-[0.16em]" style={{ color: colors.secondary }}>
                       Your mission
                     </p>
                     <p className="mt-3 max-w-3xl text-base leading-relaxed sm:text-lg">
@@ -555,10 +565,10 @@ function SidequestDetailPage({
                     </p>
                   </section>
 
-                  <section className="rpg-panel p-4 sm:p-7">
+                  <section className="rpg-panel pixel-quest-panel p-4 sm:p-7">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <p className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: colors.secondary }}>
+                        <p className="pixel-quest-kicker text-xs font-bold uppercase tracking-[0.16em]" style={{ color: colors.secondary }}>
                           Quest plan
                         </p>
                         <h2 className="mt-1 text-xl font-black">Your steps</h2>
@@ -571,11 +581,11 @@ function SidequestDetailPage({
                       {sidequest.steps.map((step, index) => (
                         <li
                           key={`${index}-${step}`}
-                          className="flex items-start gap-3 rounded-xl border p-3.5 sm:p-4"
+                          className="pixel-quest-step flex items-start gap-3 border p-3.5 sm:p-4"
                           style={{ backgroundColor: colors.background, borderColor: colors.border }}
                         >
                           <span
-                            className="flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-black"
+                            className="pixel-quest-step-number flex size-8 shrink-0 items-center justify-center text-sm font-black"
                             style={{ backgroundColor: colors.primary, color: colors.primaryForeground }}
                           >
                             {index + 1}
@@ -659,7 +669,7 @@ function SidequestDetailPage({
                   </section>
                 </div>
 
-                <aside className="rpg-panel self-start p-4 sm:p-6">
+                <aside className="rpg-panel pixel-quest-panel self-start p-4 sm:p-6">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: colors.secondary }}>
@@ -1000,7 +1010,7 @@ function SidequestDetailPage({
           ) : null}
         </div>
       </main>
-    </>
+    </div>
   )
 }
 

@@ -16,6 +16,7 @@ interface HeaderProps {
   activeSidequestCount?: number
   onSettingsClick?: () => void
   onMenuClick?: () => void
+  showFoliage?: boolean
 }
 
 function Header({
@@ -23,6 +24,7 @@ function Header({
   activeSidequestCount = 0,
   onSettingsClick,
   onMenuClick,
+  showFoliage = true,
 }: HeaderProps) {
   const [isAuthMenuOpen, setIsAuthMenuOpen] = useState(false)
   const authMenuRef = useRef<HTMLDivElement>(null)
@@ -208,7 +210,7 @@ function Header({
             </SignedIn>
           </div>
         </div>
-        <NavFoliage />
+        {showFoliage && <NavFoliage />}
       </header>
       <FallingLeaves />
     </>

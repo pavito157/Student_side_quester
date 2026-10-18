@@ -23,6 +23,8 @@ async function renderPreview(result) {
   const jsx = (type, props, key) => ({ type, props: props ?? {}, key })
   const module = new vm.SourceTextModule(compiled, { context })
   await module.link((name) => {
+    const component = () => null
+    Object.defineProperty(component, 'name', { value: name.split('/').at(-1) })
     const exports = name === 'react/jsx-runtime'
       ? { jsx, jsxs: jsx, Fragment: 'fragment' }
       : name === '@clerk/clerk-react'
@@ -31,7 +33,7 @@ async function renderPreview(result) {
           ? { default: fakeMap }
           : name.endsWith('/navigation')
             ? { navigateTo: (path) => navigations.push(path) }
-            : { default: () => null, colors: new Proxy({}, { get: () => '#123456' }) }
+            : { default: component, colors: new Proxy({}, { get: () => '#123456' }) }
     return new vm.SyntheticModule(Object.keys(exports), function () {
       for (const [key, value] of Object.entries(exports)) this.setExport(key, value)
     }, { context })
@@ -74,9 +76,18 @@ test('guest preview associates every route pin with its own ordered steps', asyn
 test('guest preview explains non-persistence and offers responsive next actions', async () => {
   const rendered = await renderPreview(preview)
   const main = rendered.nodes.find((node) => node.type === 'main')
+  const page = rendered.nodes.find((node) => node.props?.className === 'flex h-dvh flex-col overflow-hidden')
+  const scrollPanel = rendered.nodes.find((node) => node.props?.['aria-label'] === 'Quest preview')
   const nextActions = rendered.nodes.find((node) => node.props?.['aria-label'] === 'What to do next')
-  assert.match(main.props.className, /100dvh/)
+  assert.ok(rendered.nodes.some((node) => node.type?.name === 'QuestVideoBackground'))
+  assert.ok(rendered.nodes.some((node) => node.props?.className?.includes('pixel-quest-panel')))
+  assert.ok(rendered.nodes.some((node) => node.props?.className?.includes('pixel-quest-step')))
+  assert.ok(rendered.nodes.some((node) => node.props?.className?.includes('pixel-quest-step-number')))
+  assert.ok(page)
+  assert.match(main.props.className, /flex-1/)
   assert.match(main.props.className, /px-3/)
+  assert.match(scrollPanel.props.className, /quest-video-scroll/)
+  assert.equal(scrollPanel.props.tabIndex, 0)
   assert.match(nextActions.props.className, /sm:flex-row/)
   assert.ok(rendered.nodes.some((node) => node.props?.children === 'This one-time preview is not saved. Only location- or photo-verified quest steps can award XP; recreation steps are for fun only.'))
   assert.ok(rendered.nodes.some((node) => node.props?.children === 'Sign in for saved quests'))

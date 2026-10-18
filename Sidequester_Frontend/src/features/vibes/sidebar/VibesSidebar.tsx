@@ -120,6 +120,7 @@ function VibesSidebar({
         setIsEditorOpen(false)
         setVibeToEdit(null)
       } : undefined}
+      isEditor={shouldShowEditor}
       showAddVibe={!shouldShowEditor && canManageVibes}
       title={shouldShowEditor ? (vibeToEdit ? 'Edit vibe' : 'Add a vibe') : 'Quick menu'}
     >
@@ -133,21 +134,21 @@ function VibesSidebar({
       ) : (
         <>
           {isLoadingVibes ? (
-            <p role="status" className="text-sm" style={{ color: colors.muted }}>
+            <p role="status" className="trail-map-note text-sm" style={{ color: colors.muted }}>
               Loading your saved vibes...
             </p>
           ) : vibeListError ? (
-            <p role="alert" className="text-sm" style={{ color: colors.error }}>
+            <p role="alert" className="trail-map-note text-sm" style={{ color: colors.error }}>
               {vibeListError}
             </p>
           ) : vibes.length === 0 ? (
-            <p className="text-sm" style={{ color: colors.muted }}>
+            <p className="trail-map-note text-sm" style={{ color: colors.muted }}>
               {userId
                 ? 'Your next sidequest is just around the corner. Add a vibe to save your preferences.'
                 : 'Sign in to save vibes to your account and use them on your next sidequest.'}
             </p>
           ) : (
-            <ul className="space-y-3">
+            <ul className="trail-vibe-list space-y-3">
               {vibes.map((vibe) => (
                 <VibeCard
                   key={vibe.id}

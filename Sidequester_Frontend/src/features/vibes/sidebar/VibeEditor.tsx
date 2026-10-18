@@ -71,9 +71,9 @@ function VibeEditor({
   }
 
   return (
-    <form id="vibe-editor-form" onSubmit={(event) => void handleSubmit(event)} className="space-y-6">
+    <form id="vibe-editor-form" onSubmit={(event) => void handleSubmit(event)} className="vibe-editor-form space-y-6">
       <div
-        className="rounded-xl border-l-2 px-4 py-3 text-sm leading-relaxed"
+        className="vibe-editor-note rounded-xl border-l-2 px-4 py-3 text-sm leading-relaxed"
         style={{
           backgroundColor: colors.surfaceRaised,
           borderColor: colors.border,
@@ -139,7 +139,7 @@ function VibeEditor({
           </span>
           <WhereButton autoLocate={false} value={where} onChange={setWhere} />
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="vibe-filter-grid grid grid-cols-1 gap-4">
           <div className="space-y-2">
             <span className="block text-xs font-medium" style={{ color: colors.muted }}>
               Time
@@ -183,7 +183,7 @@ function VibeEditor({
       )}
 
       <div
-        className={`sticky bottom-0 -mx-5 -mb-5 border-t p-5 ${
+        className={`vibe-editor-actions sticky bottom-0 -mx-5 -mb-5 border-t p-5 ${
           vibeToEdit ? 'grid grid-cols-2 gap-3' : ''
         }`}
         style={{ backgroundColor: colors.surface, borderColor: colors.border }}
@@ -193,7 +193,7 @@ function VibeEditor({
             type="button"
             onClick={handleDelete}
             disabled={isSaving}
-            className="min-h-12 cursor-pointer rounded-xl px-4 py-3 font-semibold transition-all hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0 active:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="vibe-delete-action min-h-12 cursor-pointer rounded-xl px-4 py-3 font-semibold transition-all hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0 active:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2"
             style={{
               backgroundColor: colors.error,
               color: colors.background,
@@ -207,7 +207,7 @@ function VibeEditor({
           type="submit"
           form="vibe-editor-form"
           disabled={isSaving}
-          className="min-h-12 w-full cursor-pointer rounded-xl px-4 py-3 font-semibold transition-all hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0 active:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2"
+          className="vibe-save-action min-h-12 w-full cursor-pointer rounded-xl px-4 py-3 font-semibold transition-all hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0 active:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2"
           style={{
             backgroundColor: colors.primary,
             color: colors.primaryForeground,
